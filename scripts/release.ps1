@@ -37,7 +37,10 @@ $manifest = [ordered]@{
     }
   }
 }
-$manifest | ConvertTo-Json -Depth 5 | Out-File "latest.json" -Encoding utf8
+# WriteAllText with BOM-less UTF8: Out-File -Encoding utf8 adds a BOM in PS 5.1,
+# and a BOM breaks the updater's JSON parsing
+$json = $manifest | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText("$PWD\latest.json", $json, [System.Text.UTF8Encoding]::new($false))
 
 git add latest.json
 git commit -m "release v$version"
