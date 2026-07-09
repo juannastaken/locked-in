@@ -213,6 +213,24 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: 'Habilita o Chat. Crie em console.anthropic.com → API Keys. Fica só no seu banco local.',
     en: 'Enables Chat. Create at console.anthropic.com → API Keys. Stays in your local db only.',
   },
+  'set.refboard': { pt: 'Ref Board', en: 'Ref Board' },
+  'set.refboard.enable': { pt: 'Ativar', en: 'Enable' },
+  'set.refboard.hint': {
+    pt: 'janela livre de referências estilo PureRef — arrasta imagens do PC pra dentro',
+    en: 'PureRef-style free reference window — drag images from your PC into it',
+  },
+  'ref.title': { pt: 'refs', en: 'refs' },
+  'ref.empty': {
+    pt: 'arrasta imagens do teu PC pra cá',
+    en: 'drag images from your PC in here',
+  },
+  'ref.drop': { pt: 'solta aqui', en: 'drop it here' },
+  'ref.pin': { pt: 'sempre no topo', en: 'always on top' },
+  'ref.close': { pt: 'fechar (religa nos Ajustes)', en: 'close (re-enable in Settings)' },
+  'ref.front': { pt: 'frente', en: 'front' },
+  'ref.back': { pt: 'trás', en: 'back' },
+  'ref.delete': { pt: 'excluir', en: 'delete' },
+
   'set.overlay': { pt: 'Overlay flutuante', en: 'Floating overlay' },
   'set.overlay.enable': { pt: 'Ativar', en: 'Enable' },
   'set.overlay.enable.hint': {

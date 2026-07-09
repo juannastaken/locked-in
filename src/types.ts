@@ -80,6 +80,20 @@ export interface Settings {
   nudge_enabled: boolean;
   nudge_threshold_min: number;
   nudge_apps: string;
+  refboard_enabled: boolean;
+}
+
+/** One image pinned on the PureRef-style reference board. */
+export interface RefImage {
+  id: number;
+  /** absolute path of the copied file inside the app's refboard folder */
+  file: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
+  created_at: string;
 }
 
 export interface ChatConversation {

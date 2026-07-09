@@ -225,6 +225,15 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
           </div>
         </Section>
 
+        <Section title={t('set.refboard')}>
+          <Field label={t('set.refboard.enable')} hint={t('set.refboard.hint')}>
+            <Toggle
+              checked={settings.refboard_enabled}
+              onChange={(v) => update('refboard_enabled', v)}
+            />
+          </Field>
+        </Section>
+
         <Section title={t('set.overlay')}>
           <Field label={t('set.overlay.enable')} hint={t('set.overlay.enable.hint')}>
             <Toggle

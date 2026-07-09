@@ -6,7 +6,8 @@
     "main",
     "overlay",
     "blocker",
-    "popup"
+    "popup",
+    "refboard"
   ],
   "permissions": [
     "core:default",
@@ -19,6 +20,8 @@
     "core:window:allow-outer-position",
     "core:window:allow-scale-factor",
     "core:window:allow-is-visible",
+    "core:window:allow-start-resize-dragging",
+    "core:window:allow-set-always-on-top",
     "sql:default",
     "sql:allow-load",
     "sql:allow-execute",

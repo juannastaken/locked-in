@@ -631,7 +631,59 @@ const SETTINGS_DEFAULTS: Settings = {
   nudge_threshold_min: 5,
   nudge_apps:
     'discord, whatsapp, instagram, twitter, x.com, tiktok, facebook, reddit, youtube shorts, twitch, kick, netflix, telegram, pinterest, 9gag, kwai',
+  refboard_enabled: false,
 };
+
+// ---------- reference board ----------
+
+export async function listRefImages(): Promise<import('../types').RefImage[]> {
+  return run('listRefImages', async () => {
+    const db = await getDb();
+    return db.select<import('../types').RefImage[]>('SELECT * FROM ref_images ORDER BY z ASC');
+  });
+}
+
+export async function addRefImage(
+  file: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  z: number,
+): Promise<number> {
+  return run('addRefImage', async () => {
+    const db = await getDb();
+    const result = await db.execute(
+      'INSERT INTO ref_images (file, x, y, w, h, z, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [file, x, y, w, h, z, nowIso()],
+    );
+    return result.lastInsertId as number;
+  });
+}
+
+export async function updateRefImage(
+  id: number,
+  patch: Partial<Pick<import('../types').RefImage, 'x' | 'y' | 'w' | 'h' | 'z'>>,
+): Promise<void> {
+  return run('updateRefImage', async () => {
+    const db = await getDb();
+    const fields = Object.keys(patch) as ('x' | 'y' | 'w' | 'h' | 'z')[];
+    if (fields.length === 0) return;
+    const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ');
+    const values = fields.map((f) => patch[f]);
+    await db.execute(`UPDATE ref_images SET ${setClause} WHERE id = $${fields.length + 1}`, [
+      ...values,
+      id,
+    ]);
+  });
+}
+
+export async function deleteRefImage(id: number): Promise<void> {
+  return run('deleteRefImage', async () => {
+    const db = await getDb();
+    await db.execute('DELETE FROM ref_images WHERE id = $1', [id]);
+  });
+}
 
 // ---------- anti-instagram ----------
 

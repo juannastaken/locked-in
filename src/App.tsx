@@ -279,6 +279,27 @@ function AppShell() {
       .catch(() => {});
   }, [settingsHook.settings?.overlay_enabled]);
 
+  // show/hide the reference board per setting; its ✕ flips the setting off
+  useEffect(() => {
+    const enabled = settingsHook.settings?.refboard_enabled;
+    if (enabled === undefined) return;
+    WebviewWindow.getByLabel('refboard')
+      .then((w) => (enabled ? w?.show() : w?.hide()))
+      .catch(() => {});
+  }, [settingsHook.settings?.refboard_enabled]);
+
+  const settingsUpdateRef = useRef(settingsHook.update);
+  settingsUpdateRef.current = settingsHook.update;
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen('refboard:closed', () => {
+      settingsUpdateRef.current('refboard_enabled', false);
+    }).then((u) => {
+      unlisten = u;
+    });
+    return () => unlisten?.();
+  }, []);
+
   // anti-burnout: gentle stop signal once per day
   const burnoutNotifiedDay = useRef<string | null>(null);
   useEffect(() => {

@@ -748,7 +748,65 @@ fn migrations() -> Vec<Migration> {
       sql: include_str!("../migrations/010_v5.sql"),
       kind: MigrationKind::Up,
     },
+    Migration {
+      version: 11,
+      description: "refboard",
+      sql: include_str!("../migrations/011_refboard.sql"),
+      kind: MigrationKind::Up,
+    },
   ]
+}
+
+// ---------- reference board (PureRef-style) ----------
+
+fn ref_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+  let dir = app
+    .path()
+    .app_config_dir()
+    .map_err(|e| e.to_string())?
+    .join("refboard");
+  std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+  Ok(dir)
+}
+
+/// Copies a dropped image into the app's refboard folder; returns the stored path.
+#[tauri::command]
+fn import_ref_image(app: tauri::AppHandle, src: String) -> Result<String, String> {
+  let source = std::path::PathBuf::from(&src);
+  let ext = source
+    .extension()
+    .and_then(|e| e.to_str())
+    .unwrap_or("")
+    .to_lowercase();
+  const OK: [&str; 7] = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"];
+  if !OK.contains(&ext.as_str()) {
+    return Err(format!("unsupported image type: {ext}"));
+  }
+  let dir = ref_dir(&app)?;
+  let name = format!(
+    "{}-{}.{}",
+    chrono::Local::now().format("%Y%m%d%H%M%S"),
+    std::time::SystemTime::now()
+      .duration_since(std::time::UNIX_EPOCH)
+      .map(|d| d.subsec_nanos())
+      .unwrap_or(0),
+    ext
+  );
+  let target = dir.join(&name);
+  std::fs::copy(&source, &target).map_err(|e| e.to_string())?;
+  Ok(target.display().to_string())
+}
+
+/// Deletes a stored refboard image file (only inside the refboard folder).
+#[tauri::command]
+fn delete_ref_image(app: tauri::AppHandle, path: String) -> Result<(), String> {
+  let dir = ref_dir(&app)?;
+  let target = std::path::PathBuf::from(&path);
+  if !target.starts_with(&dir) {
+    return Err("path outside refboard folder".into());
+  }
+  std::fs::remove_file(&target).map_err(|e| e.to_string())?;
+  Ok(())
 }
 
 #[tauri::command]
@@ -902,7 +960,9 @@ pub fn run() {
       test_checkin,
       test_nudge,
       show_notice,
-      show_update_popup
+      show_update_popup,
+      import_ref_image,
+      delete_ref_image
     ])
     .setup(|app| {
       // anti-instagram: restore today's usage, then start the native watcher

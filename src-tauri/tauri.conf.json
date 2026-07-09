@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Locked In",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "identifier": "dev.lockedin.app",
   "build": {
     "frontendDist": "../dist",
@@ -60,10 +60,30 @@
         "focus": false,
         "visible": false,
         "backgroundThrottling": "disabled"
+      },
+      {
+        "label": "refboard",
+        "title": "Locked In Refs",
+        "width": 560,
+        "height": 420,
+        "minWidth": 280,
+        "minHeight": 220,
+        "resizable": true,
+        "decorations": false,
+        "transparent": false,
+        "shadow": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": true,
+        "visible": false,
+        "backgroundThrottling": "disabled"
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPCONFIG/refboard/*"]
+      }
     }
   },
   "plugins": {

@@ -6,6 +6,7 @@ import App from './App.tsx'
 import { Blocker } from './components/Blocker.tsx'
 import { Overlay } from './components/Overlay.tsx'
 import { Popup } from './components/Popup.tsx'
+import { Refboard } from './components/Refboard.tsx'
 
 const label = getCurrentWebviewWindow().label
 
@@ -17,6 +18,8 @@ createRoot(document.getElementById('root')!).render(
       <Blocker />
     ) : label === 'popup' ? (
       <Popup />
+    ) : label === 'refboard' ? (
+      <Refboard />
     ) : (
       <App />
     )}
