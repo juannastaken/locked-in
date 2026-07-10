@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 
-export type MascotMood = 'sleep' | 'relax' | 'happy' | 'think' | 'focus' | 'sad' | 'hyped';
+export type MascotMood =
+  | 'sleep'
+  | 'relax'
+  | 'happy'
+  | 'think'
+  | 'focus'
+  | 'sad'
+  | 'hyped'
+  | 'angry';
 
 /**
  * 14x12 chunky pixel creature with legs. '.' empty, 'B' body (accent), 'D' dark features.
@@ -87,6 +95,17 @@ const FACE_HYPED_A: Face = {
   r7: CHIN,
 };
 const FACE_HYPED_B: Face = { ...FACE_HYPED_A, r6: MOUTH_GRIN };
+// angry: inner brow tips slanting down + clenched frown
+const BROWS_IN = '.BBBDBBBBDBBB.';
+const BROWS_OUT = '.BBDBBBBBBDBB.';
+const FACE_ANGRY_A: Face = {
+  r3: BROWS_IN,
+  r4: EYES_UP_A,
+  r5: EYES_UP_A,
+  r6: MOUTH_NONE,
+  r7: CHIN_FROWN,
+};
+const FACE_ANGRY_B: Face = { ...FACE_ANGRY_A, r3: BROWS_OUT };
 
 const MOOD_FACES: Record<MascotMood, [Face, Face]> = {
   sleep: [FACE_SLEEP, FACE_SLEEP],
@@ -96,6 +115,7 @@ const MOOD_FACES: Record<MascotMood, [Face, Face]> = {
   focus: [FACE_OPEN, FACE_OPEN],
   sad: [FACE_SAD, FACE_SAD_BLINK],
   hyped: [FACE_HYPED_A, FACE_HYPED_B],
+  angry: [FACE_ANGRY_A, FACE_ANGRY_B],
 };
 
 const FACE_MS: Record<MascotMood, number> = {
@@ -106,6 +126,7 @@ const FACE_MS: Record<MascotMood, number> = {
   focus: 4000,
   sad: 2200,
   hyped: 600,
+  angry: 450,
 };
 
 function buildMap(face: Face, feet: string): string[] {
@@ -170,11 +191,13 @@ export function Mascot({ mood, size = 64, className = '', effects = true, walk =
   const motion =
     mood === 'happy' || mood === 'hyped'
       ? 'animate-mascot-bounce'
-      : mood === 'sleep'
-        ? 'animate-mascot-breathe'
-        : walk
-          ? ''
-          : 'animate-mascot-bob';
+      : mood === 'angry'
+        ? 'animate-mascot-rage'
+        : mood === 'sleep'
+          ? 'animate-mascot-breathe'
+          : walk
+            ? ''
+            : 'animate-mascot-bob';
 
   const inner = (
     <div
@@ -199,6 +222,14 @@ export function Mascot({ mood, size = 64, className = '', effects = true, walk =
             style={{ animationDelay: '0.6s' }}
           />
         </div>
+      )}
+      {effects && mood === 'angry' && (
+        <span
+          className="animate-pulse-dot absolute -top-1.5 -right-1 font-mono text-[11px] font-bold leading-none text-danger"
+          aria-hidden
+        >
+          ✕
+        </span>
       )}
       {effects && mood === 'hyped' && (
         <>

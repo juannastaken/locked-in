@@ -123,6 +123,16 @@
       transform: translateY(20px) scale(0.95);
     }
   }
+  --animate-mascot-rage: mascot-rage 0.35s steps(2, end) infinite;
+  @keyframes mascot-rage {
+    0%,
+    100% {
+      transform: translateX(-1.5px);
+    }
+    50% {
+      transform: translateX(1.5px);
+    }
+  }
   --animate-mascot-sparkle: mascot-sparkle 1.4s ease-in-out infinite;
   @keyframes mascot-sparkle {
     0%,

@@ -220,6 +220,9 @@ export function Popup() {
     const en = payload.lang === 'en';
     const txt = en ? q.en : q.pt;
     const author = en ? (q.authorEn ?? q.author) : q.author;
+    // aggressive quotes get an angry mascot and a red bubble
+    const angry = q.mood === 'angry';
+    const edge = angry ? 'var(--color-danger)' : 'var(--color-accent)';
     return (
       <div className="flex h-screen w-screen items-end justify-end p-2">
         <button
@@ -230,13 +233,21 @@ export function Popup() {
           }`}
         >
           <div className="flex items-end gap-0">
-            <div className="pixel-bubble animate-bubble-pop min-w-0 flex-1">
+            <div
+              className="pixel-bubble animate-bubble-pop min-w-0 flex-1"
+              style={{ borderColor: edge }}
+            >
               <p className="text-[14px] font-medium leading-snug text-text">“{txt}”</p>
-              <p className="mt-1.5 text-right font-mono text-[11px] text-accent">— {author}</p>
+              <p
+                className="mt-1.5 text-right font-mono text-[11px]"
+                style={{ color: edge }}
+              >
+                — {author}
+              </p>
             </div>
-            <div className="pixel-bubble-tail" />
+            <div className="pixel-bubble-tail" style={{ borderLeftColor: edge }} />
             <div className="shrink-0 pb-1">
-              <Mascot mood="happy" size={62} />
+              <Mascot mood={q.mood} size={62} />
             </div>
           </div>
         </button>
