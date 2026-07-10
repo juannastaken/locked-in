@@ -94,6 +94,41 @@ export function Refboard() {
     return () => unlisten?.();
   }, []);
 
+  // Ctrl+V: paste an image straight from the clipboard (dev = screenshots)
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (!item.type.startsWith('image/')) continue;
+        const blob = item.getAsFile();
+        if (!blob) continue;
+        e.preventDefault();
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const b64 = String(reader.result).split(',')[1];
+            const ext = item.type.includes('jpeg') ? 'jpg' : 'png';
+            const stored = await invoke<string>('import_ref_image_b64', { data: b64, ext });
+            const { w, h } = await measure(stored);
+            const current = imagesRef.current;
+            const z = current.reduce((m, i) => Math.max(m, i.z), 0) + 1;
+            const x = 40 + (current.length % 6) * 24;
+            const y = 60 + (current.length % 6) * 24;
+            const id = await db.addRefImage(stored, x, y, w, h, z);
+            setImages((prev) => [...prev, { id, file: stored, x, y, w, h, z, created_at: '' }]);
+          } catch {
+            // clipboard content not importable — ignore
+          }
+        };
+        reader.readAsDataURL(blob);
+        break;
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
+
   function measure(path: string): Promise<{ w: number; h: number }> {
     return new Promise((resolve) => {
       const img = new Image();

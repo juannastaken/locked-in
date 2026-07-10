@@ -345,10 +345,11 @@ fn popup_watcher(handle: tauri::AppHandle) {
       continue;
     }
 
-    // ---- anti-procrastination nudge + auto-track ----
+    // ---- anti-procrastination nudge (own windows never count either way) ----
     let title = fg_title().unwrap_or_default().to_lowercase();
-    if !title.contains("locked in") {
-      let exe = fg_exe().unwrap_or_default().to_lowercase();
+    let exe = fg_exe().unwrap_or_default().to_lowercase();
+    let own_window = title.contains("locked in");
+    if !own_window {
       match match_distraction(&title, &exe, &cfg.nudge_apps) {
         Some(label) => {
           st.acc_sec += delta;
@@ -362,44 +363,49 @@ fn popup_watcher(handle: tauri::AppHandle) {
           }
         }
       }
+    }
 
-      // auto-track: whitelisted work app in focus → auto-start a session;
-      // leaving every work app 10s+ / coming back emit pause/resume edges
-      // (the frontend decides — it knows the session origin and pause kind)
-      match match_distraction(&title, &exe, &cfg.autotrack_apps) {
-        Some(work_label) => {
-          st.work_acc_sec += delta;
-          st.work_away_sec = 0;
-          st.away_fired = false;
-          if cfg.autotrack_enabled && !st.back_fired && st.work_acc_sec >= 3 {
-            st.back_fired = true;
-            let _ = handle.emit_to("main", "autotrack:back", serde_json::json!({}));
-          }
-          if cfg.autotrack_enabled
-            && !cfg.session_active
-            && !cfg.suspended
-            && !st.work_fired
-            && st.work_acc_sec >= 9
-          {
-            st.work_fired = true;
-            let _ = handle.emit_to(
-              "main",
-              "autotrack:start",
-              serde_json::json!({ "app": work_label }),
-            );
-          }
+    // ---- auto-track: whitelisted work app in focus → auto-start a session;
+    // leaving every work app 10s+ / coming back emit pause/resume edges.
+    // Being on Locked In itself counts as AWAY from work (unlike the nudge).
+    let on_work = if own_window {
+      None
+    } else {
+      match_distraction(&title, &exe, &cfg.autotrack_apps)
+    };
+    match on_work {
+      Some(work_label) => {
+        st.work_acc_sec += delta;
+        st.work_away_sec = 0;
+        st.away_fired = false;
+        if cfg.autotrack_enabled && !st.back_fired && st.work_acc_sec >= 3 {
+          st.back_fired = true;
+          let _ = handle.emit_to("main", "autotrack:back", serde_json::json!({}));
         }
-        None => {
-          st.work_away_sec += delta;
-          if cfg.autotrack_enabled && !st.away_fired && st.work_away_sec >= 10 {
-            st.away_fired = true;
-            st.back_fired = false;
-            let _ = handle.emit_to("main", "autotrack:away", serde_json::json!({}));
-          }
-          if st.work_away_sec >= 60 {
-            st.work_acc_sec = 0;
-            st.work_fired = false;
-          }
+        if cfg.autotrack_enabled
+          && !cfg.session_active
+          && !cfg.suspended
+          && !st.work_fired
+          && st.work_acc_sec >= 9
+        {
+          st.work_fired = true;
+          let _ = handle.emit_to(
+            "main",
+            "autotrack:start",
+            serde_json::json!({ "app": work_label }),
+          );
+        }
+      }
+      None => {
+        st.work_away_sec += delta;
+        if cfg.autotrack_enabled && !st.away_fired && st.work_away_sec >= 10 {
+          st.away_fired = true;
+          st.back_fired = false;
+          let _ = handle.emit_to("main", "autotrack:away", serde_json::json!({}));
+        }
+        if st.work_away_sec >= 60 {
+          st.work_acc_sec = 0;
+          st.work_fired = false;
         }
       }
     }
@@ -849,6 +855,33 @@ fn import_ref_image(app: tauri::AppHandle, src: String) -> Result<String, String
   Ok(target.display().to_string())
 }
 
+/// Saves a pasted (clipboard) image into the refboard folder; returns the path.
+#[tauri::command]
+fn import_ref_image_b64(app: tauri::AppHandle, data: String, ext: String) -> Result<String, String> {
+  use base64::Engine;
+  let ext = ext.to_lowercase();
+  const OK: [&str; 4] = ["png", "jpg", "jpeg", "webp"];
+  if !OK.contains(&ext.as_str()) {
+    return Err(format!("unsupported image type: {ext}"));
+  }
+  let bytes = base64::engine::general_purpose::STANDARD
+    .decode(data)
+    .map_err(|e| e.to_string())?;
+  let dir = ref_dir(&app)?;
+  let name = format!(
+    "{}-{}.{}",
+    chrono::Local::now().format("%Y%m%d%H%M%S"),
+    std::time::SystemTime::now()
+      .duration_since(std::time::UNIX_EPOCH)
+      .map(|d| d.subsec_nanos())
+      .unwrap_or(0),
+    ext
+  );
+  let target = dir.join(&name);
+  std::fs::write(&target, bytes).map_err(|e| e.to_string())?;
+  Ok(target.display().to_string())
+}
+
 /// Deletes a stored refboard image file (only inside the refboard folder).
 #[tauri::command]
 fn delete_ref_image(app: tauri::AppHandle, path: String) -> Result<(), String> {
@@ -1071,6 +1104,7 @@ pub fn run() {
       show_notice,
       show_update_popup,
       import_ref_image,
+      import_ref_image_b64,
       delete_ref_image
     ])
     .setup(|app| {

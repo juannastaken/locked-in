@@ -414,6 +414,24 @@ const dict: Record<string, { pt: string; en: string }> = {
   'week.apps': { pt: 'Onde a semana foi', en: 'Where the week went' },
   'week.dayavgtitle': { pt: 'sua média de {0}: {1}', en: 'your {0} average: {1}' },
 
+  // week share card
+  'card.btn': { pt: '📤 cartão', en: '📤 card' },
+  'card.btn.hint': {
+    pt: 'gera uma imagem da semana pra compartilhar',
+    en: 'renders a shareable image of the week',
+  },
+  'card.subtitle': { pt: 'focadas essa semana', en: 'focused this week' },
+  'card.vsavg': { pt: 'vs sua média', en: 'vs your average' },
+  'card.bestday': { pt: 'melhor dia', en: 'best day' },
+  'card.blocks': { pt: 'blocos', en: 'blocks' },
+  'card.focus': { pt: 'foco médio', en: 'avg focus' },
+  'card.streak': { pt: 'streak de meta', en: 'goal streak' },
+  'card.done.copied': {
+    pt: 'cartão copiado (Ctrl+V no Discord) e salvo em Downloads 📤',
+    en: 'card copied (Ctrl+V it into Discord) and saved to Downloads 📤',
+  },
+  'card.done': { pt: 'cartão salvo em Downloads 📤', en: 'card saved to Downloads 📤' },
+
   // log / history
   'log.today': { pt: 'Hoje', en: 'Today' },
   'log.yesterday': { pt: 'Ontem', en: 'Yesterday' },

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useToast } from '../hooks/useToast';
 import { parseAppUsage } from '../lib/apps';
 import * as db from '../lib/db';
 import { dateLocale, t, weekdayShort } from '../lib/i18n';
+import { generateWeekCard } from '../lib/sharecard';
 import { dateKey, formatDurationShort, localDayKey, todayKey } from '../lib/time';
 import type { Break, Session } from '../types';
 import { weekStartOf } from './Habits';
@@ -22,7 +24,9 @@ function addDays(key: string, n: number): string {
 }
 
 export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
+  const { pushToast } = useToast();
   const [weekOffset, setWeekOffset] = useState(0);
+  const [sharing, setSharing] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [breaks, setBreaks] = useState<Break[]>([]);
   const [historyTotals, setHistoryTotals] = useState<Map<string, number>>(new Map());
@@ -147,6 +151,66 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
   const axisMarks: number[] = [];
   for (let h = windowStartHour; h <= 24; h += 3) axisMarks.push(h);
 
+  // goal streak (same rule as Stats): consecutive days hitting the goal,
+  // today only counts if already hit — capped by the 70d history window
+  function goalStreak(): number {
+    let streak = 0;
+    for (let i = 0; i < 70; i++) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      const sec = historyTotals.get(localDayKey(d)) ?? 0;
+      if (i === 0 && sec < goalSec) continue;
+      if (sec >= goalSec) streak++;
+      else break;
+    }
+    return streak;
+  }
+
+  async function shareCard() {
+    setSharing(true);
+    try {
+      const settings = await db.getAllSettings();
+      const blob = await generateWeekCard({
+        weekLabel,
+        totalSec: weekTotal,
+        days: weekDays.map((day, i) => ({
+          label: WEEKDAY_NAMES[i],
+          sec: daySec(day),
+          isToday: day === today,
+        })),
+        bestDayLabel: bestDayKey ? WEEKDAY_NAMES[weekDays.indexOf(bestDayKey)] : null,
+        bestDaySec,
+        blocks: sessions.length,
+        avgRating: weekAvgRating,
+        goalStreakDays: goalStreak(),
+        vsAvgPct: weekOffset === 0 ? vsAvgPct : null,
+        goalHitDays: daysGoalMet,
+        userName: settings.user_name?.trim() ?? '',
+      });
+
+      // clipboard first (instant Discord paste), download as the keeper
+      let copied = false;
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        copied = true;
+      } catch {
+        // clipboard image unsupported — the download still happens
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `locked-in-week-${weekStart}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      pushToast(copied ? t('card.done.copied') : t('card.done'), 'info');
+    } catch (err) {
+      onError(String(err));
+    } finally {
+      setSharing(false);
+    }
+  }
+
   const WEEKDAY_NAMES = weekdayShort();
   const weekLabel =
     weekOffset === 0
@@ -176,6 +240,15 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
               ›
             </button>
             <h1 className="ml-2 text-lg font-semibold tracking-tight text-text">{weekLabel}</h1>
+            <button
+              type="button"
+              onClick={shareCard}
+              disabled={sharing || weekTotal === 0}
+              title={t('card.btn.hint')}
+              className="ml-1 rounded-full border border-border px-3 py-1 text-xs text-text-dim hover:border-accent/50 hover:bg-accent-dim hover:text-accent disabled:opacity-30"
+            >
+              {sharing ? '…' : t('card.btn')}
+            </button>
           </div>
           <div className="text-right">
             <div className="font-mono text-2xl font-medium tabular-nums text-accent">
