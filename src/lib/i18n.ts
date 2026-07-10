@@ -216,8 +216,8 @@ const dict: Record<string, { pt: string; en: string }> = {
   'set.autotrack': { pt: 'Auto-track', en: 'Auto-track' },
   'set.autotrack.enable': { pt: 'Ativar', en: 'Enable' },
   'set.autotrack.enable.hint': {
-    pt: 'abriu um app da lista → a sessão começa sozinha com o nome dele; só para quando você pausar/parar',
-    en: 'open a listed app → the session starts itself with its name; only stops when you pause/stop',
+    pt: 'abriu um app da lista → sessão começa sozinha; saiu deles por 10s+ → pausa sozinha; voltou → continua',
+    en: 'open a listed app → session starts itself; away from them 10s+ → auto-pauses; back → resumes',
   },
   'set.autotrack.overlay': { pt: 'Mostrar overlay ao iniciar', en: 'Show overlay on start' },
   'set.autotrack.overlay.hint': {

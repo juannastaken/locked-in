@@ -311,12 +311,15 @@ function AppShell() {
   }, []);
 
   // auto-track: a whitelisted work app gained focus → the session starts itself;
-  // it only ends when the user pauses/stops (closing the app doesn't stop it)
+  // leaving every work app 10s+ pauses it, coming back resumes it. A manual
+  // pause is sacred: it never auto-resumes. Only auto-started sessions auto-pause.
   const settingsRef = useRef(settingsHook.settings);
   settingsRef.current = settingsHook.settings;
   const autoShownOverlayRef = useRef(false);
+  const autoSessionRef = useRef(false);
+  const autoPausedRef = useRef(false);
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    const unlisteners: (() => void)[] = [];
     listen<{ app: string }>('autotrack:start', (e) => {
       if (focusRef.current.phase !== 'idle') return;
       const pretty = e.payload.app
@@ -324,6 +327,8 @@ function AppShell() {
         .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
         .join(' ');
       focusRef.current.startSession(pretty, null);
+      autoSessionRef.current = true;
+      autoPausedRef.current = false;
       const s = settingsRef.current;
       if (s?.autotrack_show_overlay) {
         autoShownOverlayRef.current = !s.overlay_enabled;
@@ -332,11 +337,32 @@ function AppShell() {
           .catch(() => {});
         emit('overlay:autoshow').catch(() => {});
       }
-    }).then((u) => {
-      unlisten = u;
-    });
-    return () => unlisten?.();
+    }).then((u) => unlisteners.push(u));
+
+    listen('autotrack:away', () => {
+      if (!autoSessionRef.current) return;
+      if (focusRef.current.phase !== 'focusing') return;
+      autoPausedRef.current = true;
+      focusRef.current.pauseSession();
+    }).then((u) => unlisteners.push(u));
+
+    listen('autotrack:back', () => {
+      if (!autoPausedRef.current) return;
+      if (focusRef.current.phase !== 'paused') return;
+      autoPausedRef.current = false;
+      focusRef.current.resumeSession();
+    }).then((u) => unlisteners.push(u));
+
+    return () => unlisteners.forEach((u) => u());
   }, []);
+
+  // session gone → the auto flags reset
+  useEffect(() => {
+    if (focus.phase === 'idle') {
+      autoSessionRef.current = false;
+      autoPausedRef.current = false;
+    }
+  }, [focus.phase]);
 
   // an auto-shown overlay hides again once the session is over (when the
   // overlay isn't normally enabled)

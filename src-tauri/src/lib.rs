@@ -189,6 +189,9 @@ struct WatcherState {
   /// edge trigger — set once "entered work app" fires; clears only after 60s
   /// away, so stopping a session while inside the app never restarts it
   work_fired: bool,
+  /// edge triggers for auto-pause (left work apps 10s+) / auto-resume (back)
+  away_fired: bool,
+  back_fired: bool,
 }
 
 fn fmt_min(total_min: i64) -> String {
@@ -360,11 +363,18 @@ fn popup_watcher(handle: tauri::AppHandle) {
         }
       }
 
-      // auto-track: whitelisted work app in focus → auto-start a session
+      // auto-track: whitelisted work app in focus → auto-start a session;
+      // leaving every work app 10s+ / coming back emit pause/resume edges
+      // (the frontend decides — it knows the session origin and pause kind)
       match match_distraction(&title, &exe, &cfg.autotrack_apps) {
         Some(work_label) => {
           st.work_acc_sec += delta;
           st.work_away_sec = 0;
+          st.away_fired = false;
+          if cfg.autotrack_enabled && !st.back_fired && st.work_acc_sec >= 3 {
+            st.back_fired = true;
+            let _ = handle.emit_to("main", "autotrack:back", serde_json::json!({}));
+          }
           if cfg.autotrack_enabled
             && !cfg.session_active
             && !cfg.suspended
@@ -381,6 +391,11 @@ fn popup_watcher(handle: tauri::AppHandle) {
         }
         None => {
           st.work_away_sec += delta;
+          if cfg.autotrack_enabled && !st.away_fired && st.work_away_sec >= 10 {
+            st.away_fired = true;
+            st.back_fired = false;
+            let _ = handle.emit_to("main", "autotrack:away", serde_json::json!({}));
+          }
           if st.work_away_sec >= 60 {
             st.work_acc_sec = 0;
             st.work_fired = false;
