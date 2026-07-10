@@ -161,6 +161,9 @@ struct WatcherCfg {
   nudge_enabled: bool,
   nudge_threshold_min: u64,
   nudge_apps: String,
+  /// auto-start a session when a whitelisted work app gains focus
+  autotrack_enabled: bool,
+  autotrack_apps: String,
   session_active: bool,
   /// true while on break or paused — nudges stay quiet
   suspended: bool,
@@ -180,6 +183,12 @@ struct WatcherState {
   away_sec: u64,
   current_app: String,
   nudge_cooldown_until: Option<Instant>,
+  /// auto-track: seconds focused on a work app / away from all of them
+  work_acc_sec: u64,
+  work_away_sec: u64,
+  /// edge trigger — set once "entered work app" fires; clears only after 60s
+  /// away, so stopping a session while inside the app never restarts it
+  work_fired: bool,
 }
 
 fn fmt_min(total_min: i64) -> String {
@@ -333,7 +342,7 @@ fn popup_watcher(handle: tauri::AppHandle) {
       continue;
     }
 
-    // ---- anti-procrastination nudge ----
+    // ---- anti-procrastination nudge + auto-track ----
     let title = fg_title().unwrap_or_default().to_lowercase();
     if !title.contains("locked in") {
       let exe = fg_exe().unwrap_or_default().to_lowercase();
@@ -347,6 +356,34 @@ fn popup_watcher(handle: tauri::AppHandle) {
           st.away_sec += delta;
           if st.away_sec >= NUDGE_AWAY_RESET_SECS {
             st.acc_sec = 0;
+          }
+        }
+      }
+
+      // auto-track: whitelisted work app in focus → auto-start a session
+      match match_distraction(&title, &exe, &cfg.autotrack_apps) {
+        Some(work_label) => {
+          st.work_acc_sec += delta;
+          st.work_away_sec = 0;
+          if cfg.autotrack_enabled
+            && !cfg.session_active
+            && !cfg.suspended
+            && !st.work_fired
+            && st.work_acc_sec >= 9
+          {
+            st.work_fired = true;
+            let _ = handle.emit_to(
+              "main",
+              "autotrack:start",
+              serde_json::json!({ "app": work_label }),
+            );
+          }
+        }
+        None => {
+          st.work_away_sec += delta;
+          if st.work_away_sec >= 60 {
+            st.work_acc_sec = 0;
+            st.work_fired = false;
           }
         }
       }

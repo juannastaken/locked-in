@@ -225,6 +225,31 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
           </div>
         </Section>
 
+        <Section title={t('set.autotrack')}>
+          <Field label={t('set.autotrack.enable')} hint={t('set.autotrack.enable.hint')}>
+            <Toggle
+              checked={settings.autotrack_enabled}
+              onChange={(v) => update('autotrack_enabled', v)}
+            />
+          </Field>
+          <Field label={t('set.autotrack.overlay')} hint={t('set.autotrack.overlay.hint')}>
+            <Toggle
+              checked={settings.autotrack_show_overlay}
+              onChange={(v) => update('autotrack_show_overlay', v)}
+            />
+          </Field>
+          <div className="px-4 py-3.5">
+            <div className="text-sm text-text">{t('set.autotrack.apps')}</div>
+            <div className="mt-0.5 text-xs text-text-faint">{t('set.autotrack.apps.hint')}</div>
+            <textarea
+              value={settings.autotrack_apps}
+              onChange={(e) => update('autotrack_apps', e.target.value)}
+              spellCheck={false}
+              className="mt-2.5 h-16 w-full resize-none rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs leading-relaxed text-text transition-colors placeholder:text-text-faint focus:border-accent"
+            />
+          </div>
+        </Section>
+
         <Section title={t('set.refboard')}>
           <Field label={t('set.refboard.enable')} hint={t('set.refboard.hint')}>
             <Toggle

@@ -154,6 +154,8 @@ function AppShell() {
       nudge_enabled: s.nudge_enabled,
       nudge_threshold_min: s.nudge_threshold_min,
       nudge_apps: s.nudge_apps,
+      autotrack_enabled: s.autotrack_enabled,
+      autotrack_apps: s.autotrack_apps,
       session_active: focus.phase === 'focusing',
       suspended: focus.phase === 'paused' || focus.phase === 'break',
       lang: s.language === 'en' ? 'en' : 'pt',
@@ -299,6 +301,45 @@ function AppShell() {
     });
     return () => unlisten?.();
   }, []);
+
+  // auto-track: a whitelisted work app gained focus → the session starts itself;
+  // it only ends when the user pauses/stops (closing the app doesn't stop it)
+  const settingsRef = useRef(settingsHook.settings);
+  settingsRef.current = settingsHook.settings;
+  const autoShownOverlayRef = useRef(false);
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<{ app: string }>('autotrack:start', (e) => {
+      if (focusRef.current.phase !== 'idle') return;
+      const pretty = e.payload.app
+        .split(' ')
+        .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+        .join(' ');
+      focusRef.current.startSession(pretty, null);
+      const s = settingsRef.current;
+      if (s?.autotrack_show_overlay) {
+        autoShownOverlayRef.current = !s.overlay_enabled;
+        WebviewWindow.getByLabel('overlay')
+          .then((w) => w?.show())
+          .catch(() => {});
+        emit('overlay:autoshow').catch(() => {});
+      }
+    }).then((u) => {
+      unlisten = u;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  // an auto-shown overlay hides again once the session is over (when the
+  // overlay isn't normally enabled)
+  useEffect(() => {
+    if (focus.phase !== 'idle' || !autoShownOverlayRef.current) return;
+    autoShownOverlayRef.current = false;
+    if (settingsHook.settings?.overlay_enabled) return;
+    WebviewWindow.getByLabel('overlay')
+      .then((w) => w?.hide())
+      .catch(() => {});
+  }, [focus.phase, settingsHook.settings?.overlay_enabled]);
 
   // anti-burnout: gentle stop signal once per day
   const burnoutNotifiedDay = useRef<string | null>(null);

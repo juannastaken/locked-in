@@ -81,6 +81,9 @@ export interface Settings {
   nudge_threshold_min: number;
   nudge_apps: string;
   refboard_enabled: boolean;
+  autotrack_enabled: boolean;
+  autotrack_apps: string;
+  autotrack_show_overlay: boolean;
 }
 
 /** One image pinned on the PureRef-style reference board. */

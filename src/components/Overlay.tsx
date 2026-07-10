@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { emit, listen } from '@tauri-apps/api/event';
 import { LogicalSize, PhysicalPosition } from '@tauri-apps/api/dpi';
+import { currentMonitor } from '@tauri-apps/api/window';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { setLang, t } from '../lib/i18n';
 import { formatDurationShort, formatHms } from '../lib/time';
@@ -66,6 +67,23 @@ export function Overlay() {
 
     const unlisteners: (() => void)[] = [];
     listen<OverlayState>('overlay:state', (e) => setS(e.payload)).then((u) => unlisteners.push(u));
+    // auto-track opened the overlay: first time ever (never dragged) → top-right corner
+    listen('overlay:autoshow', async () => {
+      if (localStorage.getItem(POS_KEY)) return;
+      try {
+        const mon = await currentMonitor();
+        if (!mon) return;
+        const size = await win.outerSize();
+        await win.setPosition(
+          new PhysicalPosition(
+            mon.position.x + mon.size.width - size.width - 16,
+            mon.position.y + 16,
+          ),
+        );
+      } catch {
+        // monitor info unavailable — keep default position
+      }
+    }).then((u) => unlisteners.push(u));
     win
       .onMoved((pos) => {
         localStorage.setItem(POS_KEY, JSON.stringify({ x: pos.payload.x, y: pos.payload.y }));

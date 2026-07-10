@@ -213,6 +213,22 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: 'Habilita o Chat. Crie em console.anthropic.com → API Keys. Fica só no seu banco local.',
     en: 'Enables Chat. Create at console.anthropic.com → API Keys. Stays in your local db only.',
   },
+  'set.autotrack': { pt: 'Auto-track', en: 'Auto-track' },
+  'set.autotrack.enable': { pt: 'Ativar', en: 'Enable' },
+  'set.autotrack.enable.hint': {
+    pt: 'abriu um app da lista → a sessão começa sozinha com o nome dele; só para quando você pausar/parar',
+    en: 'open a listed app → the session starts itself with its name; only stops when you pause/stop',
+  },
+  'set.autotrack.overlay': { pt: 'Mostrar overlay ao iniciar', en: 'Show overlay on start' },
+  'set.autotrack.overlay.hint': {
+    pt: 'o timer flutuante aparece quando a sessão automática começa (desligado, conta igual)',
+    en: 'the floating timer pops up when the auto session starts (off = still counts)',
+  },
+  'set.autotrack.apps': { pt: 'Apps de trabalho', en: 'Work apps' },
+  'set.autotrack.apps.hint': {
+    pt: 'separa por vírgula — nome do app ou pedaço do título da janela',
+    en: 'comma-separated — app names or window-title fragments',
+  },
   'set.refboard': { pt: 'Ref Board', en: 'Ref Board' },
   'set.refboard.enable': { pt: 'Ativar', en: 'Enable' },
   'set.refboard.hint': {

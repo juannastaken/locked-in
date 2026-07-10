@@ -632,6 +632,9 @@ const SETTINGS_DEFAULTS: Settings = {
   nudge_apps:
     'discord, whatsapp, instagram, twitter, x.com, tiktok, facebook, reddit, youtube shorts, twitch, kick, netflix, telegram, pinterest, 9gag, kwai',
   refboard_enabled: false,
+  autotrack_enabled: false,
+  autotrack_apps: 'roblox studio, visual studio code, blender, photoshop, figma',
+  autotrack_show_overlay: true,
 };
 
 // ---------- reference board ----------
