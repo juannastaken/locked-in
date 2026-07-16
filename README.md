@@ -42,10 +42,11 @@ There's a pixel mascot that gets happier the longer you stay focused. It judges 
 
 ## 🔐 Privacy & security
 
-- **Everything is local.** Your data lives in `%APPDATA%\dev.lockedin.app\locked-in.db`. Not a single byte leaves your machine.
-- **Zero keys in the code.** The AI chat is optional and uses YOUR Anthropic API key, pasted in Settings and stored only in your local database.
-- **Zero telemetry, zero analytics, zero accounts.**
-- The only network requests the app makes on its own are update checks against this repository (and the AI, if you enable it).
+- **Local first.** Your data lives in `%APPDATA%\dev.lockedin.app\locked-in.db`. By default, not a single byte leaves your machine.
+- **Optional cloud account** (opt-in): create an account in Settings to back up your history and restore it on a new PC. Auth and storage run on Supabase with Row Level Security — every row is readable/writable only by its owner, enforced server-side. The key embedded in this repo is Supabase's *anon key*, which is public by design and grants nothing without RLS passing.
+- **Zero secrets in the code.** The AI chat is optional and uses YOUR Anthropic API key, pasted in Settings, stored only in your local database and **never included in cloud backups**.
+- **Zero telemetry, zero analytics.**
+- Network requests the app makes: update checks against this repository, cloud sync (only if you sign in) and the AI (only if you enable it).
 - Updates are signed: the app only installs updates whose signature matches the public key baked into the binary.
 
 ## 📦 Install

@@ -812,6 +812,91 @@ export async function clearHourlyLogs(): Promise<void> {
   });
 }
 
+// ---------- cloud snapshot (full export/import for account sync) ----------
+
+/** Everything that defines the user's history. API key deliberately excluded. */
+export interface Snapshot {
+  v: 1;
+  sessions: Record<string, unknown>[];
+  breaks: Record<string, unknown>[];
+  habits: Record<string, unknown>[];
+  habit_logs: Record<string, unknown>[];
+  hourly_logs: Record<string, unknown>[];
+  milestones: Record<string, unknown>[];
+  chat_conversations: Record<string, unknown>[];
+  settings: Record<string, string>;
+}
+
+const SNAPSHOT_TABLES = [
+  'sessions',
+  'breaks',
+  'habits',
+  'habit_logs',
+  'hourly_logs',
+  'milestones',
+  'chat_conversations',
+] as const;
+
+export async function exportAll(): Promise<Snapshot> {
+  return run('exportAll', async () => {
+    const dbi = await getDb();
+    const out = { v: 1 as const } as Snapshot;
+    for (const table of SNAPSHOT_TABLES) {
+      (out as unknown as Record<string, unknown>)[table] = await dbi.select<
+        Record<string, unknown>[]
+      >(`SELECT * FROM ${table}`);
+    }
+    const settingsRows = await dbi.select<{ key: string; value: string }[]>(
+      'SELECT key, value FROM settings',
+    );
+    out.settings = {};
+    for (const row of settingsRows) {
+      if (row.key === 'anthropic_api_key') continue; // secrets never leave the machine
+      out.settings[row.key] = row.value;
+    }
+    return out;
+  });
+}
+
+/** Wipes local tables and rebuilds them from a snapshot (ids preserved). */
+export async function importAll(snap: Snapshot): Promise<void> {
+  return run('importAll', async () => {
+    const dbi = await getDb();
+    for (const table of SNAPSHOT_TABLES) {
+      await dbi.execute(`DELETE FROM ${table}`);
+      const rows = (snap as unknown as Record<string, Record<string, unknown>[]>)[table] ?? [];
+      for (const row of rows) {
+        const cols = Object.keys(row);
+        if (cols.length === 0) continue;
+        const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
+        await dbi.execute(
+          `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders})`,
+          cols.map((c) => row[c]),
+        );
+      }
+    }
+    for (const [key, value] of Object.entries(snap.settings ?? {})) {
+      if (key === 'anthropic_api_key') continue;
+      await dbi.execute(
+        `INSERT INTO settings (key, value) VALUES ($1, $2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [key, value],
+      );
+    }
+  });
+}
+
+/** Quick signal for "does this install have anything worth keeping?" */
+export async function localDataCount(): Promise<number> {
+  return run('localDataCount', async () => {
+    const dbi = await getDb();
+    const rows = await dbi.select<{ c: number }[]>(
+      `SELECT (SELECT COUNT(*) FROM sessions) + (SELECT COUNT(*) FROM hourly_logs) + (SELECT COUNT(*) FROM habits) as c`,
+    );
+    return rows[0]?.c ?? 0;
+  });
+}
+
 // ---------- stats ----------
 
 export async function getDailyTotals(

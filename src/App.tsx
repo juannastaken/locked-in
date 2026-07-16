@@ -428,6 +428,30 @@ function AppShell() {
     };
   }, [settingsHook.settings]);
 
+  // cloud auto-sync: after every saved session (debounced) + every 15min,
+  // silently — errors here never bother the user, manual sync reports them
+  useEffect(() => {
+    let timer: number | null = null;
+    const push = () => {
+      import('./lib/cloud').then((cloud) => {
+        cloud.currentUser().then((u) => {
+          if (!u) return;
+          cloud.uploadSnapshot().then((err) => {
+            if (!err) localStorage.setItem('cloud-last-sync', new Date().toISOString());
+          });
+        });
+      });
+    };
+    if (refreshKey > 0) {
+      timer = window.setTimeout(push, 20_000);
+    }
+    const iv = window.setInterval(push, 15 * 60_000);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      window.clearInterval(iv);
+    };
+  }, [refreshKey]);
+
   // milestones: check after each saved session
   useEffect(() => {
     if (refreshKey === 0) return;

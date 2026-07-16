@@ -128,6 +128,47 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: 'too many questions too fast, breathe and retry',
   },
 
+  // cloud account
+  'acc.section': { pt: 'Conta', en: 'Account' },
+  'acc.title': { pt: 'Sincronize seu progresso na nuvem', en: 'Sync your progress to the cloud' },
+  'acc.hint': {
+    pt: 'crie uma conta grátis: seu histórico fica salvo e volta sozinho se você formatar/trocar de PC. Sua chave de API nunca sobe.',
+    en: 'create a free account: your history is backed up and comes back by itself on a new PC. Your API key never leaves this machine.',
+  },
+  'acc.pass.placeholder': { pt: 'senha (mín. 8 caracteres)', en: 'password (min 8 chars)' },
+  'acc.signin': { pt: 'Entrar', en: 'Sign in' },
+  'acc.signup': { pt: 'Criar conta', en: 'Create account' },
+  'acc.logout': { pt: 'Sair', en: 'Sign out' },
+  'acc.syncnow': { pt: 'Sincronizar agora', en: 'Sync now' },
+  'acc.connected': { pt: 'conectado', en: 'connected' },
+  'acc.lastsync': { pt: 'última sync às {0}', en: 'last sync at {0}' },
+  'acc.nosync': { pt: 'nenhuma sync ainda', en: 'no sync yet' },
+  'acc.synced': { pt: 'progresso salvo na nuvem ☁️', en: 'progress saved to the cloud ☁️' },
+  'acc.firstsync': {
+    pt: 'conta pronta — teu histórico já tá na nuvem ☁️',
+    en: 'account ready — your history is in the cloud ☁️',
+  },
+  'acc.restored': {
+    pt: 'histórico restaurado da nuvem — recarregando…',
+    en: 'history restored from the cloud — reloading…',
+  },
+  'acc.loggedout': { pt: 'desconectado (dados locais intactos)', en: 'signed out (local data intact)' },
+  'acc.badinput': {
+    pt: 'email válido + senha de pelo menos 8 caracteres',
+    en: 'valid email + password with at least 8 characters',
+  },
+  'acc.err': { pt: 'conta: {0}', en: 'account: {0}' },
+  'acc.conflict.title': { pt: 'Dois históricos encontrados', en: 'Two histories found' },
+  'acc.conflict.body': {
+    pt: 'Esse PC tem dados locais E a nuvem tem um backup. Qual vale? O outro será sobrescrito.',
+    en: 'This PC has local data AND the cloud has a backup. Which one wins? The other gets overwritten.',
+  },
+  'acc.conflict.cloud': { pt: 'Nuvem', en: 'Cloud' },
+  'acc.conflict.local': { pt: 'Este PC', en: 'This PC' },
+  'acc.conflict.items': { pt: 'itens', en: 'items' },
+  'acc.conflict.usecloud': { pt: 'Usar a nuvem', en: 'Use the cloud' },
+  'acc.conflict.uselocal': { pt: 'Manter este PC', en: 'Keep this PC' },
+
   // settings
   'set.profile': { pt: 'Perfil', en: 'Profile' },
   'set.name': { pt: 'Seu nome', en: 'Your name' },
