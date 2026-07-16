@@ -499,6 +499,10 @@ alter table public.presence add column if not exists public_projects text;
 -- lifetime focused seconds (drives the profile badges friends can see)
 alter table public.presence add column if not exists total_sec bigint not null default 0;
 
+-- who I'm jamming with right now (JSON usernames) — lets friends see
+-- "in a JAM with @x @y" even when they don't know those people
+alter table public.presence add column if not exists jam_members text;
+
 -- message edits: author-only, within 2 minutes (server-enforced), marked
 alter table public.messages add column if not exists edited_at timestamptz;
 

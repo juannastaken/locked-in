@@ -107,6 +107,15 @@ export function statusLineFor(status: social.FriendStatus, row: PresenceRow | un
     const sec = row?.started_at
       ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
       : 0;
+    // in a jam? show who with — names render even for people I haven't added
+    if (row?.jam_members) {
+      try {
+        const names = (JSON.parse(row.jam_members) as string[]).map((u) => `@${u}`).join(' ');
+        return `🎧 ${t('fr.injam', names)} · ${formatDurationShort(sec)}`;
+      } catch {
+        // fall through to the plain line
+      }
+    }
     return `${t('fr.focusing', formatDurationShort(sec))}${row?.task ? ` · ${row.task}` : ''}`;
   }
   return status === 'online' ? t('fr.online') : t('fr.offline');
@@ -696,6 +705,145 @@ export function FriendsPage({
             );
           })}
         </div>
+
+        {/* active jams across my groups — join from right here */}
+        {groupsHook.list.some((g) => g.group.jam_started_at) && (
+          <div className="space-y-1.5">
+            <div className="px-1 text-[10px] font-extrabold uppercase tracking-wide text-accent">
+              🎧 {t('jams.active')}
+            </div>
+            {groupsHook.list
+              .filter((g) => g.group.jam_started_at)
+              .map((g) => {
+                const inJam = g.members.filter((m) => m.in_jam);
+                const meIn = activeGroupJamId === g.group.id;
+                return (
+                  <button
+                    key={g.group.id}
+                    type="button"
+                    onClick={() => openGroup(g.group.id)}
+                    className="w-full rounded-xl border-2 border-accent bg-accent-dim/60 px-2.5 py-2 text-left transition-transform hover:scale-[1.01]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate text-xs font-extrabold text-text">
+                        {g.group.jam_task}
+                      </span>
+                      <span className="shrink-0 font-mono text-[10px] font-bold tabular-nums text-accent">
+                        {formatDurationShort(
+                          Math.max(
+                            0,
+                            (Date.now() - new Date(g.group.jam_started_at!).getTime()) / 1000,
+                          ),
+                        )}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <div className="flex -space-x-1.5">
+                        {inJam.slice(0, 4).map((m) => (
+                          <div
+                            key={m.user_id}
+                            title={`@${m.username}`}
+                            className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-accent bg-bg text-[8px] font-extrabold uppercase text-accent"
+                          >
+                            {m.avatar ? (
+                              <img src={m.avatar} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              m.username.slice(0, 1)
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-[10px] font-bold text-accent">
+                        {t('grp.jam.count', String(inJam.length))} · {g.group.name}
+                        {meIn && ' · 🎧'}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+        )}
+
+        {/* active jams — group jams + friends currently jamming */}
+        {(() => {
+          const groupJams = groupsHook.list
+            .filter((g) => g.group.jam_started_at)
+            .map((g) => ({
+              key: `g${g.group.id}`,
+              title: g.group.name,
+              task: g.group.jam_task ?? '',
+              count: g.members.filter((m) => m.in_jam).length,
+              avatars: g.members
+                .filter((m) => m.in_jam)
+                .map((m) => ({ name: m.username, avatar: m.avatar })),
+              onClick: () => openGroup(g.group.id),
+            }));
+          const friendJams = state.friends
+            .map((f) => ({ f, row: soc.presence.get(f.userId) }))
+            .filter(({ row }) => social.isLive(row) && row?.jam_members)
+            .map(({ f, row }) => {
+              let names: string[] = [];
+              try {
+                names = JSON.parse(row!.jam_members as string) as string[];
+              } catch {
+                names = [];
+              }
+              return {
+                key: `f${f.userId}`,
+                title: `@${f.username}`,
+                task: row?.task ?? '',
+                count: names.length,
+                avatars: names.slice(0, 5).map((n) => {
+                  const fr = state.friends.find((x) => x.username === n);
+                  return { name: n, avatar: fr?.avatar ?? (n === f.username ? f.avatar : null) };
+                }),
+                onClick: () => openChat(f),
+              };
+            });
+          const jams = [...groupJams, ...friendJams];
+          if (jams.length === 0) return null;
+          return (
+            <div className="space-y-1.5 rounded-2xl border-2 border-accent/50 bg-accent-dim/30 p-2.5">
+              <div className="flex items-center gap-1.5 px-0.5">
+                <HeadphonesIcon size={13} className="text-accent" />
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-accent">
+                  {t('jams.active')} ({jams.length})
+                </span>
+              </div>
+              {jams.map((j) => (
+                <button
+                  key={j.key}
+                  type="button"
+                  onClick={j.onClick}
+                  className="flex w-full items-center gap-2 rounded-xl bg-surface/60 px-2 py-1.5 text-left hover:bg-surface"
+                >
+                  <div className="flex -space-x-1.5">
+                    {j.avatars.slice(0, 3).map((a, idx) => (
+                      <div
+                        key={idx}
+                        className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-accent bg-bg text-[8px] font-extrabold uppercase text-accent"
+                      >
+                        {a.avatar ? (
+                          <img src={a.avatar} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          a.name.slice(0, 1)
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12px] font-bold text-text">{j.title}</div>
+                    <div className="truncate text-[10px] font-semibold text-accent">
+                      {t('grp.jam.count', String(j.count))}
+                      {j.task ? ` · ${j.task}` : ''}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold text-accent">→</span>
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* groups */}
         <div className="space-y-1">

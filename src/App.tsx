@@ -179,6 +179,17 @@ function AppShell() {
     }
   }, [focus.phase]);
 
+  // group jam members are server-authoritative — mirror them into the local
+  // session (fixes "I joined but Focus showed me alone": the local list only
+  // had me until this sync existed)
+  useEffect(() => {
+    if (activeGroupJamId === null) return;
+    const g = groups.list.find((x) => x.group.id === activeGroupJamId);
+    if (!g) return;
+    const members = g.members.filter((m) => m.in_jam).map((m) => m.username);
+    if (members.length > 0) focusRef.current.syncJamMembers(members);
+  }, [groups.list, activeGroupJamId]);
+
   // presence heartbeat: my session state → cloud, on every phase change and
   // every 60s while the app runs. Friends treat rows older than ~2.5min as
   // offline, so closing the app (no explicit "stop") self-heals.
@@ -186,18 +197,20 @@ function AppShell() {
     phase: focus.phase,
     task: focus.activeSession?.task ?? null,
     elapsedSec: focus.elapsedSec,
+    jamMembers: focus.jam?.members ?? null,
   });
   heartbeatRef.current = {
     phase: focus.phase,
     task: focus.activeSession?.task ?? null,
     elapsedSec: focus.elapsedSec,
+    jamMembers: focus.jam?.members ?? null,
   };
   useEffect(() => {
     if (!signedIn) return;
     let cancelled = false;
     let appVersion = '';
     const beat = async () => {
-      const { phase, task, elapsedSec } = heartbeatRef.current;
+      const { phase, task, elapsedSec, jamMembers } = heartbeatRef.current;
       const focusing = phase === 'focusing';
       try {
         if (!appVersion) appVersion = await getVersion().catch(() => '0.0.0');
@@ -221,6 +234,7 @@ function AppShell() {
           appVersion,
           publicProjects,
           totalSec: life.totalSec + (focusing || phase === 'paused' ? elapsedSec : 0),
+          jamMembers: focusing ? jamMembers : null,
         });
       } catch {
         // offline — the next beat wins
@@ -1373,25 +1387,22 @@ function AppShell() {
           unread={unreadMsgs}
           jamMembers={
             focus.jam
-              ? focus.jam.members
-                  // only show me + people who are actually my friends: a friend-
-                  // of-a-friend in the jam isn't my contact and shouldn't appear
-                  .filter(
-                    (u) =>
-                      u === social.state?.me?.username ||
-                      social.state?.friends.some((fr) => fr.username === u),
-                  )
-                  .map((u) => {
-                    const friend = social.state?.friends.find((fr) => fr.username === u);
-                    return {
-                      username: u,
-                      avatar:
-                        u === social.state?.me?.username
-                          ? (social.state?.me?.avatar_b64 ?? null)
-                          : (friend?.avatar ?? null),
-                      isMe: u === social.state?.me?.username,
-                    };
-                  })
+              ? focus.jam.members.map((u) => {
+                  // avatars come from friends OR from my group rosters — in a
+                  // group jam even non-friends are shown (they're groupmates)
+                  const friend = social.state?.friends.find((fr) => fr.username === u);
+                  const groupmate = groups.list
+                    .flatMap((g) => g.members)
+                    .find((m) => m.username === u);
+                  return {
+                    username: u,
+                    avatar:
+                      u === social.state?.me?.username
+                        ? (social.state?.me?.avatar_b64 ?? null)
+                        : (friend?.avatar ?? groupmate?.avatar ?? null),
+                    isMe: u === social.state?.me?.username,
+                  };
+                })
               : null
           }
         />

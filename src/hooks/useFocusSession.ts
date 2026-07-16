@@ -55,6 +55,8 @@ export interface UseFocusSession {
   startSession: (task: string, project: string | null, jam?: JamMeta) => Promise<void>;
   /** upgrade the running session to a jam (host side) — merges member lists */
   markJam: (members: string[]) => void;
+  /** REPLACE the jam member list (group jams sync it from the server) */
+  syncJamMembers: (members: string[]) => void;
   pauseSession: () => void;
   resumeSession: () => void;
   stopSession: () => void;
@@ -369,6 +371,20 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     [activeSession, jam],
   );
 
+  const syncJamMembers = useCallback(
+    (members: string[]) => {
+      if (!activeSession || !jam) return;
+      const next = [...new Set(members)];
+      const same =
+        next.length === jam.members.length && next.every((m) => jam.members.includes(m));
+      if (same) return;
+      db.setSessionJamMembers(activeSession.id, next).catch((err) => setError(String(err)));
+      setJam({ startedAt: jam.startedAt, members: next });
+      setActiveSession({ ...activeSession, jam_members: JSON.stringify(next) });
+    },
+    [activeSession, jam],
+  );
+
   /** persists current pause state so a crash mid-pause recovers correctly */
   function persistPauseState(sessionId: number) {
     const closed = pauseIntervalsRef.current;
@@ -564,6 +580,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     resolveAfk,
     startSession,
     markJam,
+    syncJamMembers,
     pauseSession,
     resumeSession,
     stopSession,

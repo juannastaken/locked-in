@@ -49,6 +49,8 @@ export interface PresenceRow {
   public_projects: string | null;
   /** lifetime focused seconds — drives the badges on the profile */
   total_sec: number;
+  /** JSON usernames of everyone in this user's current jam, null when solo */
+  jam_members: string | null;
 }
 
 /** A presence row older than this is treated as offline (app closed/crashed). */
@@ -233,6 +235,8 @@ export interface PublishPresenceInput {
   /** already-serialized top projects, or null when the user keeps them private */
   publicProjects: string | null;
   totalSec: number;
+  /** usernames in my current jam (null when solo) */
+  jamMembers: string[] | null;
 }
 
 export async function publishPresence(p: PublishPresenceInput): Promise<void> {
@@ -249,6 +253,8 @@ export async function publishPresence(p: PublishPresenceInput): Promise<void> {
     app_version: p.appVersion,
     public_projects: p.publicProjects,
     total_sec: Math.max(0, Math.floor(p.totalSec)),
+    jam_members:
+      p.jamMembers && p.jamMembers.length > 1 ? JSON.stringify(p.jamMembers) : null,
   });
 }
 

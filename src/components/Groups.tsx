@@ -351,32 +351,6 @@ export function GroupView({
               </button>
             )}
           </div>
-        ) : startingJam ? (
-          <div className="flex items-center gap-2">
-            <input
-              autoFocus
-              value={jamTaskDraft}
-              onChange={(e) => setJamTaskDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && startJam()}
-              placeholder={t('grp.jam.task')}
-              className="chunk-input min-w-0 flex-1 px-3 py-1.5 text-xs font-semibold text-text"
-            />
-            <button
-              type="button"
-              onClick={startJam}
-              disabled={!jamTaskDraft.trim()}
-              className="chunk-btn chunk-btn-accent shrink-0 px-3 py-1.5 text-xs"
-            >
-              {t('grp.jam.go')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setStartingJam(false)}
-              className="shrink-0 text-xs text-text-faint hover:text-text"
-            >
-              ✕
-            </button>
-          </div>
         ) : (
           <button
             type="button"
@@ -458,6 +432,62 @@ export function GroupView({
           <SendIcon size={17} />
         </button>
       </form>
+
+      {/* start-jam modal: what to focus on + who's aboard */}
+      {startingJam && (
+        <div
+          className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6 backdrop-blur-sm"
+          onMouseDown={(e) => e.target === e.currentTarget && setStartingJam(false)}
+        >
+          <div className="chunk animate-scale-in w-full max-w-sm p-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-dim">
+              <HeadphonesIcon size={30} className="text-accent" />
+            </div>
+            <h2 className="mt-3 text-lg font-extrabold text-text">{t('grp.jam.modal.title')}</h2>
+            <p className="mt-1 text-xs font-medium text-text-dim">
+              {t('grp.jam.modal.body', group.name)}
+            </p>
+            <div className="mt-3 flex justify-center -space-x-2">
+              {members.slice(0, 5).map((m) => (
+                <div
+                  key={m.user_id}
+                  title={`@${m.username}`}
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-bg bg-surface text-[10px] font-extrabold uppercase text-text-dim"
+                >
+                  {m.avatar ? (
+                    <img src={m.avatar} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    m.username.slice(0, 2)
+                  )}
+                </div>
+              ))}
+            </div>
+            <input
+              autoFocus
+              value={jamTaskDraft}
+              onChange={(e) => setJamTaskDraft(e.target.value.slice(0, 120))}
+              onKeyDown={(e) => e.key === 'Enter' && startJam()}
+              placeholder={t('grp.jam.task')}
+              className="chunk-input mt-4 w-full px-4 py-3 text-center text-[15px] font-bold text-text placeholder:font-medium placeholder:text-text-faint"
+            />
+            <button
+              type="button"
+              disabled={!jamTaskDraft.trim()}
+              onClick={startJam}
+              className="chunk-btn chunk-btn-accent glow-pulse mt-4 w-full py-3.5 text-sm disabled:animate-none"
+            >
+              🎧 {t('grp.jam.modal.cta')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStartingJam(false)}
+              className="mt-2.5 text-xs font-bold text-text-faint hover:text-text"
+            >
+              {t('misc.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* members drawer */}
       {showMembers && (

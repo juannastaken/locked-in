@@ -237,6 +237,13 @@ const dict: Record<string, { pt: string; en: string }> = {
   'grp.jam.count': { pt: '{0} na JAM', en: '{0} in the JAM' },
   'grp.jam.started': { pt: 'tua sessão entrou na JAM do grupo 🎧', en: 'your session joined the group JAM 🎧' },
   'msg.placeholder.group': { pt: 'mensagem pro grupo…', en: 'message the group…' },
+  'jams.active': { pt: 'JAMs ativas', en: 'Active JAMs' },
+  'grp.jam.modal.title': { pt: 'Iniciar JAM do grupo', en: 'Start a group JAM' },
+  'grp.jam.modal.body': {
+    pt: 'todo mundo de "{0}" vai poder entrar e focar junto com você',
+    en: 'everyone in "{0}" can hop in and focus with you',
+  },
+  'grp.jam.modal.cta': { pt: 'Iniciar agora', en: 'Start now' },
   'msg.reply': { pt: 'responder', en: 'reply' },
   'msg.react': { pt: 'reagir', en: 'react' },
   'fr.unfriend': { pt: 'Remover amigo', en: 'Remove friend' },
