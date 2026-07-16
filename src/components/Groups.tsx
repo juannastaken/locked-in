@@ -5,7 +5,7 @@ import { cleanProfanity } from '../lib/filter';
 import { dateLocale, t } from '../lib/i18n';
 import { formatDurationShort } from '../lib/time';
 import type { FriendEntry } from '../lib/social';
-import { DotsIcon, HeadphonesIcon, SendIcon } from './Icons';
+import { DotsIcon, HeadphonesIcon, SendIcon, TargetIcon } from './Icons';
 import { DaySeparator } from './Chat';
 
 function timeLabel(iso: string): string {
@@ -110,7 +110,7 @@ export function CreateGroupModal({
                     on ? 'border-accent bg-accent text-bg' : 'border-border-strong text-transparent'
                   }`}
                 >
-                  âœ“
+                  ✓
                 </span>
               </button>
             );
@@ -123,7 +123,7 @@ export function CreateGroupModal({
             onClick={create}
             className="chunk-btn chunk-btn-accent flex-1 py-2.5 text-sm"
           >
-            {busy ? 'â€¦' : t('grp.create.cta')}
+            {busy ? '…' : t('grp.create.cta')}
           </button>
           <button type="button" onClick={onClose} className="chunk-btn px-4 py-2.5 text-sm text-text">
             {t('misc.cancel')}
@@ -197,12 +197,12 @@ export function GroupView({
 
   // a member counts as in the jam only if in_jam AND presence says they're
   // FOCUSING now (or it's me). The flag alone desyncs on force-close (stale
-  // presence) and on stop-with-app-open (fresh presence, focusing=false) â€”
+  // presence) and on stop-with-app-open (fresh presence, focusing=false) —
   // cross-checking the live focusing state kills both ghost kinds.
   const jamMembers = members.filter(
     (m) => m.in_jam && (m.user_id === myUserId || isLive(m.user_id)),
   );
-  // a start time with nobody actually alive inside is a ghost â€” treat as no
+  // a start time with nobody actually alive inside is a ghost — treat as no
   // active jam so the "start" button shows again
   const jamActive = !!group.jam_started_at && (jamMembers.length > 0 || meInJam);
   const addable = friends.filter((f) => !members.some((m) => m.user_id === f.userId));
@@ -286,7 +286,7 @@ export function GroupView({
             onClick={onBack}
             className="rounded-lg px-1.5 py-1 text-sm font-bold text-text-dim hover:bg-surface-hover hover:text-text"
           >
-            â†
+            ←
           </button>
           <button
             type="button"
@@ -335,7 +335,7 @@ export function GroupView({
                 {cleanProfanity(group.jam_task ?? '')}
                 {group.jam_pomo && (
                   <span className="ml-2 rounded-full border border-danger/50 px-2 py-px font-mono text-[10px] font-bold text-danger">
-                    ðŸ… {group.jam_pomo}
+                    {group.jam_pomo}
                   </span>
                 )}
               </div>
@@ -358,7 +358,7 @@ export function GroupView({
                 <span className="text-[11px] font-semibold text-accent">
                   {t('grp.jam.count', String(jamMembers.length))}
                   {group.jam_started_at &&
-                    ` Â· ${formatDurationShort(Math.max(0, (Date.now() - new Date(group.jam_started_at).getTime()) / 1000))}`}
+                    ` · ${formatDurationShort(Math.max(0, (Date.now() - new Date(group.jam_started_at).getTime()) / 1000))}`}
                 </span>
               </div>
             </div>
@@ -391,13 +391,13 @@ export function GroupView({
         )}
       </div>
 
-      {/* collective weekly goal â€” sum of the week_sec every member already
+      {/* collective weekly goal — sum of the week_sec every member already
           publishes to groupmates; no new data is exposed */}
       {(group.week_goal_hours || meAdmin) && (
         <div className="shrink-0 border-b border-border px-4 py-2">
           {editingGoal ? (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-text-dim">ðŸŽ¯ {t('grp.goal.label')}</span>
+              <span className="flex items-center gap-1 text-[11px] font-bold text-text-dim"><TargetIcon size={11} /> {t('grp.goal.label')}</span>
               <input
                 type="number"
                 min={1}
@@ -448,10 +448,10 @@ export function GroupView({
                   title={meAdmin ? t('grp.goal.edit') : undefined}
                 >
                   <div className="flex items-center justify-between text-[11px] font-bold">
-                    <span className="text-text-dim">ðŸŽ¯ {t('grp.goal.label')}</span>
+                    <span className="flex items-center gap-1 text-text-dim"><TargetIcon size={11} /> {t('grp.goal.label')}</span>
                     <span className={frac >= 1 ? 'text-accent' : 'text-text-dim'}>
                       {formatDurationShort(doneSec)} / {group.week_goal_hours}h
-                      {frac >= 1 ? ' ðŸ†' : ''}
+                      {frac >= 1 ? ' ✓' : ''}
                     </span>
                   </div>
                   <div className="mt-1 h-2 w-full overflow-hidden rounded-full border border-border-strong bg-bg">
@@ -469,7 +469,7 @@ export function GroupView({
               onClick={() => setEditingGoal(true)}
               className="text-[11px] font-bold text-text-faint hover:text-accent"
             >
-              + ðŸŽ¯ {t('grp.goal.set')}
+              + {t('grp.goal.set')}
             </button>
           )}
         </div>
@@ -610,13 +610,13 @@ export function GroupView({
               placeholder={t('grp.jam.task')}
               className="chunk-input mt-4 w-full px-4 py-3 text-center text-[15px] font-bold text-text placeholder:font-medium placeholder:text-text-faint"
             />
-            {/* optional synced pomodoro â€” advisory rhythm shared by everyone;
+            {/* optional synced pomodoro — advisory rhythm shared by everyone;
                 joiners see it on the banner before hopping in */}
             <div className="mt-3 flex items-center justify-center gap-1.5">
               {([
                 [null, t('grp.jam.pomo.off')],
-                ['25/5', 'ðŸ… 25/5'],
-                ['50/10', 'ðŸ… 50/10'],
+                ['25/5', '25/5'],
+                ['50/10', '50/10'],
               ] as [string | null, string][]).map(([val, label]) => (
                 <button
                   key={label}
@@ -643,7 +643,7 @@ export function GroupView({
               onClick={startJam}
               className="chunk-btn chunk-btn-accent glow-pulse mt-4 w-full py-3.5 text-sm disabled:animate-none"
             >
-              ðŸŽ§ {t('grp.jam.modal.cta')}
+              {t('grp.jam.modal.cta')}
             </button>
             <button
               type="button"
@@ -685,7 +685,7 @@ export function GroupView({
                   title={meAdmin ? t('grp.rename') : undefined}
                 >
                   {group.name}
-                  {meAdmin && <span className="ml-1.5 text-[11px] text-text-faint">âœŽ</span>}
+                  {meAdmin && <span className="ml-1.5 text-[11px] text-text-faint">✎</span>}
                 </button>
               )}
               <button
@@ -693,7 +693,7 @@ export function GroupView({
                 onClick={() => setShowMembers(false)}
                 className="shrink-0 pl-2 text-text-faint hover:text-text"
               >
-                âœ•
+                ✕
               </button>
             </div>
 
@@ -755,7 +755,7 @@ export function GroupView({
                         ) : (
                           <span className="text-text-faint">{t('grp.member')}</span>
                         )}
-                        {m.in_jam && <span className="text-accent">Â· ðŸŽ§</span>}
+                        {m.in_jam && <span className="text-accent">· 🎧</span>}
                       </div>
                     </div>
                     {canManage && (
@@ -767,7 +767,7 @@ export function GroupView({
                             onClick={() => promote(m.user_id)}
                             className="rounded-md px-1.5 py-0.5 text-[10px] font-bold text-sky-400 hover:bg-bg"
                           >
-                            â†‘adm
+                            ↑adm
                           </button>
                         )}
                         <button
@@ -776,7 +776,7 @@ export function GroupView({
                           onClick={() => kick(m.user_id)}
                           className="rounded-md px-1.5 py-0.5 text-[10px] font-bold text-danger hover:bg-bg"
                         >
-                          âœ•
+                          ✕
                         </button>
                       </div>
                     )}

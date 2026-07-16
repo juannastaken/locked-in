@@ -253,6 +253,30 @@ function AppShell() {
         .find((m) => m.username.toLowerCase() === k);
       return gm?.user_id ?? null;
     };
+    // adopt: when a jam-mate publishes a roster that includes ME, union it in —
+    // keeps 3+ person chains consistent (host approves a joiner and everyone
+    // else learns about them through the host's presence)
+    if (meKey) {
+      for (const u of [...canonical]) {
+        const uid = uidOf(u);
+        if (!uid) continue;
+        const rowP = social.presence.get(uid);
+        if (!rowP?.jam_members || !socialLib.isLive(rowP)) continue;
+        try {
+          const theirs = JSON.parse(rowP.jam_members) as string[];
+          if (!theirs.some((x) => x.toLowerCase() === meKey)) continue;
+          for (const x of theirs) {
+            const k = x.toLowerCase();
+            if (!seenKeys.has(k)) {
+              seenKeys.add(k);
+              canonical.push(x);
+            }
+          }
+        } catch {
+          // malformed roster — ignore
+        }
+      }
+    }
     const live = canonical.filter((u) => {
       const k = u.toLowerCase();
       if (meKey && k === meKey) return true;
@@ -918,6 +942,85 @@ function AppShell() {
       }).catch(() => {});
     }
   }, [focus.displayElapsedSec, focus.jam, focus.phase, pushToast]);
+
+  // ---- jam shame: in a 2+ jam WITH the auto-tracker on, drifting into a
+  // procrastination app for 2 straight minutes rats you out to the whole jam.
+  // Tracker off = zero detection, period. Broadcast is ephemeral (no rows). ----
+  const shameChanRef = useRef<ReturnType<typeof socialLib.joinJamShame> | null>(null);
+  useEffect(() => {
+    if (!signedIn) return;
+    const chan = socialLib.joinJamShame((p) => {
+      const meL = myUsernameRef.current?.toLowerCase();
+      if (!meL || p.from.toLowerCase() === meL) return;
+      if (!p.members.includes(meL)) return;
+      // only if the slacker is actually in MY current jam
+      const inMyJam = focusRef.current.jam?.members.some(
+        (m) => m.toLowerCase() === p.from.toLowerCase(),
+      );
+      if (!inMyJam) return;
+      const msg = t('shame.msg', cleanProfanity(p.from), cleanProfanity(p.app));
+      pushToast(msg, 'info');
+      invoke('show_notice', {
+        title: t('shame.title'),
+        body: msg,
+        mood: 'angry',
+      }).catch(() => {});
+    });
+    shameChanRef.current = chan;
+    return () => {
+      chan.close();
+      shameChanRef.current = null;
+    };
+  }, [signedIn, pushToast]);
+
+  const distractedSinceRef = useRef<number | null>(null);
+  const lastShameRef = useRef(0);
+  useEffect(() => {
+    const iv = window.setInterval(async () => {
+      const jamNow = focusRef.current.jam;
+      const s = settingsRef.current;
+      if (
+        !jamNow ||
+        jamNow.members.length < 2 ||
+        focusRef.current.phase !== 'focusing' ||
+        !s?.autotrack_enabled // the explicit gate: tracker off → no detection
+      ) {
+        distractedSinceRef.current = null;
+        return;
+      }
+      const bad = (s.nudge_apps ?? '')
+        .split(',')
+        .map((x) => x.trim().toLowerCase().replace(/\.exe$/, ''))
+        .filter(Boolean);
+      if (bad.length === 0) {
+        distractedSinceRef.current = null;
+        return;
+      }
+      const fg = await invoke<string | null>('get_foreground_app').catch(() => null);
+      if (!fg) return;
+      const exe = fg.toLowerCase().replace(/\.exe$/, '');
+      if (!bad.some((b) => exe.includes(b))) {
+        distractedSinceRef.current = null;
+        return;
+      }
+      const now = Date.now();
+      if (distractedSinceRef.current === null) {
+        distractedSinceRef.current = now;
+        return;
+      }
+      if (now - distractedSinceRef.current < 120_000) return; // 2min of slack first
+      if (now - lastShameRef.current < 600_000) return; // shame at most 1x/10min
+      lastShameRef.current = now;
+      const meName = myUsernameRef.current;
+      if (!meName) return;
+      shameChanRef.current?.send({
+        from: meName,
+        app: fg.replace(/\.exe$/i, ''),
+        members: jamNow.members.map((m) => m.toLowerCase()),
+      });
+    }, 30_000);
+    return () => window.clearInterval(iv);
+  }, []);
 
   // ---- pokes: 👉 nudges + 🔥 cheers from friends (server rate-limited) ----
   useEffect(() => {

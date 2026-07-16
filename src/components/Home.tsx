@@ -4,6 +4,7 @@ import { parsePomo } from '../hooks/useFocusSession';
 import type { UseFocusSession } from '../hooks/useFocusSession';
 import { JamRoom } from './JamRoom';
 import type { JamRoomMember } from './JamRoom';
+import { CoffeeIcon, TimerIcon } from './Icons';
 import * as db from '../lib/db';
 import type { DayStat } from '../lib/db';
 import { t } from '../lib/i18n';
@@ -181,11 +182,11 @@ export function Home({
             const ss = String(Math.floor(left % 60)).padStart(2, '0');
             return (
               <span
-                className={`rounded-full border-2 px-3 py-0.5 font-mono text-xs font-bold tabular-nums ${
+                className={`flex items-center gap-1.5 rounded-full border-2 px-3 py-0.5 font-mono text-xs font-bold tabular-nums ${
                   inWork ? 'border-danger/50 text-danger' : 'border-sky-400/60 text-sky-400'
                 }`}
               >
-                {inWork ? '🍅' : '☕'} {mm}:{ss}
+                {inWork ? <TimerIcon size={12} /> : <CoffeeIcon size={12} />} {mm}:{ss}
               </span>
             );
           })()}

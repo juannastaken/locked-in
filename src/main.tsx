@@ -12,6 +12,14 @@ const CanvasMode = lazy(() => import('./components/Canvas.tsx'))
 
 const label = getCurrentWebviewWindow().label
 
+// kill the raw WebView2 context menu (Voltar/Atualizar/Salvar como/DevTools) —
+// text fields keep it so paste/spellcheck still work
+document.addEventListener('contextmenu', (e) => {
+  const el = e.target as HTMLElement | null
+  if (el?.closest('input, textarea, [contenteditable="true"]')) return
+  e.preventDefault()
+})
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {label === 'overlay' ? (

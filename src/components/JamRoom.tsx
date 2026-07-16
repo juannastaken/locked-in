@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { parsePomo } from '../hooks/useFocusSession';
 import { t } from '../lib/i18n';
-import { HeadphonesIcon } from './Icons';
+import { CoffeeIcon, FlameIcon, HeadphonesIcon, TimerIcon } from './Icons';
 
 export interface JamRoomMember {
   username: string;
@@ -62,13 +62,13 @@ export function JamRoom({ members, sharedSec, pomo, onCheer }: JamRoomProps) {
         </span>
         {p && phase && (
           <span
-            className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-bold tabular-nums ${
+            className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-bold tabular-nums ${
               phase === 'work'
                 ? 'border-danger/50 text-danger'
                 : 'border-sky-400/60 text-sky-400'
             }`}
           >
-            {phase === 'work' ? '🍅' : '☕'} {mm}:{ss}
+            {phase === 'work' ? <TimerIcon size={11} /> : <CoffeeIcon size={11} />} {mm}:{ss}
           </span>
         )}
       </div>
@@ -102,9 +102,9 @@ export function JamRoom({ members, sharedSec, pomo, onCheer }: JamRoomProps) {
                     type="button"
                     title={t('jamroom.cheer')}
                     onClick={() => cheer(m)}
-                    className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-bg text-[10px] opacity-0 transition-opacity hover:scale-110 group-hover/jm:opacity-100"
+                    className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-bg text-warn opacity-0 transition-opacity hover:scale-110 group-hover/jm:opacity-100"
                   >
-                    🔥
+                    <FlameIcon size={11} />
                   </button>
                 )}
               </div>

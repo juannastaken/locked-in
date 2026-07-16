@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { t } from '../lib/i18n';
 import * as social from '../lib/social';
 import type { SocialHook } from '../hooks/useSocial';
-import { statusDot, statusLineFor, statusText } from './Friends';
+import { sortFriendsByStatus, statusDot, statusLineFor, statusText } from './Friends';
 import { ChatIcon } from './Icons';
 import { Mascot } from './Mascot';
 
@@ -143,7 +143,7 @@ export function FriendsBar({ social: soc, onOpenFriends, onOpenChat, unread, jam
             </span>
           </div>
         ) : (
-          state.friends.map((f) => {
+          sortFriendsByStatus(state.friends, soc.statusOf).map((f) => {
             const row = soc.presence.get(f.userId);
             const status = soc.statusOf(f.userId);
             const live = status === 'focusing';

@@ -26,6 +26,39 @@ const ACCENT_PRESETS = [
   { color: '#e8e8ec', nameKey: 'set.accent.white' },
 ];
 
+/** Live view of what the watcher sees — write list entries that match THIS.
+ *  Kills the "auto-tracker works for me but not my friend" mystery: the
+ *  friend was guessing process names. */
+function DetectNow() {
+  const [fg, setFg] = useState<{ exe: string; title: string } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      const [exe, title] = await Promise.all([
+        invoke<string | null>('get_foreground_app').catch(() => null),
+        invoke<string | null>('get_foreground_window_title').catch(() => null),
+      ]);
+      if (alive) setFg({ exe: exe ?? '?', title: title ?? '' });
+    };
+    poll();
+    const iv = window.setInterval(poll, 2000);
+    return () => {
+      alive = false;
+      window.clearInterval(iv);
+    };
+  }, []);
+  return (
+    <div className="px-4 py-3">
+      <div className="text-sm text-text">{t('set.detect.title')}</div>
+      <div className="mt-0.5 text-xs text-text-faint">{t('set.detect.hint')}</div>
+      <div className="mt-2 rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs text-text">
+        <span className="font-bold text-accent">{fg?.exe ?? '…'}</span>
+        {fg?.title ? <span className="text-text-faint"> — {fg.title.slice(0, 60)}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
   const { settings, update } = settingsHook;
   const { pushToast } = useToast();
@@ -321,6 +354,7 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
               className="mt-2.5 h-16 w-full resize-none rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs leading-relaxed text-text transition-colors placeholder:text-text-faint focus:border-accent"
             />
           </div>
+          <DetectNow />
         </Section>
 
         <Section title={t('set.quotes')}>

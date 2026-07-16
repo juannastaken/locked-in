@@ -4,7 +4,14 @@ import type { Badge } from '../lib/badges';
 import { cleanProfanity } from '../lib/filter';
 import { getLang, t } from '../lib/i18n';
 import { BadgeModal } from './BadgeModal';
-import { HeadphonesIcon, ProfileIcon } from './Icons';
+import {
+  BoltIcon,
+  FlameIcon,
+  HeadphonesIcon,
+  PointIcon,
+  ProfileIcon,
+  TrophyIcon,
+} from './Icons';
 import { formatDurationShort } from '../lib/time';
 import * as social from '../lib/social';
 import type { FriendEntry, PresenceRow } from '../lib/social';
@@ -148,7 +155,7 @@ function PokeGateToggle() {
           : 'border-accent/60 text-accent hover:bg-accent-dim'
       }`}
     >
-      👉 {blocked ? t('misc.off') : t('misc.on')}
+      <PointIcon size={12} /> {blocked ? t('misc.off') : t('misc.on')}
     </button>
   );
 }
@@ -194,8 +201,8 @@ function FeedSection({ soc }: { soc: SocialHook }) {
   return (
     <div className="space-y-1.5 rounded-2xl border border-border bg-surface/50 p-2.5">
       <div className="flex items-center justify-between px-0.5">
-        <span className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
-          ⚡ {t('feed.title')}
+        <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
+          <BoltIcon size={11} /> {t('feed.title')}
         </span>
         <button
           type="button"
@@ -212,6 +219,8 @@ function FeedSection({ soc }: { soc: SocialHook }) {
       </div>
       {visible.slice(0, 8).map((e) => {
         const who = nameOf(e.user_id);
+        const KindIcon =
+          e.kind === 'streak' ? FlameIcon : e.kind === 'jam' ? HeadphonesIcon : TrophyIcon;
         return (
           <div key={e.id} className="flex items-center gap-2 px-0.5">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-strong bg-bg text-[8px] font-extrabold uppercase text-text-dim">
@@ -221,6 +230,7 @@ function FeedSection({ soc }: { soc: SocialHook }) {
                 who.name.replace('@', '').slice(0, 2)
               )}
             </div>
+            <KindIcon size={11} className="shrink-0 text-accent" />
             <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-text-dim">
               <span className="font-bold text-text">{who.name}</span> {line(e)}
             </span>
@@ -232,6 +242,120 @@ function FeedSection({ soc }: { soc: SocialHook }) {
       })}
     </div>
   );
+}
+
+/** Detail popup for an active jam: task, everyone inside (friends or not),
+ *  and a "ask to join" button — the friend in the jam approves, I hop in. */
+function JamDetailModal({
+  detail,
+  friends,
+  myUsername,
+  inJamAlready,
+  requested,
+  onRequest,
+  onClose,
+}: {
+  detail: { task: string; names: string[]; friend: FriendEntry };
+  friends: FriendEntry[];
+  myUsername: string;
+  inJamAlready: boolean;
+  requested: boolean;
+  onRequest: () => void;
+  onClose: () => void;
+}) {
+  // non-friends in the jam get their photo straight from profiles
+  const [extra, setExtra] = useState<Map<string, { username: string; avatar: string | null }>>(
+    () => new Map(),
+  );
+  useEffect(() => {
+    const unknown = detail.names.filter(
+      (n) => !friends.some((f) => f.username.toLowerCase() === n.toLowerCase()),
+    );
+    if (unknown.length === 0) return;
+    social
+      .fetchProfilesByUsernames(unknown)
+      .then(setExtra)
+      .catch(() => {});
+  }, [detail.names, friends]);
+
+  const meIn = detail.names.some((n) => n.toLowerCase() === myUsername.toLowerCase());
+
+  return (
+    <div
+      className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6 backdrop-blur-sm"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="chunk animate-scale-in w-full max-w-sm p-6 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-dim">
+          <HeadphonesIcon size={26} className="text-accent" />
+        </div>
+        <h2 className="mt-3 text-lg font-extrabold text-text">{t('jamdetail.title')}</h2>
+        {detail.task && (
+          <p className="mt-1 truncate text-sm font-bold text-text-dim">{detail.task}</p>
+        )}
+        <div className="mt-4 flex flex-wrap items-start justify-center gap-3">
+          {detail.names.map((n) => {
+            const fr = friends.find((f) => f.username.toLowerCase() === n.toLowerCase());
+            const ex = extra.get(n.toLowerCase());
+            const avatar = fr?.avatar ?? ex?.avatar ?? null;
+            return (
+              <div key={n.toLowerCase()} className="flex w-16 flex-col items-center">
+                <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 border-accent bg-bg text-[11px] font-extrabold uppercase text-accent">
+                  {avatar ? (
+                    <img src={avatar} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    n.slice(0, 2)
+                  )}
+                </div>
+                <span className="mt-1 w-full truncate text-[10px] font-bold text-text-dim">
+                  @{n}
+                </span>
+                {!fr && n.toLowerCase() !== myUsername.toLowerCase() && (
+                  <span className="text-[8px] font-bold uppercase text-text-faint">
+                    {t('jamdetail.notfriend')}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          disabled={requested || meIn || inJamAlready}
+          onClick={onRequest}
+          className="chunk-btn chunk-btn-accent mt-5 w-full py-3 text-sm disabled:opacity-50"
+        >
+          {meIn || inJamAlready
+            ? t('jamdetail.alreadyin')
+            : requested
+              ? t('jamdetail.requested')
+              : t('jamdetail.request')}
+        </button>
+        <p className="mt-2 text-[10px] font-medium text-text-faint">
+          {t('jamdetail.hint', detail.friend.username)}
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-2 text-xs font-bold text-text-faint hover:text-text"
+        >
+          {t('misc.close')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** live people float to the top: focusing → online → offline, then A-Z */
+export function sortFriendsByStatus(
+  friends: FriendEntry[],
+  statusOf: (uid: string) => social.FriendStatus,
+): FriendEntry[] {
+  const rank = (s: social.FriendStatus) => (s === 'focusing' ? 0 : s === 'online' ? 1 : 2);
+  return [...friends].sort((a, b) => {
+    const d = rank(statusOf(a.userId)) - rank(statusOf(b.userId));
+    return d !== 0 ? d : a.username.localeCompare(b.username);
+  });
 }
 
 export function statusLineFor(
@@ -250,7 +374,7 @@ export function statusLineFor(
         const list = JSON.parse(row.jam_members) as string[];
         if (list.length >= 2) {
           const names = list.map((u) => `@${cleanProfanity(u)}`).join(' ');
-          return `🎧 ${t('fr.injam', names)} · ${formatDurationShort(sec)}`;
+          return `${t('fr.injam', names)} · ${formatDurationShort(sec)}`;
         }
       } catch {
         // fall through to the plain line
@@ -417,18 +541,19 @@ function FriendProfile({
             type="button"
             disabled={pokeSent !== null}
             onClick={() => poke('poke')}
-            className="chunk-btn flex-1 py-2.5 text-xs text-text"
+            className="chunk-btn flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs text-text"
           >
-            {pokeSent === 'poke' ? t('poke.sent') : `👉 ${t('poke.cta')}`}
+            <PointIcon size={14} /> {pokeSent === 'poke' ? t('poke.sent') : t('poke.cta')}
           </button>
           {live && (
             <button
               type="button"
               disabled={pokeSent !== null}
               onClick={() => poke('cheer')}
-              className="chunk-btn flex-1 py-2.5 text-xs text-text"
+              className="chunk-btn flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs text-text"
             >
-              {pokeSent === 'cheer' ? t('poke.sent') : `🔥 ${t('poke.cheer.cta')}`}
+              <FlameIcon size={14} />{' '}
+              {pokeSent === 'cheer' ? t('poke.sent') : t('poke.cheer.cta')}
             </button>
           )}
         </div>
@@ -603,6 +728,14 @@ export function FriendsPage({
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null); // friend userId
   const [chatting, setChatting] = useState<string | null>(null); // friend userId
+  const [allFriendsOpen, setAllFriendsOpen] = useState(false);
+  const [fullRankOpen, setFullRankOpen] = useState(false);
+  const [jamDetail, setJamDetail] = useState<{
+    task: string;
+    names: string[];
+    friend: FriendEntry;
+  } | null>(null);
+  const [jamRequested, setJamRequested] = useState(false);
   const [groupOpen, setGroupOpen] = useState<number | null>(null); // group id
   const [creatingGroup, setCreatingGroup] = useState(false);
 
@@ -732,6 +865,58 @@ export function FriendsPage({
     : null;
 
   const wk = social.weekKey();
+  const sortedFriends = sortFriendsByStatus(state.friends, soc.statusOf);
+  const friendRow = (f: FriendEntry) => {
+    const row = soc.presence.get(f.userId);
+    const status = soc.statusOf(f.userId);
+    const active = chatting === f.userId || viewing === f.userId;
+    return (
+      <div
+        key={f.friendshipId}
+        role="button"
+        tabIndex={0}
+        onClick={() => {
+          setAllFriendsOpen(false);
+          openChat(f);
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && openChat(f)}
+        className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-2 py-2 ${
+          active ? 'bg-surface-hover' : 'hover:bg-surface-hover'
+        }`}
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Avatar name={f.username} status={status} photo={f.avatar} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-bold text-text">@{f.username}</div>
+            <div className={`truncate text-[11px] font-medium ${statusText(status)}`}>
+              {statusLineFor(status, row, f.statusText)}
+            </div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {(unread[f.userId] ?? 0) > 0 && (
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
+              {unread[f.userId]}
+            </span>
+          )}
+          <button
+            type="button"
+            title={t('fr.viewprofile')}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAllFriendsOpen(false);
+              setChatting(null);
+              onChatOpened(null);
+              setViewing(f.userId);
+            }}
+            className="rounded-lg p-1.5 text-text-faint transition-all duration-150 hover:bg-bg hover:text-text"
+          >
+            <ProfileIcon size={15} />
+          </button>
+        </div>
+      </div>
+    );
+  };
   const ranking = [
     { userId: me.user_id, username: me.username, isMe: true },
     ...state.friends.map((f) => ({ userId: f.userId, username: f.username, isMe: false })),
@@ -840,7 +1025,8 @@ export function FriendsPage({
           </div>
         )}
 
-        {/* friends list — click opens the chat; small button opens the profile */}
+        {/* friends list — live people on top, capped so the column never
+            scroll-spirals; the full list lives in a modal */}
         <div className="space-y-0.5">
           {state.friends.length === 0 && (
             <div className="flex flex-col items-center gap-2 py-8 text-center">
@@ -848,53 +1034,16 @@ export function FriendsPage({
               <span className="text-sm font-semibold text-text-faint">{t('fr.empty')}</span>
             </div>
           )}
-          {state.friends.map((f) => {
-            const row = soc.presence.get(f.userId);
-            const status = soc.statusOf(f.userId);
-            const active = chatting === f.userId || viewing === f.userId;
-            return (
-              <div
-                key={f.friendshipId}
-                role="button"
-                tabIndex={0}
-                onClick={() => openChat(f)}
-                onKeyDown={(e) => e.key === 'Enter' && openChat(f)}
-                className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-2 py-2 ${
-                  active ? 'bg-surface-hover' : 'hover:bg-surface-hover'
-                }`}
-              >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <Avatar name={f.username} status={status} photo={f.avatar} />
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-text">@{f.username}</div>
-                    <div className={`truncate text-[11px] font-medium ${statusText(status)}`}>
-                      {statusLineFor(status, row, f.statusText)}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {(unread[f.userId] ?? 0) > 0 && (
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
-                      {unread[f.userId]}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    title={t('fr.viewprofile')}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setChatting(null);
-                      onChatOpened(null);
-                      setViewing(f.userId);
-                    }}
-                    className="rounded-lg p-1.5 text-text-faint transition-all duration-150 hover:bg-bg hover:text-text"
-                  >
-                    <ProfileIcon size={15} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {sortedFriends.slice(0, 7).map(friendRow)}
+          {sortedFriends.length > 7 && (
+            <button
+              type="button"
+              onClick={() => setAllFriendsOpen(true)}
+              className="w-full rounded-xl py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-text-faint hover:bg-surface-hover hover:text-text"
+            >
+              {t('fr.seeall', String(sortedFriends.length))}
+            </button>
+          )}
         </div>
 
         {/* active jams — group jams + friends currently jamming */}
@@ -980,7 +1129,10 @@ export function FriendsPage({
                     (n.toLowerCase() === f.username.toLowerCase() ? f.avatar : null),
                 };
               }),
-              onClick: () => openChat(f),
+              onClick: () => {
+                setJamRequested(false);
+                setJamDetail({ task: cleanProfanity(row.task ?? ''), names, friend: f });
+              },
             });
           }
           const jams = [...groupJams, ...friendJams];
@@ -1111,7 +1263,7 @@ export function FriendsPage({
               </span>
               <span className="text-[10px] font-medium text-text-faint">{t('fr.week')}</span>
             </div>
-            {ranking.slice(0, 5).map((p, i) => (
+            {ranking.slice(0, 3).map((p, i) => (
               <div key={p.userId} className="flex items-center gap-2 text-xs">
                 <span className="w-5 text-center">
                   {medals[i] ?? <span className="font-bold text-text-faint">{i + 1}</span>}
@@ -1126,9 +1278,105 @@ export function FriendsPage({
                 </span>
               </div>
             ))}
+            {ranking.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setFullRankOpen(true)}
+                className="w-full rounded-lg py-1 text-[10px] font-extrabold uppercase tracking-wide text-text-faint hover:bg-surface-hover hover:text-text"
+              >
+                {t('fr.rank.more')}
+              </button>
+            )}
           </div>
         )}
       </aside>
+
+      {/* full friends list modal */}
+      {allFriendsOpen && (
+        <div
+          className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6 backdrop-blur-sm"
+          onMouseDown={(e) => e.target === e.currentTarget && setAllFriendsOpen(false)}
+        >
+          <div className="chunk animate-scale-in flex max-h-[80vh] w-full max-w-md flex-col p-4">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <h2 className="text-base font-extrabold text-text">
+                {t('fr.title')} ({sortedFriends.length})
+              </h2>
+              <button
+                type="button"
+                onClick={() => setAllFriendsOpen(false)}
+                className="rounded-lg px-2 py-1 text-sm font-bold text-text-faint hover:text-text"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1">
+              {sortedFriends.map(friendRow)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* active jam detail — see who's inside + ask to join */}
+      {jamDetail && (
+        <JamDetailModal
+          detail={jamDetail}
+          friends={state.friends}
+          myUsername={me.username}
+          inJamAlready={
+            !!myJamMembers &&
+            jamDetail.names.some((n) =>
+              myJamMembers.some((m) => m.toLowerCase() === n.toLowerCase()),
+            )
+          }
+          requested={jamRequested}
+          onRequest={async () => {
+            setJamRequested(true);
+            await onSendJam(jamDetail.friend, 'request');
+          }}
+          onClose={() => setJamDetail(null)}
+        />
+      )}
+
+      {/* full weekly ranking modal */}
+      {fullRankOpen && (
+        <div
+          className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6 backdrop-blur-sm"
+          onMouseDown={(e) => e.target === e.currentTarget && setFullRankOpen(false)}
+        >
+          <div className="chunk animate-scale-in flex max-h-[80vh] w-full max-w-sm flex-col p-4">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <h2 className="text-base font-extrabold text-text">
+                {t('fr.ranking')} · {t('fr.week')}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setFullRankOpen(false)}
+                className="rounded-lg px-2 py-1 text-sm font-bold text-text-faint hover:text-text"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+              {ranking.map((p, i) => (
+                <div key={p.userId} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm">
+                  <span className="w-6 text-center">
+                    {medals[i] ?? <span className="font-bold text-text-faint">{i + 1}</span>}
+                  </span>
+                  <span
+                    className={`min-w-0 flex-1 truncate font-bold ${p.isMe ? 'text-accent' : 'text-text'}`}
+                  >
+                    {p.isMe ? t('fr.me') : `@${p.username}`}
+                  </span>
+                  <span className="shrink-0 font-mono font-bold tabular-nums text-text-dim">
+                    {formatDurationShort(p.weekSec)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* RIGHT: chat / profile / placeholder */}
       <main className="min-h-0 min-w-0 flex-1">

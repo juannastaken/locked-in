@@ -559,3 +559,50 @@ export async function fetchFeed(): Promise<FeedEvent[]> {
     .limit(50);
   return (data ?? []) as FeedEvent[];
 }
+
+/** Avatars/casing for arbitrary usernames (e.g. jam members I haven't added). */
+export async function fetchProfilesByUsernames(
+  names: string[],
+): Promise<Map<string, { username: string; avatar: string | null }>> {
+  const map = new Map<string, { username: string; avatar: string | null }>();
+  if (names.length === 0) return map;
+  const { data } = await supabase
+    .from('profiles')
+    .select('username, avatar_b64')
+    .in('username', names);
+  for (const p of (data ?? []) as { username: string; avatar_b64: string | null }[]) {
+    map.set(p.username.toLowerCase(), { username: p.username, avatar: p.avatar_b64 });
+  }
+  return map;
+}
+
+// ---------- jam shame: ephemeral broadcast, no rows stored ----------
+
+export interface ShamePayload {
+  /** username of the slacker */
+  from: string;
+  /** app they wandered off to */
+  app: string;
+  /** lowercase usernames of everyone in the jam (recipients filter themselves) */
+  members: string[];
+}
+
+export function joinJamShame(onMsg: (p: ShamePayload) => void): {
+  send: (p: ShamePayload) => void;
+  close: () => void;
+} {
+  const chan = supabase.channel('jam-shame');
+  chan
+    .on('broadcast', { event: 'shame' }, (e) => {
+      if (e.payload) onMsg(e.payload as ShamePayload);
+    })
+    .subscribe();
+  return {
+    send: (p) => {
+      chan.send({ type: 'broadcast', event: 'shame', payload: p }).catch(() => {});
+    },
+    close: () => {
+      supabase.removeChannel(chan).catch(() => {});
+    },
+  };
+}
