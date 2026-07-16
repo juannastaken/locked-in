@@ -324,14 +324,21 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
             <div className="font-mono text-2xl font-medium tabular-nums text-accent">
               {formatDurationShort(weekTotal)}
             </div>
-            {vsAvgPct !== null && weekOffset === 0 && (
-              <div
-                className={`text-xs ${vsAvgPct >= 0 ? 'text-accent' : 'text-text-dim'}`}
-                title={t('week.avgtitle', String(prevWeeksCount), formatDurationShort(avgWeekSec))}
-              >
-                {t('week.vsavg', `${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct}`)}
-              </div>
-            )}
+            {/* always render this line (empty when there's nothing to compare)
+                so the header height is identical in Week and Month — otherwise
+                it shrinks and the whole page jumps up when switching modes */}
+            <div
+              className={`h-4 text-xs ${vsAvgPct !== null && vsAvgPct >= 0 ? 'text-accent' : 'text-text-dim'}`}
+              title={
+                vsAvgPct !== null
+                  ? t('week.avgtitle', String(prevWeeksCount), formatDurationShort(avgWeekSec))
+                  : undefined
+              }
+            >
+              {vsAvgPct !== null && weekOffset === 0
+                ? t('week.vsavg', `${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct}`)
+                : ' '}
+            </div>
           </div>
         </div>
 
