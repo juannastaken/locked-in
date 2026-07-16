@@ -8,6 +8,8 @@ import { Mascot } from './Mascot';
 interface FriendsBarProps {
   social: SocialHook;
   onOpenFriends: () => void;
+  onOpenChat: (friendUserId: string) => void;
+  unread: Record<string, number>;
 }
 
 function Chevron({ left }: { left: boolean }) {
@@ -29,7 +31,7 @@ function Chevron({ left }: { left: boolean }) {
 }
 
 /** Fixed-width friends rail on the right edge — same width with or without friends. */
-export function FriendsBar({ social: soc, onOpenFriends }: FriendsBarProps) {
+export function FriendsBar({ social: soc, onOpenFriends, onOpenChat, unread }: FriendsBarProps) {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('friends-bar-collapsed') === '1',
   );
@@ -113,11 +115,13 @@ export function FriendsBar({ social: soc, onOpenFriends }: FriendsBarProps) {
                 ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
                 : 0;
             return (
-              <button
+              <div
                 key={f.friendshipId}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={onOpenFriends}
-                className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left hover:bg-surface-hover"
+                onKeyDown={(e) => e.key === 'Enter' && onOpenFriends()}
+                className="group flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-left hover:bg-surface-hover"
               >
                 <div className="relative shrink-0">
                   <div
@@ -143,7 +147,7 @@ export function FriendsBar({ social: soc, onOpenFriends }: FriendsBarProps) {
                     }`}
                   />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] font-bold text-text">{f.username}</div>
                   <div
                     className={`truncate text-[10px] font-semibold ${
@@ -161,7 +165,32 @@ export function FriendsBar({ social: soc, onOpenFriends }: FriendsBarProps) {
                         : t('fr.offline')}
                   </div>
                 </div>
-              </button>
+                {(unread[f.userId] ?? 0) > 0 ? (
+                  <button
+                    type="button"
+                    title={t('msg.open')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenChat(f.userId);
+                    }}
+                    className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg"
+                  >
+                    {unread[f.userId]}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    title={t('msg.open')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenChat(f.userId);
+                    }}
+                    className="shrink-0 rounded-lg px-1 text-sm opacity-0 transition-opacity hover:bg-bg group-hover:opacity-100"
+                  >
+                    💬
+                  </button>
+                )}
+              </div>
             );
           })
         )}

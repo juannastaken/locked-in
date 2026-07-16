@@ -465,6 +465,11 @@ function AppShell() {
 
   const [unreadMsgs, setUnreadMsgs] = useState<Record<string, number>>({});
   const [chatRefetchKey, setChatRefetchKey] = useState(0);
+  const [openChatWith, setOpenChatWith] = useState<string | null>(null);
+  const openChatShortcut = useCallback((friendUserId: string) => {
+    setOpenChatWith(friendUserId);
+    setTab('friends');
+  }, []);
   const openChatRef = useRef<string | null>(null);
   const refreshUnread = useCallback(() => {
     chatLib.fetchUnreadCounts().then(setUnreadMsgs).catch(() => {});
@@ -1166,12 +1171,19 @@ function AppShell() {
             chatRefetchKey={chatRefetchKey}
             onChatOpened={onChatOpened}
             onOpenBackup={() => setKeyModal('backup')}
+            openChatWith={openChatWith}
+            onOpenChatConsumed={() => setOpenChatWith(null)}
           />
         )}
         {tab === 'settings' && <SettingsScreen settingsHook={settingsHook} onError={onError} />}
       </main>
       {signedIn && tab !== 'friends' && settingsHook.settings?.friends_bar_enabled !== false && (
-        <FriendsBar social={social} onOpenFriends={() => setTab('friends')} />
+        <FriendsBar
+          social={social}
+          onOpenFriends={() => setTab('friends')}
+          onOpenChat={openChatShortcut}
+          unread={unreadMsgs}
+        />
       )}
       </div>
     </div>

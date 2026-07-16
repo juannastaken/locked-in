@@ -27,6 +27,9 @@ interface FriendsProps {
   /** tells the app which conversation is on screen (null = none) */
   onChatOpened: (friendUserId: string | null) => void;
   onOpenBackup: () => void;
+  /** external "open chat with this friend" request (sidebar 💬 etc.) */
+  openChatWith: string | null;
+  onOpenChatConsumed: () => void;
 }
 
 /** Username claim form — used by the Friends tab and the mandatory app modal. */
@@ -300,6 +303,8 @@ export function FriendsPage({
   chatRefetchKey,
   onChatOpened,
   onOpenBackup,
+  openChatWith,
+  onOpenChatConsumed,
 }: FriendsProps) {
   const [addName, setAddName] = useState('');
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -323,6 +328,18 @@ export function FriendsPage({
 
   // leaving the tab entirely also counts as closing the conversation
   useEffect(() => () => onChatOpened(null), [onChatOpened]);
+
+  // sidebar 💬 / notifications ask us to open a specific conversation
+  useEffect(() => {
+    if (!openChatWith) return;
+    const f = soc.state?.friends.find((fr) => fr.userId === openChatWith);
+    onOpenChatConsumed();
+    if (f) {
+      setViewing(null);
+      openChat(f);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openChatWith, soc.state]);
 
   // live "focusing for Xh" durations tick without any network traffic
   const [, setTick] = useState(0);
@@ -602,11 +619,13 @@ export function FriendsPage({
                 ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
                 : 0;
             return (
-              <button
+              <div
                 key={f.friendshipId}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => setViewing(f)}
-                className="flex w-full items-center justify-between gap-2 rounded-xl px-2 py-2 text-left hover:bg-surface-hover"
+                onKeyDown={(e) => e.key === 'Enter' && setViewing(f)}
+                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-2 py-2 text-left hover:bg-surface-hover"
               >
                 <div className="flex min-w-0 items-center gap-2.5">
                   <Avatar name={f.username} status={status} photo={f.avatar} />
@@ -626,17 +645,28 @@ export function FriendsPage({
                     </div>
                   </div>
                 </div>
-                <span className="flex shrink-0 items-center gap-2">
+                <span className="flex shrink-0 items-center gap-1.5">
                   {(unread[f.userId] ?? 0) > 0 && (
                     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
                       {unread[f.userId]}
                     </span>
                   )}
+                  <button
+                    type="button"
+                    title={t('msg.open')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openChat(f);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-sm text-text-dim hover:bg-bg hover:text-text"
+                  >
+                    💬
+                  </button>
                   <span className="text-xs font-bold text-text-faint">
                     {t('fr.viewprofile')} →
                   </span>
                 </span>
-              </button>
+              </div>
             );
           })}
         </div>
