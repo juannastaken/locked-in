@@ -664,3 +664,28 @@ input[type='number'] {
   opacity: 1;
   transform: none;
 }
+
+/* softer message entrance — pure fade + slight rise, no scale (kills the bounce) */
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* members drawer slide-in */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}

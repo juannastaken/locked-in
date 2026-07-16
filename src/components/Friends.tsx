@@ -3,12 +3,14 @@ import { unlockedBadges } from '../lib/badges';
 import type { Badge } from '../lib/badges';
 import { getLang, t } from '../lib/i18n';
 import { BadgeModal } from './BadgeModal';
-import { ProfileIcon } from './Icons';
+import { HeadphonesIcon, ProfileIcon } from './Icons';
 import { formatDurationShort } from '../lib/time';
 import * as social from '../lib/social';
 import type { FriendEntry, PresenceRow } from '../lib/social';
 import type { SocialHook } from '../hooks/useSocial';
+import type { GroupsHook } from '../hooks/useGroups';
 import { ChatView } from './Chat';
+import { CreateGroupModal, GroupView } from './Groups';
 import { Mascot } from './Mascot';
 
 export interface MyFocusState {
@@ -31,6 +33,12 @@ interface FriendsProps {
   onOpenChatConsumed: () => void;
   /** usernames in MY running jam (null = not in a jam) */
   myJamMembers: string[] | null;
+  groups: GroupsHook;
+  /** the group id whose jam I'm currently focusing in, if any */
+  activeGroupJamId: number | null;
+  onStartGroupJam: (groupId: number, task: string) => void;
+  onJoinGroupJam: (groupId: number, task: string, startedAtIso: string) => void;
+  onLeaveGroupJam: () => void;
 }
 
 /** Username claim form — used by the Friends tab and the mandatory app modal. */
@@ -390,12 +398,26 @@ export function FriendsPage({
   openChatWith,
   onOpenChatConsumed,
   myJamMembers,
+  groups: groupsHook,
+  activeGroupJamId,
+  onStartGroupJam,
+  onJoinGroupJam,
+  onLeaveGroupJam,
 }: FriendsProps) {
   const [addName, setAddName] = useState('');
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null); // friend userId
   const [chatting, setChatting] = useState<string | null>(null); // friend userId
+  const [groupOpen, setGroupOpen] = useState<number | null>(null); // group id
+  const [creatingGroup, setCreatingGroup] = useState(false);
+
+  function openGroup(id: number) {
+    setChatting(null);
+    setViewing(null);
+    onChatOpened(null);
+    setGroupOpen(id);
+  }
 
   function openChat(f: FriendEntry) {
     if (!f.e2ePub) {
@@ -511,6 +533,9 @@ export function FriendsPage({
 
   const chattingFriend = chatting ? state.friends.find((f) => f.userId === chatting) : null;
   const viewingFriend = viewing ? state.friends.find((f) => f.userId === viewing) : null;
+  const openGroupSummary = groupOpen
+    ? (groupsHook.list.find((g) => g.group.id === groupOpen) ?? null)
+    : null;
 
   const wk = social.weekKey();
   const ranking = [
@@ -672,8 +697,70 @@ export function FriendsPage({
           })}
         </div>
 
+        {/* groups */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
+              {t('grp.title')} ({groupsHook.list.length})
+            </span>
+            {state.friends.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCreatingGroup(true)}
+                className="text-[11px] font-bold text-accent hover:underline"
+              >
+                + {t('grp.new')}
+              </button>
+            )}
+          </div>
+          {groupsHook.list.map((g) => {
+            const jamOn = !!g.group.jam_started_at;
+            return (
+              <button
+                key={g.group.id}
+                type="button"
+                onClick={() => openGroup(g.group.id)}
+                className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left ${
+                  groupOpen === g.group.id ? 'bg-surface-hover' : 'hover:bg-surface-hover'
+                }`}
+              >
+                <div className="flex -space-x-2">
+                  {g.members.slice(0, 3).map((m) => (
+                    <div
+                      key={m.user_id}
+                      className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 border-bg bg-surface text-[9px] font-extrabold uppercase text-text-dim"
+                    >
+                      {m.avatar ? (
+                        <img src={m.avatar} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        m.username.slice(0, 2)
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-bold text-text">{g.group.name}</div>
+                  <div className="truncate text-[10px] font-semibold text-text-faint">
+                    {t('grp.members', String(g.members.length))}
+                  </div>
+                </div>
+                {jamOn && <HeadphonesIcon size={14} className="shrink-0 text-accent" />}
+              </button>
+            );
+          })}
+          {groupsHook.list.length === 0 && state.friends.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCreatingGroup(true)}
+              className="chunk-btn w-full py-2 text-[11px] text-text-dim"
+            >
+              + {t('grp.create.cta')}
+            </button>
+          )}
+        </div>
+
         {state.friends.length > 0 && (
-          <div className="chunk mt-auto space-y-2 p-3">
+          <div className="chunk space-y-2 p-3">
             <div className="flex items-baseline justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
                 {t('fr.ranking')}
@@ -742,6 +829,24 @@ export function FriendsPage({
             onMessage={() => openChat(viewingFriend)}
             unreadCount={unread[viewingFriend.userId] ?? 0}
           />
+        ) : openGroupSummary ? (
+          <div className="relative h-full">
+            <GroupView
+              summary={openGroupSummary}
+              myUserId={me.user_id}
+              friends={state.friends}
+              isLive={(uid) => social.isLive(soc.presence.get(uid))}
+              refetchKey={groupsHook.tick}
+              onError={onError}
+              onBack={() => setGroupOpen(null)}
+              meInJam={activeGroupJamId === openGroupSummary.group.id}
+              onStartJam={(task) => onStartGroupJam(openGroupSummary.group.id, task)}
+              onJoinJam={(task, startedAt) =>
+                onJoinGroupJam(openGroupSummary.group.id, task, startedAt)
+              }
+              onLeaveJam={onLeaveGroupJam}
+            />
+          </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <Mascot mood="relax" size={72} />
@@ -749,6 +854,19 @@ export function FriendsPage({
           </div>
         )}
       </main>
+
+      {creatingGroup && (
+        <CreateGroupModal
+          friends={state.friends}
+          onClose={() => setCreatingGroup(false)}
+          onCreated={(id) => {
+            setCreatingGroup(false);
+            groupsHook.refresh();
+            openGroup(id);
+          }}
+          onError={onError}
+        />
+      )}
     </div>
   );
 }

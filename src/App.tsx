@@ -24,7 +24,9 @@ import { Week } from './components/Week';
 import { useFocusSession } from './hooks/useFocusSession';
 import { useSettings } from './hooks/useSettings';
 import { useSocial } from './hooks/useSocial';
+import { useGroups } from './hooks/useGroups';
 import { useJam } from './hooks/useJam';
+import * as groupsLib from './lib/groups';
 import type { FriendEntry } from './lib/social';
 import * as socialLib from './lib/social';
 import * as chatLib from './lib/chat';
@@ -161,6 +163,21 @@ function AppShell() {
 
   // friends + live presence (inert for guests)
   const social = useSocial(signedIn, onError);
+  const groups = useGroups(signedIn, onError);
+
+  // the group whose jam I'm focusing in (server-authoritative membership lives
+  // in group_members.in_jam; this mirrors it locally for the UI + leave path)
+  const [activeGroupJamId, setActiveGroupJamId] = useState<number | null>(null);
+  const activeGroupJamRef = useRef<number | null>(null);
+  activeGroupJamRef.current = activeGroupJamId;
+  // clearing the focus session clears my group-jam membership too
+  useEffect(() => {
+    if (focus.phase === 'idle' && activeGroupJamRef.current !== null) {
+      const gid = activeGroupJamRef.current;
+      setActiveGroupJamId(null);
+      groupsLib.setJamMembership(gid, false).then(() => groupsLib.maybeEndGroupJam(gid));
+    }
+  }, [focus.phase]);
 
   // presence heartbeat: my session state → cloud, on every phase change and
   // every 60s while the app runs. Friends treat rows older than ~2.5min as
@@ -641,6 +658,56 @@ function AppShell() {
       }
     }
   }, [focus.jam, social.presence, pushToast]);
+
+  // ---- group jam: shares the focus session + the shared display timer ----
+  const startGroupJam = useCallback(
+    (groupId: number, task: string) => {
+      const me = myUsernameRef.current ?? 'me';
+      if (focusRef.current.phase !== 'idle') {
+        // already focusing → just enlist my running session into the group jam
+        setActiveGroupJamId(groupId);
+        pushToast(t('grp.jam.started'), 'info');
+        return;
+      }
+      focusRef.current.startSession(task, null, {
+        startedAt: new Date().toISOString(),
+        members: [me],
+      });
+      setActiveGroupJamId(groupId);
+      setTab('home');
+    },
+    [pushToast],
+  );
+
+  const joinGroupJam = useCallback(
+    (groupId: number, task: string, startedAtIso: string) => {
+      const me = myUsernameRef.current ?? 'me';
+      if (focusRef.current.phase !== 'idle') {
+        onError(t('jam.busy'));
+        // membership was optimistically set by the caller — roll it back
+        groupsLib.setJamMembership(groupId, false);
+        return;
+      }
+      focusRef.current.startSession(task, null, {
+        startedAt: startedAtIso, // shared timer counts from the group's start
+        members: [me],
+      });
+      setActiveGroupJamId(groupId);
+      setTab('home');
+    },
+    [onError],
+  );
+
+  const leaveGroupJam = useCallback(() => {
+    // stopping the session runs the normal rating flow; membership clears via
+    // the phase-idle effect. If they were only "in jam" with nothing else,
+    // just stop.
+    if (focusRef.current.phase === 'focusing' || focusRef.current.phase === 'paused') {
+      focusRef.current.stopSession();
+    } else {
+      setActiveGroupJamId(null);
+    }
+  }, []);
 
   async function answerJamPrompt(accept: boolean) {
     const p = await jam.answer(accept);
@@ -1289,6 +1356,11 @@ function AppShell() {
             openChatWith={openChatWith}
             onOpenChatConsumed={() => setOpenChatWith(null)}
             myJamMembers={focus.jam?.members ?? null}
+            groups={groups}
+            activeGroupJamId={activeGroupJamId}
+            onStartGroupJam={startGroupJam}
+            onJoinGroupJam={joinGroupJam}
+            onLeaveGroupJam={leaveGroupJam}
           />
         )}
         {tab === 'settings' && <SettingsScreen settingsHook={settingsHook} onError={onError} />}
@@ -1301,17 +1373,25 @@ function AppShell() {
           unread={unreadMsgs}
           jamMembers={
             focus.jam
-              ? focus.jam.members.map((u) => {
-                  const friend = social.state?.friends.find((fr) => fr.username === u);
-                  return {
-                    username: u,
-                    avatar:
-                      u === social.state?.me?.username
-                        ? (social.state?.me?.avatar_b64 ?? null)
-                        : (friend?.avatar ?? null),
-                    isMe: u === social.state?.me?.username,
-                  };
-                })
+              ? focus.jam.members
+                  // only show me + people who are actually my friends: a friend-
+                  // of-a-friend in the jam isn't my contact and shouldn't appear
+                  .filter(
+                    (u) =>
+                      u === social.state?.me?.username ||
+                      social.state?.friends.some((fr) => fr.username === u),
+                  )
+                  .map((u) => {
+                    const friend = social.state?.friends.find((fr) => fr.username === u);
+                    return {
+                      username: u,
+                      avatar:
+                        u === social.state?.me?.username
+                          ? (social.state?.me?.avatar_b64 ?? null)
+                          : (friend?.avatar ?? null),
+                      isMe: u === social.state?.me?.username,
+                    };
+                  })
               : null
           }
         />

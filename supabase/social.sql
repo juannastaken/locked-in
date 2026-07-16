@@ -256,6 +256,162 @@ exception
   when duplicate_object then null;
 end $$;
 
+-- ========== groups (up to 5 people, WhatsApp-style admins) ==========
+-- Group chat is RLS-protected (members only) but NOT end-to-end encrypted —
+-- group E2E with member-removal key rotation is a bug farm; DMs stay E2E.
+-- The group's JAM lives server-side: task/start on the group row, membership
+-- on group_members.in_jam — the single source of truth every client renders.
+
+create table if not exists public.groups (
+  id bigint generated always as identity primary key,
+  name text not null check (char_length(name) between 1 and 40),
+  owner uuid not null references auth.users(id) on delete cascade,
+  jam_task text,
+  jam_started_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.group_members (
+  group_id bigint not null references public.groups(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  is_admin boolean not null default false,
+  in_jam boolean not null default false,
+  added_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key (group_id, user_id)
+);
+
+create table if not exists public.group_messages (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups(id) on delete cascade,
+  sender uuid not null references auth.users(id) on delete cascade,
+  kind text not null default 'text' check (kind in ('text', 'system')),
+  body text not null check (char_length(body) <= 2000),
+  created_at timestamptz not null default now()
+);
+create index if not exists group_messages_time on public.group_messages (group_id, created_at desc);
+
+-- membership check used by every policy (security definer dodges RLS recursion)
+create or replace function public.is_group_member(gid bigint)
+returns boolean language sql security definer set search_path = public as $$
+  select exists (select 1 from group_members where group_id = gid and user_id = auth.uid());
+$$;
+create or replace function public.is_group_admin(gid bigint)
+returns boolean language sql security definer set search_path = public as $$
+  select exists (
+    select 1 from group_members where group_id = gid and user_id = auth.uid() and is_admin
+  );
+$$;
+revoke all on function public.is_group_member(bigint) from public;
+revoke all on function public.is_group_admin(bigint) from public;
+grant execute on function public.is_group_member(bigint) to authenticated;
+grant execute on function public.is_group_admin(bigint) to authenticated;
+
+-- hard cap: 5 people per group
+create or replace function public.enforce_group_cap()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from group_members where group_id = new.group_id) >= 5 then
+    raise exception 'group is full (max 5 members)';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists group_cap on public.group_members;
+create trigger group_cap before insert on public.group_members
+  for each row execute function public.enforce_group_cap();
+
+alter table public.groups enable row level security;
+alter table public.group_members enable row level security;
+alter table public.group_messages enable row level security;
+
+-- groups: members see; anyone signed-in creates (becoming owner); admins
+-- rename / manage the jam fields; owner deletes
+drop policy if exists groups_select on public.groups;
+create policy groups_select on public.groups
+  for select to authenticated using (public.is_group_member(id));
+
+drop policy if exists groups_insert on public.groups;
+create policy groups_insert on public.groups
+  for insert to authenticated with check (auth.uid() = owner);
+
+drop policy if exists groups_update on public.groups;
+create policy groups_update on public.groups
+  for update to authenticated
+  using (public.is_group_member(id))
+  with check (public.is_group_member(id));
+-- column lock: members may only touch the jam fields; renames go through
+-- admins (enforced app-side on top of this narrower grant)
+revoke update on public.groups from authenticated;
+grant update (name, jam_task, jam_started_at) on public.groups to authenticated;
+
+drop policy if exists groups_delete on public.groups;
+create policy groups_delete on public.groups
+  for delete to authenticated using (auth.uid() = owner);
+
+-- members: visible to fellow members; ADMINS add people; a member updates
+-- their own jam flag; admins update others (promote); leave = delete self,
+-- kick = admin deletes
+drop policy if exists gm_select on public.group_members;
+create policy gm_select on public.group_members
+  for select to authenticated using (public.is_group_member(group_id));
+
+drop policy if exists gm_insert on public.group_members;
+create policy gm_insert on public.group_members
+  for insert to authenticated
+  with check (
+    public.is_group_admin(group_id)
+    or (auth.uid() = user_id and auth.uid() = added_by and public.is_group_admin(group_id))
+    -- group creator bootstraps their own admin row
+    or (
+      auth.uid() = user_id
+      and exists (select 1 from groups g where g.id = group_id and g.owner = auth.uid())
+    )
+  );
+
+drop policy if exists gm_update on public.group_members;
+create policy gm_update on public.group_members
+  for update to authenticated
+  using (auth.uid() = user_id or public.is_group_admin(group_id))
+  with check (public.is_group_member(group_id));
+revoke update on public.group_members from authenticated;
+grant update (in_jam, is_admin) on public.group_members to authenticated;
+
+drop policy if exists gm_delete on public.group_members;
+create policy gm_delete on public.group_members
+  for delete to authenticated
+  using (auth.uid() = user_id or public.is_group_admin(group_id));
+
+-- messages: members read + write; author deletes
+drop policy if exists gmsg_select on public.group_messages;
+create policy gmsg_select on public.group_messages
+  for select to authenticated using (public.is_group_member(group_id));
+
+drop policy if exists gmsg_insert on public.group_messages;
+create policy gmsg_insert on public.group_messages
+  for insert to authenticated
+  with check (auth.uid() = sender and public.is_group_member(group_id));
+
+drop policy if exists gmsg_delete on public.group_messages;
+create policy gmsg_delete on public.group_messages
+  for delete to authenticated using (auth.uid() = sender);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.groups;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.group_members;
+exception when duplicate_object then null;
+end $$;
+do $$
+begin
+  alter publication supabase_realtime add table public.group_messages;
+exception when duplicate_object then null;
+end $$;
+
 -- optional cloud backup of the PRIVATE key, itself encrypted client-side with
 -- a passphrase (Argon2id → XSalsa20-Poly1305). The server never sees the
 -- passphrase or the plaintext key — losing the passphrase = losing the backup.
