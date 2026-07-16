@@ -5,6 +5,7 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Chat } from './components/Chat';
 import { CheckinPage } from './components/Checkin';
 import { Login } from './components/Login';
+import { Splash } from './components/Splash';
 import { HabitsPage } from './components/Habits';
 import { Home } from './components/Home';
 import { Log } from './components/Log';
@@ -64,6 +65,13 @@ function AppShell() {
   });
   const [tab, setTab] = useState<Tab>('home');
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // boot splash: shown at least 5s while everything loads behind it
+  const [splashDone, setSplashDone] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setSplashDone(true), 5000);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // language: apply saved choice; empty = first run, ask
   const language = settingsHook.settings?.language;
@@ -567,6 +575,12 @@ function AppShell() {
         </span>
       </button>
     ) : null;
+
+  // boot splash takes precedence — held for its minimum time while the app,
+  // settings and auth all load behind it
+  if (!splashDone) {
+    return <Splash />;
+  }
 
   // while deciding auth (after language is set), hold on a blank dark screen
   // so the app never flashes before the login gate
