@@ -248,7 +248,7 @@ export async function generateWeekCard(d: WeekCardData): Promise<Blob> {
   ctx.fillText(d.userName ? `${d.userName} 🔒` : '🔒 locked in', 64, H - 30);
   ctx.font = `400 16px ${mono}`;
   ctx.fillStyle = FAINT;
-  const url = 'github.com/juannastaken/locked-in';
+  const url = 'github.com/JuanArtxz/locked-in';
   ctx.fillText(url, W - 64 - ctx.measureText(url).width, H - 30);
 
   return new Promise((resolve, reject) => {

@@ -28,28 +28,31 @@ export function Home({ focus, settings, onError, refreshKey, onOpenHabits }: Hom
   const [task, setTask] = useState('');
   const [project, setProject] = useState('');
   const [projects, setProjects] = useState<string[]>([]);
-  const [goalProjects, setGoalProjects] = useState<Set<string>>(() => new Set());
   const [today, setToday] = useState<DayStat | null>(null);
   const [rating, setRating] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [breakChoice, setBreakChoice] = useState<number | null>(BREAK_OPTIONS[0].sec);
 
   useEffect(() => {
-    // goal projects come first: a fresh goal has zero sessions, so it would
-    // never surface via listProjects and the user could never tag time to it
-    Promise.all([db.listProjects(), db.listGoals()])
-      .then(([projs, goals]) => {
+    // projects ARE the goals — a project exists by creating it in Goals, so
+    // the chip row never piles up with historical one-off names
+    db.listGoals()
+      .then((goals) => {
         const seen = new Set<string>();
-        const merged: string[] = [];
-        for (const p of [...goals.map((g) => g.project), ...projs]) {
-          const k = p.toLowerCase();
+        const list: string[] = [];
+        for (const g of goals) {
+          const k = g.project.toLowerCase();
           if (!seen.has(k)) {
             seen.add(k);
-            merged.push(p);
+            list.push(g.project);
           }
         }
-        setProjects(merged);
-        setGoalProjects(new Set(goals.map((g) => g.project.toLowerCase())));
+        setProjects(list);
+        // goal deleted while its chip was selected → don't tag sessions with a
+        // project that no longer counts anywhere
+        setProject((cur) =>
+          list.some((p) => p.toLowerCase() === cur.toLowerCase()) ? cur : '',
+        );
       })
       .catch((err) => onError(String(err)));
   }, [onError, refreshKey]);
@@ -404,28 +407,24 @@ export function Home({ focus, settings, onError, refreshKey, onOpenHabits }: Hom
           className="w-full border-b border-border bg-transparent px-2 pb-3 text-center text-xl text-text transition-colors placeholder:text-text-faint focus:border-accent"
         />
 
-        <div className="mt-4 flex h-8 w-full flex-wrap items-center justify-center gap-1.5">
-          {projects.slice(0, 5).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setProject(project === p ? '' : p)}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                project === p
-                  ? 'border-accent bg-accent-dim text-accent'
-                  : 'border-border text-text-dim hover:border-border-strong hover:text-text'
-              }`}
-            >
-              {goalProjects.has(p.toLowerCase()) ? `🎯 ${p}` : p}
-            </button>
-          ))}
-          <input
-            value={projects.includes(project) ? '' : project}
-            onChange={(e) => setProject(e.target.value)}
-            placeholder={projects.length > 0 ? t('home.project.other') : t('home.project.placeholder')}
-            className="w-32 rounded-full border border-transparent bg-transparent px-3 py-1 text-center text-xs text-text transition-colors placeholder:text-text-faint hover:border-border focus:border-border-strong"
-          />
-        </div>
+        {projects.length > 0 && (
+          <div className="mt-4 flex min-h-8 w-full flex-wrap items-center justify-center gap-1.5">
+            {projects.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setProject(project === p ? '' : p)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  project === p
+                    ? 'border-accent bg-accent-dim text-accent'
+                    : 'border-border text-text-dim hover:border-border-strong hover:text-text'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
 
         <button
           type="submit"

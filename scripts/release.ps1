@@ -4,7 +4,7 @@
 # and updates latest.json so every installed app shows the update popup.
 
 $ErrorActionPreference = "Stop"
-$repo = "juannastaken/locked-in"
+$repo = "JuanArtxz/locked-in"
 
 $conf = Get-Content "src-tauri\tauri.conf.json" -Raw | ConvertFrom-Json
 $version = $conf.version

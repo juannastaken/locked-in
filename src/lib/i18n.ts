@@ -365,12 +365,12 @@ const dict: Record<string, { pt: string; en: string }> = {
   },
   'goals.overdue': { pt: 'prazo estourado', en: 'past deadline' },
   'goals.hint': {
-    pt: 'conta o tempo das sessões iniciadas com este projeto marcado na Home',
-    en: 'counts time from sessions started with this project tagged on Home',
+    pt: 'cria o projeto aqui — ele vira um chip na Home e conta o tempo das sessões marcadas com ele',
+    en: 'create the project here — it becomes a chip on Home and counts time from sessions tagged with it',
   },
   'goals.zero': {
-    pt: 'nada contado ainda — ao dar LOCK IN, marca o chip 🎯 {0}',
-    en: 'nothing counted yet — when you LOCK IN, tag the 🎯 {0} chip',
+    pt: 'nada contado ainda — ao dar LOCK IN, marca o chip {0}',
+    en: 'nothing counted yet — when you LOCK IN, tag the {0} chip',
   },
 
   // first run
