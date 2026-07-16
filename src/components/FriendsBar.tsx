@@ -3,6 +3,7 @@ import { t } from '../lib/i18n';
 import * as social from '../lib/social';
 import type { SocialHook } from '../hooks/useSocial';
 import { statusDot, statusLineFor, statusText } from './Friends';
+import { ChatIcon } from './Icons';
 import { Mascot } from './Mascot';
 
 export interface JamMemberView {
@@ -188,21 +189,19 @@ export function FriendsBar({ social: soc, onOpenFriends, onOpenChat, unread, jam
                     </span>
                   )}
                 </div>
-                {/* square MESSAGE button, revealed on hover (always when unread) */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenChat(f.userId);
-                  }}
-                  className={`chunk-btn mt-1.5 w-full py-1.5 text-[11px] text-text transition-opacity ${
-                    (unread[f.userId] ?? 0) > 0
-                      ? 'opacity-100'
-                      : 'hidden opacity-0 group-hover:block group-hover:opacity-100'
-                  }`}
-                >
-                  💬 {t('msg.open').toUpperCase()}
-                </button>
+                {/* square MESSAGE button — slides in smoothly on hover */}
+                <div className={(unread[f.userId] ?? 0) > 0 ? 'reveal-open reveal' : 'reveal'}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenChat(f.userId);
+                    }}
+                    className="chunk-btn mt-1.5 flex w-full items-center justify-center gap-1.5 py-1.5 text-[11px] text-text"
+                  >
+                    <ChatIcon size={13} /> {t('msg.open').toUpperCase()}
+                  </button>
+                </div>
               </div>
             );
           })

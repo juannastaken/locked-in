@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BADGES, nextBadge } from '../lib/badges';
+import type { Badge } from '../lib/badges';
+import { BadgeModal } from './BadgeModal';
 import * as db from '../lib/db';
 import { cleanProfanity } from '../lib/filter';
 import { getLang, t } from '../lib/i18n';
@@ -80,6 +82,7 @@ export function ProfilePage({
   const [bio, setBio] = useState('');
   const [bioDirty, setBioDirty] = useState(false);
   const [bioSaving, setBioSaving] = useState(false);
+  const [badgeInfo, setBadgeInfo] = useState<Badge | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -239,21 +242,21 @@ export function ProfilePage({
             <div className="mb-2 text-xs font-extrabold uppercase tracking-wide text-text-dim">
               {t('badges.title')}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {BADGES.map((b) => {
                 const unlocked = an.totalSec / 3600 >= b.hours;
                 return (
-                  <span
+                  <button
                     key={b.hours}
+                    type="button"
                     title={getLang() === 'en' ? b.labelEn : b.labelPt}
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 text-lg ${
-                      unlocked
-                        ? 'border-accent bg-accent-dim'
-                        : 'border-border opacity-30 grayscale'
+                    onClick={() => setBadgeInfo(b)}
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl bg-bg text-base transition-transform hover:scale-110 ${
+                      unlocked ? '' : 'opacity-30 grayscale'
                     }`}
                   >
                     {b.icon}
-                  </span>
+                  </button>
                 );
               })}
             </div>
@@ -346,6 +349,14 @@ export function ProfilePage({
             </div>
           ))}
         </div>
+
+        {badgeInfo && an && (
+          <BadgeModal
+            badge={badgeInfo}
+            unlocked={an.totalSec / 3600 >= badgeInfo.hours}
+            onClose={() => setBadgeInfo(null)}
+          />
+        )}
 
         {/* message key backup entry point (the chat banner moved here) */}
         {signedIn && (

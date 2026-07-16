@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { unlockedBadges } from '../lib/badges';
+import type { Badge } from '../lib/badges';
 import { getLang, t } from '../lib/i18n';
+import { BadgeModal } from './BadgeModal';
+import { ProfileIcon } from './Icons';
 import { formatDurationShort } from '../lib/time';
 import * as social from '../lib/social';
 import type { FriendEntry, PresenceRow } from '../lib/social';
@@ -26,6 +29,8 @@ interface FriendsProps {
   onChatOpened: (friendUserId: string | null) => void;
   openChatWith: string | null;
   onOpenChatConsumed: () => void;
+  /** usernames in MY running jam (null = not in a jam) */
+  myJamMembers: string[] | null;
 }
 
 /** Username claim form — used by the Friends tab and the mandatory app modal. */
@@ -145,6 +150,7 @@ function FriendProfile({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
   const [jamSent, setJamSent] = useState(false);
+  const [badgeInfo, setBadgeInfo] = useState<Badge | null>(null);
 
   const row = soc.presence.get(friend.userId);
   const status = social.friendStatus(row);
@@ -225,24 +231,33 @@ function FriendProfile({
           </div>
         </div>
 
-        {/* badges from their lifetime focus */}
+        {/* badges from their lifetime focus — click one for details */}
         {row && unlockedBadges(row.total_sec ?? 0).length > 0 && (
           <div className="chunk p-4">
             <div className="mb-2 text-xs font-extrabold uppercase tracking-wide text-text-dim">
               {t('badges.title')}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {unlockedBadges(row.total_sec ?? 0).map((b) => (
-                <span
+                <button
                   key={b.hours}
+                  type="button"
                   title={getLang() === 'en' ? b.labelEn : b.labelPt}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-accent bg-accent-dim text-lg"
+                  onClick={() => setBadgeInfo(b)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-bg text-base transition-transform hover:scale-110"
                 >
                   {b.icon}
-                </span>
+                </button>
               ))}
             </div>
           </div>
+        )}
+        {badgeInfo && (
+          <BadgeModal
+            badge={badgeInfo}
+            unlocked={(row?.total_sec ?? 0) / 3600 >= badgeInfo.hours}
+            onClose={() => setBadgeInfo(null)}
+          />
         )}
 
         {/* big week number */}
@@ -374,6 +389,7 @@ export function FriendsPage({
   onChatOpened,
   openChatWith,
   onOpenChatConsumed,
+  myJamMembers,
 }: FriendsProps) {
   const [addName, setAddName] = useState('');
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -646,9 +662,9 @@ export function FriendsPage({
                       onChatOpened(null);
                       setViewing(f.userId);
                     }}
-                    className="rounded-lg px-1.5 py-1 text-xs font-bold text-text-faint hover:bg-bg hover:text-text"
+                    className="rounded-lg p-1.5 text-text-faint transition-all duration-150 hover:bg-bg hover:text-text"
                   >
-                    👤
+                    <ProfileIcon size={15} />
                   </button>
                 </div>
               </div>
@@ -686,27 +702,36 @@ export function FriendsPage({
       {/* RIGHT: chat / profile / placeholder */}
       <main className="min-h-0 min-w-0 flex-1">
         {chattingFriend ? (
-          <ChatView
-            friend={chattingFriend}
-            myUserId={me.user_id}
-            statusLine={statusLineFor(
-              social.friendStatus(soc.presence.get(chattingFriend.userId)),
-              soc.presence.get(chattingFriend.userId),
-            )}
-            statusColor={statusText(
-              social.friendStatus(soc.presence.get(chattingFriend.userId)),
-            )}
-            onError={onError}
-            onBack={closeChat}
-            refetchKey={chatRefetchKey}
-            jamAction={
-              myFocus.focusing
-                ? { label: t('jam.invite'), run: () => onSendJam(chattingFriend, 'invite') }
-                : social.isLive(soc.presence.get(chattingFriend.userId))
-                  ? { label: t('jam.request'), run: () => onSendJam(chattingFriend, 'request') }
-                  : { label: t('jam.create'), run: () => onSendJam(chattingFriend, 'invite') }
-            }
-          />
+          (() => {
+            const presRow = soc.presence.get(chattingFriend.userId);
+            const chatStatus = social.friendStatus(presRow);
+            const live = chatStatus === 'focusing';
+            const focusSec =
+              live && presRow?.started_at
+                ? Math.max(0, (Date.now() - new Date(presRow.started_at).getTime()) / 1000)
+                : 0;
+            return (
+              <ChatView
+                friend={chattingFriend}
+                myUserId={me.user_id}
+                statusLine={statusLineFor(chatStatus, presRow)}
+                statusColor={statusText(chatStatus)}
+                friendLive={live}
+                friendFocusSec={focusSec}
+                inJamWithFriend={myJamMembers?.includes(chattingFriend.username) ?? false}
+                onError={onError}
+                onBack={closeChat}
+                refetchKey={chatRefetchKey}
+                jamAction={
+                  myFocus.focusing
+                    ? { label: t('jam.invite'), run: () => onSendJam(chattingFriend, 'invite') }
+                    : live
+                      ? { label: t('jam.request'), run: () => onSendJam(chattingFriend, 'request') }
+                      : { label: t('jam.create'), run: () => onSendJam(chattingFriend, 'invite') }
+                }
+              />
+            );
+          })()
         ) : viewingFriend ? (
           <FriendProfile
             friend={viewingFriend}

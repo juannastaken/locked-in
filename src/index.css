@@ -617,3 +617,50 @@ input[type='number'] {
   color: transparent;
   user-select: none;
 }
+
+/* chat message entrance */
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-msg-in {
+  animation: msg-in 170ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* subtle depth so surfaces don't read flat-solid */
+.chunk {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent 58%);
+  box-shadow: 0 12px 28px -20px rgba(0, 0, 0, 0.85);
+}
+.bubble-shadow {
+  box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.75);
+}
+.chat-backdrop {
+  background:
+    radial-gradient(1200px 500px at 85% -10%, color-mix(in srgb, var(--color-accent) 4%, transparent), transparent 65%),
+    radial-gradient(900px 420px at 0% 110%, rgba(255, 255, 255, 0.02), transparent 60%);
+}
+
+/* smooth reveal for hover-only controls (friend rows etc.) */
+.reveal {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-3px);
+  overflow: hidden;
+  transition:
+    max-height 200ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    opacity 180ms ease,
+    transform 200ms ease;
+}
+.group:hover .reveal,
+.reveal-open {
+  max-height: 48px;
+  opacity: 1;
+  transform: none;
+}

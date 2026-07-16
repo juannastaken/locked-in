@@ -311,6 +311,29 @@ alter table public.presence add column if not exists public_projects text;
 -- lifetime focused seconds (drives the profile badges friends can see)
 alter table public.presence add column if not exists total_sec bigint not null default 0;
 
+-- message edits: author-only, within 2 minutes (server-enforced), marked
+alter table public.messages add column if not exists edited_at timestamptz;
+
+drop policy if exists messages_update on public.messages;
+create policy messages_update on public.messages
+  for update to authenticated
+  using (auth.uid() = sender and created_at > now() - interval '2 minutes')
+  with check (auth.uid() = sender);
+
+revoke update on public.messages from authenticated;
+-- pubkeys included: an edit re-encrypts with CURRENT keys, so the snapshots
+-- must follow (sender/recipient identity stays locked out)
+grant update (nonce, body_ct, edited_at, sender_pub, recipient_pub)
+  on public.messages to authenticated;
+
+-- image messages need a bigger ciphertext budget (512px jpeg, encrypted)
+alter table public.messages drop constraint if exists messages_body_ct_check;
+alter table public.messages add constraint messages_body_ct_check
+  check (char_length(body_ct) <= 120000);
+alter table public.messages drop constraint if exists messages_kind_check;
+alter table public.messages add constraint messages_kind_check
+  check (kind in ('text', 'jam', 'image'));
+
 -- free-form profile bio (filtered client-side before upload, capped here too)
 alter table public.profiles add column if not exists bio text
   check (bio is null or char_length(bio) <= 140);

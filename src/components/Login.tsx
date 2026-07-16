@@ -2,10 +2,33 @@ import { useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import * as cloud from '../lib/cloud';
 import * as db from '../lib/db';
+import * as e2e from '../lib/e2e';
 import { getLang, setLang, t } from '../lib/i18n';
 import type { Lang } from '../lib/i18n';
 import * as social from '../lib/social';
 import { Mascot } from './Mascot';
+
+/**
+ * Zero-friction message-key cloud flow, run while the account password is
+ * still in memory: fresh device restores the key with it; fresh key gets
+ * backed up with it. The passphrase is stretched with Argon2id client-side —
+ * the server never stores the password and can't open the backup. A custom
+ * backup passphrase (set via Profile) still wins: auto-restore just fails
+ * closed and the manual restore modal takes over inside the app.
+ */
+async function autoKeyFlow(accountPassword: string): Promise<void> {
+  try {
+    const prof = await social.getMyProfile();
+    const status = await e2e.ensureKeys(prof?.e2e_pub ?? null);
+    if (status === 'ok') {
+      if (!(await e2e.hasCloudBackup())) await e2e.backupKeyToCloud(accountPassword);
+    } else if (status === 'restore-needed') {
+      await e2e.restoreKeyFromCloud(accountPassword);
+    }
+  } catch {
+    // offline or race — the in-app modal remains the fallback
+  }
+}
 
 interface LoginProps {
   /** called once the user is past the gate (signed in or chose guest) */
@@ -70,6 +93,7 @@ export function Login({ onDone }: LoginProps) {
         setError(t('login.badcreds'));
         return;
       }
+      await autoKeyFlow(pass);
       await afterAuth();
     } finally {
       setBusy(false);
@@ -121,6 +145,7 @@ export function Login({ onDone }: LoginProps) {
       // claim the username; if someone raced us to it, the Friends tab
       // asks again — never blocks the account itself
       await social.claimUsername(uname).catch(() => {});
+      await autoKeyFlow(pass);
       await afterAuth();
     } finally {
       setBusy(false);

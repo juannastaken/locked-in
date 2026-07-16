@@ -1288,6 +1288,7 @@ function AppShell() {
             onChatOpened={onChatOpened}
             openChatWith={openChatWith}
             onOpenChatConsumed={() => setOpenChatWith(null)}
+            myJamMembers={focus.jam?.members ?? null}
           />
         )}
         {tab === 'settings' && <SettingsScreen settingsHook={settingsHook} onError={onError} />}

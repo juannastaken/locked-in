@@ -5,32 +5,42 @@ import { currentUser, supabase } from './cloud';
 import * as e2e from './e2e';
 import { cleanProfanity } from './filter';
 
+export type MessageKind = 'text' | 'jam' | 'image';
+
 export interface MessageRow {
   id: number;
   sender: string;
   recipient: string;
-  kind: 'text' | 'jam';
+  kind: MessageKind;
   nonce: string;
   body_ct: string;
   sender_pub: string;
   recipient_pub: string;
   reply_to: number | null;
+  edited_at: string | null;
   created_at: string;
 }
 
 export interface DecryptedMessage {
   id: number;
   mine: boolean;
-  kind: 'text' | 'jam';
+  kind: MessageKind;
   /** null = this device's key can't open it (rotated/missing key) */
   text: string | null;
   reply_to: number | null;
+  edited_at: string | null;
   /** emoji → users who reacted ('me' aware via mine flag on caller side) */
   reactions: { emoji: string; count: number; mine: boolean }[];
   created_at: string;
 }
 
 export const MESSAGE_MAX_CHARS = 2000;
+/** how long the author can still edit a message (server enforces it too) */
+export const EDIT_WINDOW_MS = 2 * 60_000;
+
+export function canEdit(m: DecryptedMessage): boolean {
+  return m.mine && m.kind === 'text' && Date.now() - new Date(m.created_at).getTime() < EDIT_WINDOW_MS;
+}
 
 /** Fetches the friend's CURRENT public key straight from the server. */
 export async function fetchFriendPub(userId: string): Promise<string | null> {
@@ -46,13 +56,15 @@ export type SendResult = 'ok' | 'no-key' | 'friend-no-key' | 'error';
 
 export async function sendMessage(
   recipientId: string,
-  kind: 'text' | 'jam',
+  kind: MessageKind,
   plaintext: string,
   replyTo: number | null = null,
 ): Promise<SendResult> {
   const user = await currentUser();
   if (!user) return 'error';
-  const body = cleanProfanity(plaintext).slice(0, MESSAGE_MAX_CHARS);
+  // images travel as data-urls — profanity filter/char cap apply to text only
+  const body =
+    kind === 'image' ? plaintext : cleanProfanity(plaintext).slice(0, MESSAGE_MAX_CHARS);
   const theirPub = await fetchFriendPub(recipientId);
   if (!theirPub) return 'friend-no-key';
   const env = await e2e.encryptTo(body, theirPub);
@@ -120,6 +132,7 @@ export async function listConversation(
         kind: r.kind,
         text: await e2e.decryptRow(r, mine),
         reply_to: r.reply_to,
+        edited_at: r.edited_at,
         reactions: reactionMap.get(r.id) ?? [],
         created_at: r.created_at,
       };
@@ -196,6 +209,33 @@ export function joinTyping(
       supabase.removeChannel(channel).catch(() => {});
     },
   };
+}
+
+/**
+ * Re-encrypts and replaces the body (author-only; the server rejects edits
+ * older than 2 minutes via RLS). Marks the row as edited.
+ */
+export async function editMessage(
+  m: DecryptedMessage,
+  recipientId: string,
+  newText: string,
+): Promise<SendResult> {
+  const theirPub = await fetchFriendPub(recipientId);
+  if (!theirPub) return 'friend-no-key';
+  const body = cleanProfanity(newText).slice(0, MESSAGE_MAX_CHARS);
+  const env = await e2e.encryptTo(body, theirPub);
+  if (!env) return 'no-key';
+  const { error } = await supabase
+    .from('messages')
+    .update({
+      nonce: env.nonce,
+      body_ct: env.bodyCt,
+      sender_pub: env.senderPub,
+      recipient_pub: env.recipientPub,
+      edited_at: new Date().toISOString(),
+    })
+    .eq('id', m.id);
+  return error ? 'error' : 'ok';
 }
 
 /** Author-only, removes for both sides (RLS-enforced). */
