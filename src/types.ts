@@ -86,6 +86,7 @@ export interface Settings {
   autotrack_show_overlay: boolean;
   quotes_enabled: boolean;
   quotes_interval_min: number;
+  profile_projects_public: boolean;
 }
 
 /** One image pinned on the PureRef-style reference board. */

@@ -12,7 +12,7 @@ import { HabitsPage } from './components/Habits';
 import { Home } from './components/Home';
 import { Log } from './components/Log';
 import { Stats } from './components/Stats';
-import { ProfileModal } from './components/Profile';
+import { ProfilePage } from './components/Profile';
 import { SettingsScreen } from './components/Settings';
 import { Titlebar } from './components/Titlebar';
 import { Week } from './components/Week';
@@ -37,28 +37,49 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}, ${alpha})`;
 }
 
-type Tab =
-  | 'home'
-  | 'checkin'
-  | 'habits'
-  | 'week'
-  | 'goals'
-  | 'friends'
-  | 'log'
-  | 'stats'
-  | 'settings';
+type Tab = 'home' | 'routine' | 'analytics' | 'goals' | 'friends' | 'profile' | 'settings';
 
-// settings intentionally not in the nav — the titlebar gear + avatar menu open it
+// settings + profile intentionally not in the nav — the titlebar gear and
+// avatar menu open them. Check-in/Hábitos live under Rotina; Semana/Stats/
+// Histórico under Análise, so the top bar stays at five buttons.
 const TABS: { id: Tab; labelKey: string }[] = [
   { id: 'home', labelKey: 'tab.home' },
-  { id: 'checkin', labelKey: 'tab.checkin' },
-  { id: 'habits', labelKey: 'tab.habits' },
-  { id: 'week', labelKey: 'tab.week' },
+  { id: 'routine', labelKey: 'tab.routine' },
+  { id: 'analytics', labelKey: 'tab.analytics' },
   { id: 'goals', labelKey: 'tab.goals' },
   { id: 'friends', labelKey: 'tab.friends' },
-  { id: 'log', labelKey: 'tab.log' },
-  { id: 'stats', labelKey: 'tab.stats' },
 ];
+
+function SubTabs<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { id: T; labelKey: string }[];
+}) {
+  return (
+    <div className="flex justify-center pt-4">
+      <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface p-0.5">
+        {options.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => onChange(o.id)}
+            className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold ${
+              value === o.id
+                ? 'bg-surface-hover text-text shadow-sm'
+                : 'text-text-dim hover:text-text'
+            }`}
+          >
+            {t(o.labelKey)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function AppShell() {
   const { pushToast } = useToast();
@@ -80,8 +101,9 @@ function AppShell() {
     },
   });
   const [tab, setTab] = useState<Tab>('home');
+  const [routineSub, setRoutineSub] = useState<'checkin' | 'habits'>('checkin');
+  const [analyticsSub, setAnalyticsSub] = useState<'week' | 'stats' | 'log'>('week');
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showProfile, setShowProfile] = useState(false);
 
   // boot splash: shown at least 5s while everything loads behind it
   const [splashDone, setSplashDone] = useState(false);
@@ -764,21 +786,8 @@ function AppShell() {
         social={social}
         signedIn={signedIn}
         userName={settingsHook.settings?.user_name?.trim() || null}
-        onOpenProfile={() => setShowProfile(true)}
+        onOpenProfile={() => setTab('profile')}
       />
-
-      {showProfile && (
-        <ProfileModal
-          social={social}
-          userName={settingsHook.settings?.user_name?.trim() || null}
-          onError={onError}
-          onClose={() => setShowProfile(false)}
-          onOpenFriends={() => {
-            setShowProfile(false);
-            setTab('friends');
-          }}
-        />
-      )}
 
       <div className="flex min-h-0 flex-1">
       <main key={tab} className="animate-fade-up min-h-0 flex-1">
@@ -788,21 +797,69 @@ function AppShell() {
             settings={settingsHook.settings}
             onError={onError}
             refreshKey={refreshKey}
-            onOpenHabits={() => setTab('habits')}
+            onOpenHabits={() => {
+              setTab('routine');
+              setRoutineSub('habits');
+            }}
           />
         )}
-        {tab === 'checkin' && (
-          <CheckinPage settings={settingsHook.settings} onError={onError} />
+        {tab === 'routine' && (
+          <div className="flex h-full min-h-0 flex-col">
+            <SubTabs
+              value={routineSub}
+              onChange={setRoutineSub}
+              options={[
+                { id: 'checkin', labelKey: 'tab.checkin' },
+                { id: 'habits', labelKey: 'tab.habits' },
+              ]}
+            />
+            <div className="min-h-0 flex-1">
+              {routineSub === 'checkin' ? (
+                <CheckinPage settings={settingsHook.settings} onError={onError} />
+              ) : (
+                <HabitsPage onError={onError} />
+              )}
+            </div>
+          </div>
         )}
-        {tab === 'habits' && <HabitsPage onError={onError} />}
-        {tab === 'week' && (
-          <Week
-            onError={onError}
-            refreshKey={refreshKey}
-            dailyGoalHours={settingsHook.settings?.daily_goal_hours ?? 4}
-          />
+        {tab === 'analytics' && (
+          <div className="flex h-full min-h-0 flex-col">
+            <SubTabs
+              value={analyticsSub}
+              onChange={setAnalyticsSub}
+              options={[
+                { id: 'week', labelKey: 'tab.week' },
+                { id: 'stats', labelKey: 'tab.stats' },
+                { id: 'log', labelKey: 'tab.log' },
+              ]}
+            />
+            <div className="min-h-0 flex-1">
+              {analyticsSub === 'week' && (
+                <Week
+                  onError={onError}
+                  refreshKey={refreshKey}
+                  dailyGoalHours={settingsHook.settings?.daily_goal_hours ?? 4}
+                />
+              )}
+              {analyticsSub === 'stats' && (
+                <Stats settings={settingsHook.settings} onError={onError} refreshKey={refreshKey} />
+              )}
+              {analyticsSub === 'log' && <Log onError={onError} refreshKey={refreshKey} />}
+            </div>
+          </div>
         )}
         {tab === 'goals' && <GoalsPage onError={onError} refreshKey={refreshKey} />}
+        {tab === 'profile' && (
+          <ProfilePage
+            social={social}
+            userName={settingsHook.settings?.user_name?.trim() || null}
+            projectsPublic={settingsHook.settings?.profile_projects_public ?? false}
+            signedIn={signedIn}
+            onError={onError}
+            onOpenFriends={() => setTab('friends')}
+            refreshKey={refreshKey}
+          />
+        )}
         {tab === 'friends' && (
           <FriendsPage
             signedIn={signedIn}
@@ -813,10 +870,6 @@ function AppShell() {
               setTab('home');
             }}
           />
-        )}
-        {tab === 'log' && <Log onError={onError} refreshKey={refreshKey} />}
-        {tab === 'stats' && (
-          <Stats settings={settingsHook.settings} onError={onError} refreshKey={refreshKey} />
         )}
         {tab === 'settings' && <SettingsScreen settingsHook={settingsHook} onError={onError} />}
       </main>

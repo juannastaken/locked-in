@@ -78,11 +78,35 @@ const dict: Record<string, { pt: string; en: string }> = {
   'login.username': { pt: 'nome único (ex: JuanArtxz)', en: 'unique name (e.g. JuanArtxz)' },
 
   // titlebar + profile
+  'tab.routine': { pt: 'Rotina', en: 'Routine' },
+  'tab.analytics': { pt: 'Análise', en: 'Analytics' },
   'menu.profile': { pt: 'Perfil', en: 'Profile' },
   'menu.account': { pt: 'Conta', en: 'Account' },
-  'profile.hours': { pt: 'focado total', en: 'total focused' },
+  'profile.hours': { pt: 'focado na vida', en: 'lifetime focus' },
   'profile.sessions': { pt: 'sessões', en: 'sessions' },
+  'profile.avgday': { pt: 'média/dia ativo', en: 'avg/active day' },
+  'profile.bestday': { pt: 'melhor dia', en: 'best day' },
+  'profile.projects': { pt: 'Projetos recentes (30d)', en: 'Recent projects (30d)' },
+  'profile.public': { pt: 'público', en: 'public' },
+  'profile.private': { pt: 'privado', en: 'private' },
+  'profile.noprojects': {
+    pt: 'nenhum projeto nos últimos 30 dias',
+    en: 'no projects in the last 30 days',
+  },
+  'profile.seefriends': { pt: 'ver todos', en: 'see all' },
   'profile.changephoto': { pt: 'trocar foto', en: 'change photo' },
+  'set.profile.projects': {
+    pt: 'Projetos recentes públicos',
+    en: 'Public recent projects',
+  },
+  'set.profile.projects.hint': {
+    pt: 'quando ativado, teus amigos poderão ver teus projetos recentes no teu perfil (padrão: privado)',
+    en: 'when on, friends will be able to see your recent projects on your profile (default: private)',
+  },
+  'fr.bar.empty': {
+    pt: 'adiciona um amigo agora!',
+    en: 'add a friend now!',
+  },
   'win.min': { pt: 'Minimizar', en: 'Minimize' },
   'win.max': { pt: 'Maximizar', en: 'Maximize' },
   'win.close': { pt: 'Fechar', en: 'Close' },

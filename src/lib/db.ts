@@ -718,6 +718,7 @@ const SETTINGS_DEFAULTS: Settings = {
   autotrack_show_overlay: true,
   quotes_enabled: false,
   quotes_interval_min: 30,
+  profile_projects_public: false,
 };
 
 // ---------- reference board ----------

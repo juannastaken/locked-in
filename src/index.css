@@ -543,3 +543,21 @@ input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* responsive UI scale: the whole interface (rem-based) grows with the window,
+   so maximized/fullscreen actually looks bigger instead of tiny-and-centered */
+@media (min-width: 1360px) {
+  html {
+    font-size: 17px;
+  }
+}
+@media (min-width: 1680px) {
+  html {
+    font-size: 18.5px;
+  }
+}
+@media (min-width: 2200px) {
+  html {
+    font-size: 21px;
+  }
+}

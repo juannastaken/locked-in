@@ -440,6 +440,12 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
               onChange={(v) => update('notify_milestones', v)}
             />
           </Field>
+          <Field label={t('set.profile.projects')} hint={t('set.profile.projects.hint')}>
+            <Toggle
+              checked={settings.profile_projects_public}
+              onChange={(v) => update('profile_projects_public', v)}
+            />
+          </Field>
         </Section>
 
         <Section title={t('set.system')}>

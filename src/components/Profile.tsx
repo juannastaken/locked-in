@@ -5,14 +5,17 @@ import { t } from '../lib/i18n';
 import * as social from '../lib/social';
 import { formatDurationShort } from '../lib/time';
 import type { SocialHook } from '../hooks/useSocial';
-import { Mascot } from './Mascot';
+import type { ProjectBreakdown } from '../types';
+import { PersonIcon } from './Titlebar';
 
 interface ProfileProps {
   social: SocialHook;
   userName: string | null;
+  projectsPublic: boolean;
+  signedIn: boolean;
   onError: (m: string) => void;
-  onClose: () => void;
   onOpenFriends: () => void;
+  refreshKey: number;
 }
 
 /** Reads a picked image file and returns a small square jpeg data-url. */
@@ -28,7 +31,6 @@ function fileToAvatar(file: File): Promise<string> {
       canvas.height = SIZE;
       const ctx = canvas.getContext('2d');
       if (!ctx) return reject(new Error('canvas'));
-      // center-crop to a square, then scale down
       const side = Math.min(img.width, img.height);
       ctx.drawImage(
         img,
@@ -51,17 +53,49 @@ function fileToAvatar(file: File): Promise<string> {
   });
 }
 
-export function ProfileModal({ social: soc, userName, onError, onClose, onOpenFriends }: ProfileProps) {
+interface Analytics {
+  totalSec: number;
+  sessionCount: number;
+  activeDays: number;
+  bestDaySec: number;
+}
+
+export function ProfilePage({
+  social: soc,
+  userName,
+  projectsPublic,
+  signedIn,
+  onError,
+  onOpenFriends,
+  refreshKey,
+}: ProfileProps) {
   const me = soc.state?.me ?? null;
   const [email, setEmail] = useState('');
-  const [stats, setStats] = useState<{ totalSec: number; sessionCount: number } | null>(null);
+  const [an, setAn] = useState<Analytics | null>(null);
+  const [recentProjects, setRecentProjects] = useState<ProjectBreakdown[]>([]);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     cloud.currentUser().then((u) => setEmail(u?.email ?? ''));
-    db.getLifetimeStats().then(setStats).catch(() => {});
-  }, []);
+    const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    Promise.all([
+      db.getLifetimeStats(),
+      db.getDailyTotals(new Date(0).toISOString()),
+      db.getProjectBreakdown(monthAgo),
+    ])
+      .then(([life, daily, projs]) => {
+        const active = daily.filter((d) => d.total_sec > 0);
+        setAn({
+          totalSec: life.totalSec,
+          sessionCount: life.sessionCount,
+          activeDays: active.length,
+          bestDaySec: active.reduce((m, d) => Math.max(m, d.total_sec), 0),
+        });
+        setRecentProjects(projs.slice(0, 5));
+      })
+      .catch((err) => onError(String(err)));
+  }, [onError, refreshKey]);
 
   async function pickPhoto(file: File | undefined) {
     if (!file) return;
@@ -79,45 +113,35 @@ export function ProfileModal({ social: soc, userName, onError, onClose, onOpenFr
   }
 
   const friends = soc.state?.friends ?? [];
+  const avgPerActiveDay = an && an.activeDays > 0 ? an.totalSec / an.activeDays : 0;
+  const maxProj = recentProjects[0]?.total_sec || 1;
 
   return (
-    <div
-      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6 backdrop-blur-sm"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="chunk animate-scale-in w-full max-w-sm p-6">
-        <div className="flex items-start justify-between">
-          <h2 className="text-lg font-extrabold text-text">{t('menu.profile')}</h2>
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-2xl space-y-5 px-4 pb-10 pt-8 sm:px-6 xl:max-w-3xl">
+        {/* identity header */}
+        <div className="flex items-center gap-5">
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-md px-1.5 text-text-faint hover:text-text"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* avatar + identity */}
-        <div className="mt-4 flex items-center gap-4">
-          <button
-            type="button"
-            disabled={busy}
+            disabled={busy || !signedIn}
             onClick={() => fileRef.current?.click()}
             title={t('profile.changephoto')}
-            className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-border-strong bg-bg"
+            className="group relative h-28 w-28 shrink-0 overflow-hidden rounded-full border-4 border-border-strong bg-surface text-text-dim"
           >
             {me?.avatar_b64 ? (
               <img src={me.avatar_b64} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <Mascot mood="happy" size={44} />
+                <PersonIcon size={52} />
               </div>
             )}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-              <span className="text-[10px] font-extrabold uppercase text-white">
-                {busy ? '…' : t('profile.changephoto')}
-              </span>
-            </div>
+            {signedIn && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="text-[10px] font-extrabold uppercase text-white">
+                  {busy ? '…' : t('profile.changephoto')}
+                </span>
+              </div>
+            )}
           </button>
           <input
             ref={fileRef}
@@ -130,67 +154,139 @@ export function ProfileModal({ social: soc, userName, onError, onClose, onOpenFr
             }}
           />
           <div className="min-w-0">
-            <div className="truncate text-base font-extrabold text-text">
-              {userName || (me ? `@${me.username}` : '')}
+            <div className="text-[11px] font-extrabold uppercase tracking-widest text-text-faint">
+              {t('menu.profile')}
             </div>
-            {me && <div className="truncate text-sm font-bold text-accent">@{me.username}</div>}
-            <div className="mt-0.5 truncate text-[11px] font-medium text-text-faint">{email}</div>
+            <h1 className="truncate text-3xl font-extrabold tracking-tight text-text">
+              {userName || (me ? me.username : '—')}
+            </h1>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
+              {me && <span className="font-bold text-accent">@{me.username}</span>}
+              {email && <span className="text-xs font-medium text-text-faint">{email}</span>}
+              <button
+                type="button"
+                onClick={onOpenFriends}
+                className="text-xs font-bold text-text-dim underline-offset-4 hover:text-text hover:underline"
+              >
+                {friends.length} {t('fr.title').toLowerCase()}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* lifetime stats */}
-        <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-          <div className="chunk px-2 py-3">
-            <div className="font-mono text-base font-bold tabular-nums text-accent">
-              {stats ? formatDurationShort(stats.totalSec) : '…'}
-            </div>
-            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-text-faint">
-              {t('profile.hours')}
-            </div>
+        {/* big focus number */}
+        <div className="chunk p-5">
+          <div className="font-mono text-[44px] font-bold leading-none tabular-nums text-accent">
+            {an ? formatDurationShort(an.totalSec) : '…'}
           </div>
-          <div className="chunk px-2 py-3">
-            <div className="font-mono text-base font-bold tabular-nums text-text">
-              {stats ? stats.sessionCount : '…'}
+          <div className="mt-1.5 text-xs font-bold uppercase tracking-wide text-text-faint">
+            {t('profile.hours')}
+          </div>
+        </div>
+
+        {/* analytics */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="chunk px-3 py-4 text-center">
+            <div className="font-mono text-xl font-bold tabular-nums text-text">
+              {an ? an.sessionCount : '…'}
             </div>
-            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-text-faint">
+            <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
               {t('profile.sessions')}
             </div>
           </div>
-          <button type="button" onClick={onOpenFriends} className="chunk px-2 py-3 hover:border-accent">
-            <div className="font-mono text-base font-bold tabular-nums text-text">
-              {friends.length}
+          <div className="chunk px-3 py-4 text-center">
+            <div className="font-mono text-xl font-bold tabular-nums text-text">
+              {an ? formatDurationShort(avgPerActiveDay) : '…'}
             </div>
-            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-text-faint">
-              {t('fr.title')}
+            <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
+              {t('profile.avgday')}
             </div>
-          </button>
+          </div>
+          <div className="chunk px-3 py-4 text-center">
+            <div className="font-mono text-xl font-bold tabular-nums text-text">
+              {an ? formatDurationShort(an.bestDaySec) : '…'}
+            </div>
+            <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
+              {t('profile.bestday')}
+            </div>
+          </div>
         </div>
 
-        {/* friend avatars strip */}
-        {friends.length > 0 && (
-          <button
-            type="button"
-            onClick={onOpenFriends}
-            className="mt-4 flex w-full items-center gap-1.5 rounded-xl border border-border px-3 py-2.5 hover:border-border-strong"
-          >
-            {friends.slice(0, 8).map((f) => (
-              <span
-                key={f.userId}
-                title={`@${f.username}`}
-                className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-strong bg-bg text-[10px] font-extrabold uppercase text-text-dim"
-              >
-                {f.avatar ? (
-                  <img src={f.avatar} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  f.username.slice(0, 2)
-                )}
+        {/* recent projects (last 30 days) */}
+        <div className="chunk space-y-2.5 p-4">
+          <div className="flex items-baseline justify-between">
+            <span className="text-xs font-extrabold uppercase tracking-wide text-text-dim">
+              {t('profile.projects')}
+            </span>
+            <span
+              className="text-[11px] font-bold text-text-faint"
+              title={t('set.profile.projects.hint')}
+            >
+              {projectsPublic ? t('profile.public') : `🔒 ${t('profile.private')}`}
+            </span>
+          </div>
+          {recentProjects.length === 0 && (
+            <div className="py-3 text-center text-sm font-semibold text-text-faint">
+              {t('profile.noprojects')}
+            </div>
+          )}
+          {recentProjects.map((p) => (
+            <div key={p.project} className="flex items-center gap-2.5">
+              <span className="w-36 truncate text-sm font-bold text-text">{p.project}</span>
+              <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-[3px] border border-border-strong bg-bg">
+                <div
+                  className="h-full bg-accent"
+                  style={{ width: `${(p.total_sec / maxProj) * 100}%` }}
+                />
+              </div>
+              <span className="w-14 shrink-0 text-right font-mono text-xs font-bold tabular-nums text-text-dim">
+                {formatDurationShort(p.total_sec)}
               </span>
-            ))}
-            {friends.length > 8 && (
-              <span className="text-[11px] font-bold text-text-faint">+{friends.length - 8}</span>
-            )}
-          </button>
-        )}
+            </div>
+          ))}
+        </div>
+
+        {/* friends */}
+        <div className="chunk space-y-3 p-4">
+          <div className="flex items-baseline justify-between">
+            <span className="text-xs font-extrabold uppercase tracking-wide text-text-dim">
+              {t('fr.title')} ({friends.length})
+            </span>
+            <button
+              type="button"
+              onClick={onOpenFriends}
+              className="text-[11px] font-bold text-accent underline-offset-4 hover:underline"
+            >
+              {t('profile.seefriends')}
+            </button>
+          </div>
+          {friends.length === 0 ? (
+            <div className="py-2 text-center text-sm font-semibold text-text-faint">
+              {t('fr.empty')}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {friends.slice(0, 12).map((f) => (
+                <span
+                  key={f.userId}
+                  title={`@${f.username}`}
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-border-strong bg-bg text-[11px] font-extrabold uppercase text-text-dim"
+                >
+                  {f.avatar ? (
+                    <img src={f.avatar} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    f.username.slice(0, 2)
+                  )}
+                </span>
+              ))}
+              {friends.length > 12 && (
+                <span className="self-center text-xs font-bold text-text-faint">
+                  +{friends.length - 12}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
