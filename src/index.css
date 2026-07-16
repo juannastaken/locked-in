@@ -255,6 +255,69 @@
   outline: none;
 }
 
+/* ---------- GLOBAL chunky pass — makes the whole app Duolingo-thick ---------- */
+/* thicker type everywhere */
+body {
+  font-weight: 500;
+}
+h1,
+h2,
+h3 {
+  font-weight: 800;
+}
+button {
+  font-weight: 700;
+}
+
+/* every bordered surface card gets a chunky border + hard offset shadow */
+.bg-surface.border,
+.bg-surface.border-border,
+.bg-surface.border-border-strong {
+  border-width: 2px;
+  border-color: var(--color-border-strong);
+  box-shadow: 0 3px 0 0 rgba(0, 0, 0, 0.32);
+}
+
+/* accent (primary) buttons — hard shadow + press-down, applied globally */
+button.bg-accent {
+  border: 2px solid color-mix(in srgb, var(--color-accent) 55%, #000);
+  box-shadow: 0 4px 0 0 color-mix(in srgb, var(--color-accent) 55%, #000);
+  font-weight: 800;
+  transition:
+    transform 60ms ease,
+    box-shadow 60ms ease,
+    filter 120ms ease;
+}
+button.bg-accent:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, #000);
+}
+
+/* bordered (secondary) buttons — thicker border + subtle hard shadow + press */
+button.border.border-border,
+button.border.border-border-strong {
+  border-width: 2px;
+  border-color: var(--color-border-strong);
+  box-shadow: 0 3px 0 0 rgba(0, 0, 0, 0.3);
+  transition:
+    transform 60ms ease,
+    box-shadow 60ms ease,
+    background-color 120ms ease;
+}
+button.border.border-border:active:not(:disabled),
+button.border.border-border-strong:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.3);
+}
+
+/* squarer corners: soften the extreme pill/round radii into chunky rounded */
+.rounded-2xl {
+  border-radius: 14px;
+}
+.rounded-xl {
+  border-radius: 12px;
+}
+
 html,
 body,
 #root {

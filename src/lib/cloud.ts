@@ -34,9 +34,23 @@ export async function currentUser(): Promise<{ id: string; email: string } | nul
   return { id: s.user.id, email: s.user.email ?? '' };
 }
 
-export async function signUp(email: string, password: string): Promise<string | null> {
-  const { error } = await supabase.auth.signUp({ email, password });
-  return error ? error.message : null;
+export type SignUpResult =
+  | { kind: 'ok' }
+  | { kind: 'exists' }
+  | { kind: 'error'; message: string };
+
+export async function signUp(email: string, password: string): Promise<SignUpResult> {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) {
+    if (/already|registered|exists/i.test(error.message)) return { kind: 'exists' };
+    return { kind: 'error', message: error.message };
+  }
+  // with email confirmations off, an EXISTING email is obfuscated as a user
+  // with no identities and no session — treat that as "already exists"
+  if (data.user && (data.user.identities?.length ?? 0) === 0 && !data.session) {
+    return { kind: 'exists' };
+  }
+  return { kind: 'ok' };
 }
 
 export async function signIn(email: string, password: string): Promise<string | null> {

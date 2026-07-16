@@ -135,6 +135,12 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: 'esse email já tem conta — clica em Entrar',
     en: 'that email already has an account — hit Sign in',
   },
+  'login.haveaccount': { pt: 'Já tenho conta — entrar', en: 'I have an account — sign in' },
+  'login.confirm': { pt: 'confirmar senha', en: 'confirm password' },
+  'login.mismatch': { pt: 'as senhas não batem', en: "passwords don't match" },
+  'login.bademail': { pt: 'email inválido', en: 'invalid email' },
+  'login.badpass': { pt: 'senha precisa de 8+ caracteres', en: 'password needs 8+ characters' },
+  'login.badcreds': { pt: 'email ou senha errados', en: 'wrong email or password' },
   'login.guest': { pt: 'continuar como convidado', en: 'continue as guest' },
   'login.guest.hint': {
     pt: 'sem conta, teus dados ficam só neste PC (criptografados). Cria conta depois pra ter backup na nuvem.',

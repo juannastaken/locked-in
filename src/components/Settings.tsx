@@ -26,18 +26,12 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
   const { pushToast } = useToast();
   const [exporting, setExporting] = useState(false);
 
-  // ---- cloud account ----
+  // ---- cloud account (sign-in/up UI lives in the full-screen Login gate) ----
   const [account, setAccount] = useState<{ id: string; email: string } | null>(null);
-  const [accEmail, setAccEmail] = useState('');
-  const [accPass, setAccPass] = useState('');
   const [accBusy, setAccBusy] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(
     () => localStorage.getItem('cloud-last-sync'),
   );
-  const [conflict, setConflict] = useState<{
-    cloudSnap: cloud.CloudSnapshot;
-    localCount: number;
-  } | null>(null);
 
   useEffect(() => {
     cloud.currentUser().then(setAccount).catch(() => {});
@@ -49,50 +43,10 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
     setLastSync(now);
   }
 
-  async function reconcileAfterLogin() {
-    const cloudSnap = await cloud.downloadSnapshot();
-    const localCount = await db.localDataCount();
-    if (!cloudSnap) {
-      const err = await cloud.uploadSnapshot();
-      if (err) pushToast(t('acc.err', err), 'error');
-      else {
-        markSynced();
-        pushToast(t('acc.firstsync'), 'info');
-      }
-      return;
-    }
-    if (localCount === 0) {
-      await cloud.restoreSnapshot(cloudSnap);
-      pushToast(t('acc.restored'), 'info');
-      window.setTimeout(() => window.location.reload(), 900);
-      return;
-    }
-    setConflict({ cloudSnap, localCount });
-  }
-
-  async function accSubmit(kind: 'signup' | 'signin') {
-    const email = accEmail.trim();
-    if (!email || accPass.length < 8) {
-      pushToast(t('acc.badinput'), 'error');
-      return;
-    }
-    setAccBusy(true);
-    try {
-      const err =
-        kind === 'signup'
-          ? (await cloud.signUp(email, accPass)) ?? (await cloud.signIn(email, accPass))
-          : await cloud.signIn(email, accPass);
-      if (err) {
-        pushToast(t('acc.err', err), 'error');
-        return;
-      }
-      const user = await cloud.currentUser();
-      setAccount(user);
-      setAccPass('');
-      await reconcileAfterLogin();
-    } finally {
-      setAccBusy(false);
-    }
+  // opens the login gate by clearing guest mode and reloading
+  function openLoginGate() {
+    localStorage.removeItem('guest-mode');
+    window.location.reload();
   }
 
   async function accSyncNow() {
@@ -143,67 +97,6 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      {conflict && (
-        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="animate-scale-in w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl shadow-black/50">
-            <h2 className="text-base font-semibold text-text">{t('acc.conflict.title')}</h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-text-dim">
-              {t('acc.conflict.body')}
-            </p>
-            <div className="mt-4 space-y-2 text-sm">
-              <div className="rounded-xl border border-border bg-bg px-4 py-3">
-                ☁️ {t('acc.conflict.cloud')}{' '}
-                <span className="text-text-faint">
-                  ·{' '}
-                  {new Date(conflict.cloudSnap.updated_at).toLocaleString(dateLocale(), {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}{' '}
-                  · {conflict.cloudSnap.data.sessions?.length ?? 0} {t('home.blocks')}
-                </span>
-              </div>
-              <div className="rounded-xl border border-border bg-bg px-4 py-3">
-                💻 {t('acc.conflict.local')}{' '}
-                <span className="text-text-faint">
-                  · {conflict.localCount} {t('acc.conflict.items')}
-                </span>
-              </div>
-            </div>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  const snap = conflict.cloudSnap;
-                  setConflict(null);
-                  await cloud.restoreSnapshot(snap);
-                  pushToast(t('acc.restored'), 'info');
-                  window.setTimeout(() => window.location.reload(), 900);
-                }}
-                className="flex-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-bg hover:brightness-110"
-              >
-                {t('acc.conflict.usecloud')}
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  setConflict(null);
-                  const err = await cloud.uploadSnapshot();
-                  if (err) pushToast(t('acc.err', err), 'error');
-                  else {
-                    markSynced();
-                    pushToast(t('acc.synced'), 'info');
-                  }
-                }}
-                className="flex-1 rounded-lg border border-border py-2.5 text-sm text-text hover:bg-surface-hover"
-              >
-                {t('acc.conflict.uselocal')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <div className="mx-auto max-w-lg space-y-7 px-6 pb-10 pt-6">
         <Section title={t('acc.section')}>
           {account ? (
@@ -219,14 +112,14 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
                   type="button"
                   disabled={accBusy}
                   onClick={accSyncNow}
-                  className="flex-1 rounded-lg bg-accent py-2 text-[13px] font-semibold text-bg hover:brightness-110 disabled:opacity-40"
+                  className="chunk-btn chunk-btn-accent flex-1 py-2.5 text-[13px]"
                 >
                   {accBusy ? '…' : t('acc.syncnow')}
                 </button>
                 <button
                   type="button"
                   onClick={accLogout}
-                  className="rounded-lg border border-border px-4 py-2 text-[13px] text-text-dim hover:bg-surface-hover hover:text-text"
+                  className="chunk-btn px-4 py-2.5 text-[13px] text-text-dim"
                 >
                   {t('acc.logout')}
                 </button>
@@ -234,42 +127,15 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
             </>
           ) : (
             <div className="space-y-2.5 px-4 py-3.5">
-              <div className="text-sm text-text">{t('acc.title')}</div>
+              <div className="text-sm font-semibold text-text">{t('acc.title')}</div>
               <div className="text-xs text-text-faint">{t('acc.hint')}</div>
-              <input
-                type="email"
-                value={accEmail}
-                onChange={(e) => setAccEmail(e.target.value)}
-                placeholder="email"
-                autoComplete="off"
-                className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-[13px] text-text transition-colors placeholder:text-text-faint focus:border-accent"
-              />
-              <input
-                type="password"
-                value={accPass}
-                onChange={(e) => setAccPass(e.target.value)}
-                placeholder={t('acc.pass.placeholder')}
-                autoComplete="new-password"
-                className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-[13px] text-text transition-colors placeholder:text-text-faint focus:border-accent"
-              />
-              <div className="flex gap-2 pt-0.5">
-                <button
-                  type="button"
-                  disabled={accBusy}
-                  onClick={() => accSubmit('signin')}
-                  className="flex-1 rounded-lg bg-accent py-2 text-[13px] font-semibold text-bg hover:brightness-110 disabled:opacity-40"
-                >
-                  {accBusy ? '…' : t('acc.signin')}
-                </button>
-                <button
-                  type="button"
-                  disabled={accBusy}
-                  onClick={() => accSubmit('signup')}
-                  className="flex-1 rounded-lg border border-border py-2 text-[13px] text-text hover:bg-surface-hover disabled:opacity-40"
-                >
-                  {t('acc.signup')}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={openLoginGate}
+                className="chunk-btn chunk-btn-accent mt-1 w-full py-2.5 text-[13px]"
+              >
+                {t('acc.signin')} / {t('acc.signup')}
+              </button>
             </div>
           )}
         </Section>
