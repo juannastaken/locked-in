@@ -302,10 +302,16 @@ returns boolean language sql security definer set search_path = public as $$
     select 1 from group_members where group_id = gid and user_id = auth.uid() and is_admin
   );
 $$;
+create or replace function public.is_group_owner(gid bigint)
+returns boolean language sql security definer set search_path = public as $$
+  select exists (select 1 from groups where id = gid and owner = auth.uid());
+$$;
 revoke all on function public.is_group_member(bigint) from public;
 revoke all on function public.is_group_admin(bigint) from public;
+revoke all on function public.is_group_owner(bigint) from public;
 grant execute on function public.is_group_member(bigint) to authenticated;
 grant execute on function public.is_group_admin(bigint) to authenticated;
+grant execute on function public.is_group_owner(bigint) to authenticated;
 
 -- hard cap: 5 people per group
 create or replace function public.enforce_group_cap()
@@ -327,9 +333,12 @@ alter table public.group_messages enable row level security;
 
 -- groups: members see; anyone signed-in creates (becoming owner); admins
 -- rename / manage the jam fields; owner deletes
+-- the owner must see their group even BEFORE their member row exists:
+-- INSERT ... RETURNING runs the SELECT policy, so creation would 404 itself
 drop policy if exists groups_select on public.groups;
 create policy groups_select on public.groups
-  for select to authenticated using (public.is_group_member(id));
+  for select to authenticated
+  using (public.is_group_member(id) or owner = auth.uid());
 
 drop policy if exists groups_insert on public.groups;
 create policy groups_insert on public.groups
@@ -361,12 +370,9 @@ create policy gm_insert on public.group_members
   for insert to authenticated
   with check (
     public.is_group_admin(group_id)
-    or (auth.uid() = user_id and auth.uid() = added_by and public.is_group_admin(group_id))
-    -- group creator bootstraps their own admin row
-    or (
-      auth.uid() = user_id
-      and exists (select 1 from groups g where g.id = group_id and g.owner = auth.uid())
-    )
+    -- group creator bootstraps their own admin row (SECURITY DEFINER check —
+    -- a plain subquery here would hit the groups RLS before membership exists)
+    or (auth.uid() = user_id and public.is_group_owner(group_id))
   );
 
 drop policy if exists gm_update on public.group_members;
