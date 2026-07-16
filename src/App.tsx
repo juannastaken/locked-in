@@ -436,8 +436,12 @@ function AppShell() {
       const msg =
         p.kind === 'invite' ? t('jam.toast.calling', p.username) : t('jam.toast.wantsin', p.username);
       pushToast(msg, 'info');
-      invoke('show_notice', { title: '🎧 JAM', body: msg, mood: 'hyped' }).catch(() => {});
-      invoke('show_main_window').catch(() => {});
+      // dedicated jam popup — answerable straight from the corner
+      invoke('show_jam_call', {
+        username: p.username,
+        task: p.task,
+        incomingKind: p.kind,
+      }).catch(() => {});
     },
     onJoinApproved: (invite, hostUsername) => {
       // my join request got a yes — hop into the host's jam right now
@@ -597,6 +601,47 @@ function AppShell() {
     [jam, onError, pushToast, social.presence],
   );
 
+  // answers coming from the corner popup's Accept/Decline buttons
+  const answerJamPromptRef = useRef<(accept: boolean) => void>(() => {});
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<{ accept: boolean }>('jam:popup-answer', (e) => {
+      answerJamPromptRef.current(e.payload.accept);
+    }).then((u) => {
+      unlisten = u;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  // "X saiu da JAM": while I'm in a jam, watch each member's presence — once
+  // someone we've SEEN focusing goes not-focusing, announce the exit (the
+  // seen-first rule avoids false alarms while they're still starting up)
+  const jamSeenLiveRef = useRef<Set<string>>(new Set());
+  const jamLeftNotifiedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!focus.jam) {
+      jamSeenLiveRef.current.clear();
+      jamLeftNotifiedRef.current.clear();
+      return;
+    }
+    const others = focus.jam.members.filter((u) => u !== myUsernameRef.current);
+    for (const u of others) {
+      const friend = socialStateRef.current?.friends.find((f) => f.username === u);
+      if (!friend) continue;
+      const live = socialLib.isLive(social.presence.get(friend.userId));
+      if (live) {
+        jamSeenLiveRef.current.add(u);
+        jamLeftNotifiedRef.current.delete(u);
+      } else if (jamSeenLiveRef.current.has(u) && !jamLeftNotifiedRef.current.has(u)) {
+        jamLeftNotifiedRef.current.add(u);
+        jamSeenLiveRef.current.delete(u);
+        const msg = t('jam.left', u);
+        pushToast(msg, 'info');
+        invoke('show_notice', { title: '🎧 JAM', body: msg, mood: 'sad' }).catch(() => {});
+      }
+    }
+  }, [focus.jam, social.presence, pushToast]);
+
   async function answerJamPrompt(accept: boolean) {
     const p = await jam.answer(accept);
     if (!p || !accept) return;
@@ -615,6 +660,7 @@ function AppShell() {
       pushToast(t('jam.guestjoined', p.username), 'info');
     }
   }
+  answerJamPromptRef.current = answerJamPrompt;
   useEffect(() => {
     const unlisteners: (() => void)[] = [];
     // rust re-applies the app icon on every show (Windows loses it after tray cycles)

@@ -194,6 +194,16 @@ export type PopupPayload =
       accent: string;
     }
   | {
+      kind: 'jamcall';
+      username: string;
+      task: string;
+      /** 'invite' = they call me in; 'request' = they want into my jam */
+      incomingKind: string;
+      lang: string;
+      sound: boolean;
+      accent: string;
+    }
+  | {
       kind: 'update';
       version: string;
       url: string;

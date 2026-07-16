@@ -322,6 +322,56 @@ export function Popup() {
     );
   }
 
+  // jam call — answerable right from the corner
+  if (payload.kind === 'jamcall') {
+    const answer = (accept: boolean) => {
+      emit('jam:popup-answer', { accept }).catch(() => {});
+      if (accept) invoke('show_main_window').catch(() => {});
+      hide();
+    };
+    return (
+      <div className="flex h-screen w-screen items-end justify-end p-2">
+        <div
+          className={`w-full rounded-2xl border-2 border-accent bg-surface p-4 shadow-2xl shadow-black/60 ${
+            leaving ? 'animate-popup-out' : 'animate-popup-in'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <Mascot mood="hyped" size={44} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="animate-pulse-dot h-1.5 w-1.5 rounded-full bg-accent" />
+                <span className="text-sm font-bold tracking-tight text-accent">🎧 JAM</span>
+              </div>
+              <p className="mt-1 text-[13px] leading-snug text-text">
+                <span className="font-bold">@{payload.username}</span>{' '}
+                {payload.incomingKind === 'invite'
+                  ? t('jam.calling', payload.task)
+                  : t('jam.wantsin', payload.task)}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => answer(true)}
+              className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg hover:brightness-110"
+            >
+              {payload.incomingKind === 'invite' ? t('jam.accept') : t('jam.let.in')}
+            </button>
+            <button
+              type="button"
+              onClick={() => answer(false)}
+              className="rounded-xl border border-border px-4 py-2 text-[13px] text-text-dim hover:bg-surface-hover hover:text-text"
+            >
+              {t('jam.decline')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // generic notice (milestones, burnout, auto-end, break end)
   if (payload.kind === 'notice') {
     return (

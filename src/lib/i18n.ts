@@ -157,6 +157,7 @@ const dict: Record<string, { pt: string; en: string }> = {
   'jam.joined': { pt: 'você entrou na JAM de @{0} 🎧', en: 'you joined @{0}\'s JAM 🎧' },
   'jam.guestjoined': { pt: '@{0} entrou na tua JAM 🎧', en: '@{0} joined your JAM 🎧' },
   'jam.declined': { pt: '@{0} recusou a JAM', en: '@{0} declined the JAM' },
+  'jam.left': { pt: '@{0} saiu da JAM', en: '@{0} left the JAM' },
   'jam.generic': { pt: 'foco', en: 'focus' },
   'jam.create': { pt: 'Criar JAM agora', en: 'Start a JAM now' },
   'jam.create.hint': {

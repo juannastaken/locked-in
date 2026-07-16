@@ -570,6 +570,31 @@ fn show_update_popup(
   );
 }
 
+/// Dedicated jam-call popup: shows who's calling and answers straight from
+/// the corner (the main window holds the actual accept logic).
+#[tauri::command]
+fn show_jam_call(
+  app: tauri::AppHandle,
+  state: tauri::State<'_, Mutex<WatcherState>>,
+  username: String,
+  task: String,
+  incoming_kind: String,
+) {
+  let cfg = state.lock().unwrap().cfg.clone();
+  fire_popup(
+    &app,
+    serde_json::json!({
+      "kind": "jamcall",
+      "username": username,
+      "task": task,
+      "incomingKind": incoming_kind,
+      "lang": cfg.lang,
+      "sound": cfg.sound,
+      "accent": cfg.accent,
+    }),
+  );
+}
+
 /// Generic in-app notification card (milestones, burnout, auto-end, break end) —
 /// replaces the native Windows toast everywhere.
 #[tauri::command]
@@ -1249,6 +1274,7 @@ pub fn run() {
       test_nudge,
       test_quote,
       show_notice,
+      show_jam_call,
       show_update_popup,
       import_ref_image,
       import_ref_image_b64,
