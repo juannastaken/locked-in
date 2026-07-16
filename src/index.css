@@ -425,6 +425,12 @@ textarea {
   background: var(--color-text-faint);
 }
 
+/* reserve the scrollbar's width always, so a tab gaining/losing scroll never
+   reflows and shifts the centered content sideways/up */
+.overflow-y-auto {
+  scrollbar-gutter: stable;
+}
+
 .scrollbar-none {
   scrollbar-width: none;
 }
