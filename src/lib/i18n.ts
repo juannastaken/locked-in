@@ -158,10 +158,28 @@ const dict: Record<string, { pt: string; en: string }> = {
   'jam.guestjoined': { pt: '@{0} entrou na tua JAM 🎧', en: '@{0} joined your JAM 🎧' },
   'jam.declined': { pt: '@{0} recusou a JAM', en: '@{0} declined the JAM' },
   'jam.generic': { pt: 'foco', en: 'focus' },
+  'jam.create': { pt: 'Criar JAM agora', en: 'Start a JAM now' },
+  'jam.create.hint': {
+    pt: 'convida — se aceitar, os dois começam a focar na mesma hora',
+    en: 'invite — on accept, you both start focusing at the same time',
+  },
+  'jam.participants': { pt: 'participantes da JAM', en: 'JAM participants' },
 
   // friend profile
   'fr.viewprofile': { pt: 'ver perfil', en: 'view profile' },
   'fr.profile.week': { pt: '{0} focadas essa semana', en: '{0} focused this week' },
+  'fr.profile.weeklabel': { pt: 'focadas essa semana', en: 'focused this week' },
+  'fr.projects.private': {
+    pt: 'projetos privados — @ escolheu não mostrar',
+    en: 'private projects — they chose not to share',
+  },
+  'fr.select': {
+    pt: 'escolhe um amigo na lista pra conversar ou ver o perfil',
+    en: 'pick a friend on the list to chat or see their profile',
+  },
+  'msg.typing': { pt: 'digitando…', en: 'typing…' },
+  'msg.reply': { pt: 'responder', en: 'reply' },
+  'msg.react': { pt: 'reagir', en: 'react' },
   'fr.unfriend': { pt: 'Remover amigo', en: 'Remove friend' },
   'fr.unfriend.confirm': {
     pt: 'remover @{0} dos teus amigos?',

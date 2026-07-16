@@ -259,6 +259,55 @@ end $$;
 -- optional cloud backup of the PRIVATE key, itself encrypted client-side with
 -- a passphrase (Argon2id → XSalsa20-Poly1305). The server never sees the
 -- passphrase or the plaintext key — losing the passphrase = losing the backup.
+-- reply threading: which message this one answers (metadata, body stays E2E)
+alter table public.messages add column if not exists reply_to bigint;
+
+-- emoji reactions (metadata on top of encrypted messages)
+create table if not exists public.message_reactions (
+  id bigint generated always as identity primary key,
+  message_id bigint not null references public.messages(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  emoji text not null check (char_length(emoji) <= 8),
+  created_at timestamptz not null default now(),
+  unique (message_id, user_id, emoji)
+);
+
+alter table public.message_reactions enable row level security;
+
+drop policy if exists reactions_select on public.message_reactions;
+create policy reactions_select on public.message_reactions
+  for select to authenticated using (
+    exists (
+      select 1 from public.messages m
+      where m.id = message_id and auth.uid() in (m.sender, m.recipient)
+    )
+  );
+
+drop policy if exists reactions_insert on public.message_reactions;
+create policy reactions_insert on public.message_reactions
+  for insert to authenticated with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.messages m
+      where m.id = message_id and auth.uid() in (m.sender, m.recipient)
+    )
+  );
+
+drop policy if exists reactions_delete on public.message_reactions;
+create policy reactions_delete on public.message_reactions
+  for delete to authenticated using (auth.uid() = user_id);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.message_reactions;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- top recent projects a user CHOSE to make public (Settings toggle) — shown
+-- on their profile to friends; null when the setting is off
+alter table public.presence add column if not exists public_projects text;
+
 create table if not exists public.key_backups (
   user_id uuid primary key references auth.users(id) on delete cascade,
   salt text not null,

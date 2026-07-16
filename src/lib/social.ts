@@ -42,6 +42,8 @@ export interface PresenceRow {
   week_key: string | null;
   updated_at: string;
   app_version: string | null;
+  /** JSON [{n: project, s: seconds}] — only when the user made projects public */
+  public_projects: string | null;
 }
 
 /** A presence row older than this is treated as offline (app closed/crashed). */
@@ -210,6 +212,8 @@ export interface PublishPresenceInput {
   startedAt: string | null;
   weekSec: number;
   appVersion: string;
+  /** already-serialized top projects, or null when the user keeps them private */
+  publicProjects: string | null;
 }
 
 export async function publishPresence(p: PublishPresenceInput): Promise<void> {
@@ -224,6 +228,7 @@ export async function publishPresence(p: PublishPresenceInput): Promise<void> {
     week_key: weekKey(),
     updated_at: new Date().toISOString(),
     app_version: p.appVersion,
+    public_projects: p.publicProjects,
   });
 }
 

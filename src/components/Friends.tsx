@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { t } from '../lib/i18n';
 import { formatDurationShort } from '../lib/time';
 import * as social from '../lib/social';
-import type { FriendEntry } from '../lib/social';
+import type { FriendEntry, PresenceRow } from '../lib/social';
 import type { SocialHook } from '../hooks/useSocial';
 import { ChatView } from './Chat';
 import { Mascot } from './Mascot';
@@ -18,16 +18,11 @@ interface FriendsProps {
   social: SocialHook;
   onError: (m: string) => void;
   myFocus: MyFocusState;
-  /** send a jam invite ('invite' = join MY jam) or request ('request' = let me join THEIRS) */
+  /** 'invite' = come into MY jam (cold-start allowed); 'request' = let me join yours */
   onSendJam: (f: FriendEntry, kind: 'invite' | 'request') => Promise<void>;
-  /** unread message counts per friend userId */
   unread: Record<string, number>;
-  /** bumped when a realtime message arrives (open chat refetches) */
   chatRefetchKey: number;
-  /** tells the app which conversation is on screen (null = none) */
   onChatOpened: (friendUserId: string | null) => void;
-  onOpenBackup: () => void;
-  /** external "open chat with this friend" request (sidebar 💬 etc.) */
   openChatWith: string | null;
   onOpenChatConsumed: () => void;
 }
@@ -81,10 +76,26 @@ export function ClaimUsernameForm({ onClaimed }: { onClaimed: () => void }) {
   );
 }
 
-function statusDot(status: social.FriendStatus): string {
+export function statusDot(status: social.FriendStatus): string {
   if (status === 'focusing') return 'animate-pulse-dot bg-accent';
-  if (status === 'online') return 'bg-accent';
+  if (status === 'online') return 'bg-sky-400';
   return 'bg-border-strong';
+}
+
+export function statusText(status: social.FriendStatus): string {
+  if (status === 'focusing') return 'text-accent';
+  if (status === 'online') return 'text-sky-400';
+  return 'text-text-faint';
+}
+
+export function statusLineFor(status: social.FriendStatus, row: PresenceRow | undefined): string {
+  if (status === 'focusing') {
+    const sec = row?.started_at
+      ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
+      : 0;
+    return `${t('fr.focusing', formatDurationShort(sec))}${row?.task ? ` · ${row.task}` : ''}`;
+  }
+  return status === 'online' ? t('fr.online') : t('fr.offline');
 }
 
 function Avatar({
@@ -112,14 +123,13 @@ function Avatar({
   );
 }
 
-/** Full friend profile: photo, status, week hours, jam + unfriend actions. */
+/** Rich friend profile — mirrors my own profile page, minus private data. */
 function FriendProfile({
   friend,
   soc,
   myFocus,
   onSendJam,
   onError,
-  onBack,
   onMessage,
   unreadCount,
 }: {
@@ -128,7 +138,6 @@ function FriendProfile({
   myFocus: MyFocusState;
   onSendJam: FriendsProps['onSendJam'];
   onError: (m: string) => void;
-  onBack: () => void;
   onMessage: () => void;
   unreadCount: number;
 }) {
@@ -139,12 +148,24 @@ function FriendProfile({
   const row = soc.presence.get(friend.userId);
   const status = social.friendStatus(row);
   const live = status === 'focusing';
-  const focusSec =
-    live && row?.started_at
-      ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
-      : 0;
   const wk = social.weekKey();
   const weekSec = row && row.week_key === wk ? row.week_sec : 0;
+
+  let publicProjects: { n: string; s: number }[] = [];
+  try {
+    if (row?.public_projects) {
+      const arr = JSON.parse(row.public_projects) as unknown;
+      if (Array.isArray(arr)) {
+        publicProjects = arr.filter(
+          (p): p is { n: string; s: number } =>
+            typeof p === 'object' && p !== null && 'n' in p && 's' in p,
+        );
+      }
+    }
+  } catch {
+    publicProjects = [];
+  }
+  const maxProj = publicProjects[0]?.s || 1;
 
   async function sendJam(kind: 'invite' | 'request') {
     setBusy(true);
@@ -163,132 +184,155 @@ function FriendProfile({
       const err = await social.removeFriendship(friend.friendshipId);
       if (err) onError(err);
       soc.refresh();
-      onBack();
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-4 px-4 pb-10 pt-6 sm:px-6">
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-sm font-bold text-text-dim hover:text-text"
-      >
-        ← {t('fr.title')}
-      </button>
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-xl space-y-4 px-5 pb-10 pt-8">
+        {/* identity header — same shape as my own profile */}
+        <div className="flex items-center gap-5">
+          <div className="relative shrink-0">
+            <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-4 border-border-strong bg-surface text-2xl font-extrabold uppercase text-text">
+              {friend.avatar ? (
+                <img src={friend.avatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                friend.username.slice(0, 2)
+              )}
+            </div>
+            <span
+              className={`absolute bottom-1 right-1 h-6 w-6 rounded-full border-4 border-bg ${statusDot(status)}`}
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-extrabold uppercase tracking-widest text-text-faint">
+              {t('menu.profile')}
+            </div>
+            <h1 className="truncate text-3xl font-extrabold tracking-tight text-text">
+              @{friend.username}
+            </h1>
+            <div className={`mt-1 text-sm font-semibold ${statusText(status)}`}>
+              {statusLineFor(status, row)}
+            </div>
+          </div>
+        </div>
 
-      <div className="chunk flex items-center gap-4 p-5">
-        <div className="relative shrink-0">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-border-strong bg-bg text-xl font-extrabold uppercase text-text">
-            {friend.avatar ? (
-              <img src={friend.avatar} alt="" className="h-full w-full object-cover" />
-            ) : (
-              friend.username.slice(0, 2)
+        {/* big week number */}
+        <div className="chunk p-5">
+          <div className="font-mono text-[40px] font-bold leading-none tabular-nums text-accent">
+            {formatDurationShort(weekSec)}
+          </div>
+          <div className="mt-1.5 text-xs font-bold uppercase tracking-wide text-text-faint">
+            {t('fr.profile.weeklabel')}
+          </div>
+        </div>
+
+        {/* actions: big square MESSAGE + jam */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={onMessage}
+            className="chunk-btn chunk-btn-accent relative py-4 text-sm"
+          >
+            💬 {t('msg.open').toUpperCase()}
+            {unreadCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[10px] font-extrabold text-white">
+                {unreadCount}
+              </span>
             )}
-          </div>
-          <span
-            className={`absolute bottom-0 right-0 h-5 w-5 rounded-full border-4 border-surface ${statusDot(status)}`}
-          />
-        </div>
-        <div className="min-w-0">
-          <div className="truncate text-xl font-extrabold text-text">@{friend.username}</div>
-          <div
-            className={`mt-0.5 text-sm font-semibold ${
-              live ? 'text-accent' : status === 'online' ? 'text-accent/70' : 'text-text-faint'
-            }`}
-          >
-            {live
-              ? `${t('fr.focusing', formatDurationShort(focusSec))}${row?.task ? ` · ${row.task}` : ''}`
-              : status === 'online'
-                ? t('fr.online')
-                : t('fr.offline')}
-          </div>
-          <div className="mt-1 text-xs font-medium text-text-dim">
-            {t('fr.profile.week', formatDurationShort(weekSec))}
-          </div>
-        </div>
-      </div>
-
-      {/* message */}
-      <button
-        type="button"
-        onClick={onMessage}
-        className="chunk-btn relative w-full py-3 text-sm text-text"
-      >
-        💬 {t('msg.open')}
-        <span className="ml-1.5 text-[10px] font-bold text-text-faint">🔒 E2E</span>
-        {unreadCount > 0 && (
-          <span className="absolute right-3 top-1/2 inline-flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
-            {unreadCount}
-          </span>
-        )}
-      </button>
-
-      {/* jam actions */}
-      <div className="space-y-2">
-        {live && !myFocus.focusing && (
-          <button
-            type="button"
-            disabled={busy || jamSent}
-            onClick={() => sendJam('request')}
-            className="chunk-btn chunk-btn-accent w-full py-3 text-sm"
-          >
-            {jamSent ? t('jam.sent') : `🎧 ${t('jam.request')}`}
           </button>
-        )}
-        {myFocus.focusing && (
-          <button
-            type="button"
-            disabled={busy || jamSent}
-            onClick={() => sendJam('invite')}
-            className="chunk-btn chunk-btn-accent w-full py-3 text-sm"
-          >
-            {jamSent ? t('jam.sent') : `🎧 ${t('jam.invite')}`}
-          </button>
-        )}
-        {!live && !myFocus.focusing && (
-          <div className="chunk px-4 py-3 text-center text-xs font-semibold text-text-faint">
-            {t('jam.none')}
-          </div>
-        )}
-      </div>
-
-      {/* unfriend — a real confirmation, not a hidden ✕ */}
-      {!confirmRemove ? (
-        <button
-          type="button"
-          onClick={() => setConfirmRemove(true)}
-          className="chunk-btn w-full py-3 text-sm text-danger"
-        >
-          {t('fr.unfriend')}
-        </button>
-      ) : (
-        <div className="chunk space-y-3 border-danger/60 p-4">
-          <p className="text-center text-sm font-bold text-text">
-            {t('fr.unfriend.confirm', friend.username)}
-          </p>
-          <div className="flex gap-2">
+          {myFocus.focusing ? (
             <button
               type="button"
-              disabled={busy}
-              onClick={unfriend}
-              className="chunk-btn flex-1 bg-danger py-2.5 text-sm font-extrabold text-white"
+              disabled={busy || jamSent}
+              onClick={() => sendJam('invite')}
+              className="chunk-btn py-4 text-sm text-text"
             >
-              {busy ? '…' : t('fr.unfriend.yes')}
+              {jamSent ? t('jam.sent') : `🎧 ${t('jam.invite')}`}
             </button>
+          ) : live ? (
             <button
               type="button"
-              disabled={busy}
-              onClick={() => setConfirmRemove(false)}
-              className="chunk-btn flex-1 py-2.5 text-sm text-text"
+              disabled={busy || jamSent}
+              onClick={() => sendJam('request')}
+              className="chunk-btn py-4 text-sm text-text"
             >
-              {t('misc.cancel')}
+              {jamSent ? t('jam.sent') : `🎧 ${t('jam.request')}`}
             </button>
-          </div>
+          ) : (
+            <button
+              type="button"
+              disabled={busy || jamSent}
+              onClick={() => sendJam('invite')}
+              title={t('jam.create.hint')}
+              className="chunk-btn py-4 text-sm text-text"
+            >
+              {jamSent ? t('jam.sent') : `🎧 ${t('jam.create')}`}
+            </button>
+          )}
         </div>
-      )}
+
+        {/* public recent projects (only when the friend opted in) */}
+        <div className="chunk space-y-2.5 p-4">
+          <div className="text-xs font-extrabold uppercase tracking-wide text-text-dim">
+            {t('profile.projects')}
+          </div>
+          {publicProjects.length === 0 ? (
+            <div className="py-2 text-center text-xs font-semibold text-text-faint">
+              🔒 {t('fr.projects.private')}
+            </div>
+          ) : (
+            publicProjects.map((p) => (
+              <div key={p.n} className="flex items-center gap-2.5">
+                <span className="w-32 truncate text-sm font-bold text-text">{p.n}</span>
+                <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-[3px] border border-border-strong bg-bg">
+                  <div className="h-full bg-accent" style={{ width: `${(p.s / maxProj) * 100}%` }} />
+                </div>
+                <span className="w-14 shrink-0 text-right font-mono text-xs font-bold tabular-nums text-text-dim">
+                  {formatDurationShort(p.s)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* unfriend — real confirmation */}
+        {!confirmRemove ? (
+          <button
+            type="button"
+            onClick={() => setConfirmRemove(true)}
+            className="chunk-btn w-full py-3 text-sm text-danger"
+          >
+            {t('fr.unfriend')}
+          </button>
+        ) : (
+          <div className="chunk space-y-3 border-danger/60 p-4">
+            <p className="text-center text-sm font-bold text-text">
+              {t('fr.unfriend.confirm', friend.username)}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={unfriend}
+                className="chunk-btn flex-1 bg-danger py-2.5 text-sm font-extrabold text-white"
+              >
+                {busy ? '…' : t('fr.unfriend.yes')}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setConfirmRemove(false)}
+                className="chunk-btn flex-1 py-2.5 text-sm text-text"
+              >
+                {t('misc.cancel')}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -302,22 +346,22 @@ export function FriendsPage({
   unread,
   chatRefetchKey,
   onChatOpened,
-  onOpenBackup,
   openChatWith,
   onOpenChatConsumed,
 }: FriendsProps) {
   const [addName, setAddName] = useState('');
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [viewing, setViewing] = useState<FriendEntry | null>(null);
-  const [chatting, setChatting] = useState<FriendEntry | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null); // friend userId
+  const [chatting, setChatting] = useState<string | null>(null); // friend userId
 
   function openChat(f: FriendEntry) {
     if (!f.e2ePub) {
       onError(t('ver.old', f.username));
       return;
     }
-    setChatting(f);
+    setViewing(null);
+    setChatting(f.userId);
     onChatOpened(f.userId);
   }
 
@@ -326,29 +370,24 @@ export function FriendsPage({
     onChatOpened(null);
   }
 
-  // leaving the tab entirely also counts as closing the conversation
-  useEffect(() => () => onChatOpened(null), [onChatOpened]);
-
-  // sidebar 💬 / notifications ask us to open a specific conversation
-  useEffect(() => {
-    if (!openChatWith) return;
-    const f = soc.state?.friends.find((fr) => fr.userId === openChatWith);
-    onOpenChatConsumed();
-    if (f) {
-      setViewing(null);
-      openChat(f);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openChatWith, soc.state]);
-
-  // live "focusing for Xh" durations tick without any network traffic
+  // live tick for "focusing for Xh" lines
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => setTick((n) => n + 1), 30_000);
     return () => window.clearInterval(id);
   }, []);
 
-  // ---- guest gate ----
+  useEffect(() => () => onChatOpened(null), [onChatOpened]);
+
+  // sidebar 💬 asks for a specific conversation
+  useEffect(() => {
+    if (!openChatWith) return;
+    const f = soc.state?.friends.find((fr) => fr.userId === openChatWith);
+    onOpenChatConsumed();
+    if (f) openChat(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openChatWith, soc.state]);
+
   if (!signedIn) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
@@ -382,7 +421,6 @@ export function FriendsPage({
     );
   }
 
-  // ---- claim a username (account created before the social update) ----
   if (!state.me) {
     return (
       <div className="flex h-full items-center justify-center px-6">
@@ -395,60 +433,7 @@ export function FriendsPage({
       </div>
     );
   }
-
-  // ---- chat subview ----
-  if (chatting) {
-    const fresh = state.friends.find((f) => f.friendshipId === chatting.friendshipId);
-    if (!fresh) {
-      closeChat();
-    } else {
-      const row = soc.presence.get(fresh.userId);
-      const friendLive = social.isLive(row);
-      const jamAction =
-        myFocus.focusing
-          ? { label: t('jam.invite'), run: () => onSendJam(fresh, 'invite') }
-          : friendLive
-            ? { label: t('jam.request'), run: () => onSendJam(fresh, 'request') }
-            : null;
-      return (
-        <ChatView
-          friend={fresh}
-          onError={onError}
-          onBack={closeChat}
-          refetchKey={chatRefetchKey}
-          jamAction={jamAction}
-          onOpenBackup={onOpenBackup}
-        />
-      );
-    }
-  }
-
-  // ---- friend profile subview ----
-  if (viewing) {
-    const fresh = state.friends.find((f) => f.friendshipId === viewing.friendshipId);
-    if (!fresh) {
-      // unfriended / gone — fall back to the list
-      setViewing(null);
-    } else {
-      return (
-        <div className="h-full overflow-y-auto">
-          <FriendProfile
-            friend={fresh}
-            soc={soc}
-            myFocus={myFocus}
-            onSendJam={onSendJam}
-            onError={onError}
-            onBack={() => setViewing(null)}
-            onMessage={() => {
-              setViewing(null);
-              openChat(fresh);
-            }}
-            unreadCount={unread[fresh.userId] ?? 0}
-          />
-        </div>
-      );
-    }
-  }
+  const me = state.me;
 
   async function addFriend() {
     const name = addName.trim();
@@ -461,15 +446,10 @@ export function FriendsPage({
         setAddMsg({ text: t('fr.add.sent', name.replace(/^@/, '')), ok: true });
         setAddName('');
         soc.refresh();
-      } else if (r === 'notfound') {
-        setAddMsg({ text: t('fr.err.notfound'), ok: false });
-      } else if (r === 'self') {
-        setAddMsg({ text: t('fr.err.self'), ok: false });
-      } else if (r === 'duplicate') {
-        setAddMsg({ text: t('fr.err.duplicate'), ok: false });
-      } else {
-        setAddMsg({ text: t('fr.err.generic'), ok: false });
-      }
+      } else if (r === 'notfound') setAddMsg({ text: t('fr.err.notfound'), ok: false });
+      else if (r === 'self') setAddMsg({ text: t('fr.err.self'), ok: false });
+      else if (r === 'duplicate') setAddMsg({ text: t('fr.err.duplicate'), ok: false });
+      else setAddMsg({ text: t('fr.err.generic'), ok: false });
     } finally {
       setBusy(false);
     }
@@ -487,10 +467,12 @@ export function FriendsPage({
     soc.refresh();
   }
 
-  // ---- ranking: me + friends, this week only ----
+  const chattingFriend = chatting ? state.friends.find((f) => f.userId === chatting) : null;
+  const viewingFriend = viewing ? state.friends.find((f) => f.userId === viewing) : null;
+
   const wk = social.weekKey();
   const ranking = [
-    { userId: state.me.user_id, username: state.me.username, isMe: true },
+    { userId: me.user_id, username: me.username, isMe: true },
     ...state.friends.map((f) => ({ userId: f.userId, username: f.username, isMe: false })),
   ]
     .map((p) => {
@@ -501,24 +483,22 @@ export function FriendsPage({
   const medals = ['🥇', '🥈', '🥉'];
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-4 px-4 pb-10 pt-6 sm:px-6 xl:max-w-3xl">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-lg font-extrabold tracking-tight text-text">{t('fr.title')}</h1>
-            <p className="mt-0.5 text-xs text-text-faint">
-              {t('fr.you')} <span className="font-bold text-accent">@{state.me.username}</span>
-            </p>
-          </div>
+    <div className="flex h-full min-h-0">
+      {/* LEFT: friends column */}
+      <aside className="scrollbar-none flex w-[330px] shrink-0 flex-col gap-3 overflow-y-auto border-r border-border p-3">
+        <div className="px-1">
+          <h1 className="text-base font-extrabold tracking-tight text-text">{t('fr.title')}</h1>
+          <p className="text-[11px] text-text-faint">
+            {t('fr.you')} <span className="font-bold text-accent">@{me.username}</span>
+          </p>
         </div>
 
-        {/* add friend */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             addFriend();
           }}
-          className="chunk flex gap-2 p-3"
+          className="flex gap-1.5"
         >
           <input
             value={addName}
@@ -528,50 +508,44 @@ export function FriendsPage({
             }}
             placeholder={t('fr.add.placeholder')}
             maxLength={21}
-            className="chunk-input min-w-0 flex-1 px-3 py-2.5 text-sm font-semibold text-text placeholder:font-medium placeholder:text-text-faint"
+            className="chunk-input min-w-0 flex-1 px-3 py-2 text-[13px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint"
           />
           <button
             type="submit"
             disabled={busy || !addName.trim()}
-            className="chunk-btn chunk-btn-accent px-4 py-2.5 text-[13px]"
+            className="chunk-btn chunk-btn-accent px-3 py-2 text-xs"
           >
-            {t('fr.add.cta')}
+            +
           </button>
         </form>
         {addMsg && (
-          <div
-            className={`-mt-2 px-1 text-xs font-bold ${addMsg.ok ? 'text-accent' : 'text-danger'}`}
-          >
+          <div className={`px-1 text-[11px] font-bold ${addMsg.ok ? 'text-accent' : 'text-danger'}`}>
             {addMsg.text}
           </div>
         )}
 
-        {/* incoming requests — the inbox */}
         {state.incoming.length > 0 && (
-          <div className="chunk space-y-2 p-4">
-            <div className="text-xs font-extrabold uppercase tracking-wide text-text-dim">
+          <div className="chunk space-y-2 p-3">
+            <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
               {t('fr.inbox')} <span className="text-accent">({state.incoming.length})</span>
             </div>
             {state.incoming.map((f) => (
-              <div key={f.friendshipId} className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <Avatar name={f.username} status="away" photo={f.avatar} />
-                  <span className="truncate text-sm font-bold text-text">@{f.username}</span>
-                </div>
-                <div className="flex shrink-0 gap-1.5">
+              <div key={f.friendshipId} className="flex items-center justify-between gap-1.5">
+                <span className="truncate text-[13px] font-bold text-text">@{f.username}</span>
+                <div className="flex shrink-0 gap-1">
                   <button
                     type="button"
                     onClick={() => accept(f)}
-                    className="chunk-btn chunk-btn-accent px-3.5 py-1.5 text-xs"
+                    className="chunk-btn chunk-btn-accent px-2.5 py-1 text-[11px]"
                   >
                     {t('fr.accept')}
                   </button>
                   <button
                     type="button"
                     onClick={() => removePending(f)}
-                    className="chunk-btn px-3 py-1.5 text-xs text-text-dim"
+                    className="chunk-btn px-2 py-1 text-[11px] text-text-dim"
                   >
-                    {t('fr.reject')}
+                    ✕
                   </button>
                 </div>
               </div>
@@ -579,19 +553,18 @@ export function FriendsPage({
           </div>
         )}
 
-        {/* outgoing requests */}
         {state.outgoing.length > 0 && (
-          <div className="chunk space-y-2 p-4">
-            <div className="text-xs font-extrabold uppercase tracking-wide text-text-dim">
+          <div className="chunk space-y-1.5 p-3">
+            <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
               {t('fr.outgoing')}
             </div>
             {state.outgoing.map((f) => (
-              <div key={f.friendshipId} className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-semibold text-text-dim">@{f.username}</span>
+              <div key={f.friendshipId} className="flex items-center justify-between gap-1.5">
+                <span className="truncate text-xs font-semibold text-text-dim">@{f.username}</span>
                 <button
                   type="button"
                   onClick={() => removePending(f)}
-                  className="text-xs font-bold text-text-faint hover:text-danger"
+                  className="text-[11px] font-bold text-text-faint hover:text-danger"
                 >
                   {t('fr.cancel')}
                 </button>
@@ -600,13 +573,10 @@ export function FriendsPage({
           </div>
         )}
 
-        {/* friends list — click a row to open the friend's profile */}
-        <div className="chunk space-y-1 p-3">
-          <div className="px-1 pb-1 text-xs font-extrabold uppercase tracking-wide text-text-dim">
-            {t('fr.friends')} ({state.friends.length})
-          </div>
+        {/* friends list — click opens the chat; small button opens the profile */}
+        <div className="space-y-0.5">
           {state.friends.length === 0 && (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
               <Mascot mood="think" size={52} />
               <span className="text-sm font-semibold text-text-faint">{t('fr.empty')}</span>
             </div>
@@ -614,38 +584,28 @@ export function FriendsPage({
           {state.friends.map((f) => {
             const row = soc.presence.get(f.userId);
             const status = social.friendStatus(row);
-            const focusSec =
-              status === 'focusing' && row?.started_at
-                ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
-                : 0;
+            const active = chatting === f.userId || viewing === f.userId;
             return (
               <div
                 key={f.friendshipId}
                 role="button"
                 tabIndex={0}
-                onClick={() => setViewing(f)}
-                onKeyDown={(e) => e.key === 'Enter' && setViewing(f)}
-                className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-2 py-2 text-left hover:bg-surface-hover"
+                onClick={() => openChat(f)}
+                onKeyDown={(e) => e.key === 'Enter' && openChat(f)}
+                className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-2 py-2 ${
+                  active ? 'bg-surface-hover' : 'hover:bg-surface-hover'
+                }`}
               >
                 <div className="flex min-w-0 items-center gap-2.5">
                   <Avatar name={f.username} status={status} photo={f.avatar} />
                   <div className="min-w-0">
                     <div className="truncate text-sm font-bold text-text">@{f.username}</div>
-                    <div className="truncate text-[11px] font-medium text-text-dim">
-                      {status === 'focusing' ? (
-                        <span className="text-accent">
-                          {t('fr.focusing', formatDurationShort(focusSec))}
-                          {row?.task ? ` · ${row.task}` : ''}
-                        </span>
-                      ) : status === 'online' ? (
-                        <span className="text-accent/70">{t('fr.online')}</span>
-                      ) : (
-                        t('fr.offline')
-                      )}
+                    <div className={`truncate text-[11px] font-medium ${statusText(status)}`}>
+                      {statusLineFor(status, row)}
                     </div>
                   </div>
                 </div>
-                <span className="flex shrink-0 items-center gap-1.5">
+                <div className="flex shrink-0 items-center gap-1.5">
                   {(unread[f.userId] ?? 0) > 0 && (
                     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
                       {unread[f.userId]}
@@ -653,63 +613,91 @@ export function FriendsPage({
                   )}
                   <button
                     type="button"
-                    title={t('msg.open')}
+                    title={t('fr.viewprofile')}
                     onClick={(e) => {
                       e.stopPropagation();
-                      openChat(f);
+                      setChatting(null);
+                      onChatOpened(null);
+                      setViewing(f.userId);
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-sm text-text-dim hover:bg-bg hover:text-text"
+                    className="rounded-lg px-1.5 py-1 text-xs font-bold text-text-faint hover:bg-bg hover:text-text"
                   >
-                    💬
+                    👤
                   </button>
-                  <span className="text-xs font-bold text-text-faint">
-                    {t('fr.viewprofile')} →
-                  </span>
-                </span>
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* weekly ranking */}
         {state.friends.length > 0 && (
-          <div className="chunk space-y-2.5 p-4">
+          <div className="chunk mt-auto space-y-2 p-3">
             <div className="flex items-baseline justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wide text-text-dim">
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
                 {t('fr.ranking')}
               </span>
-              <span className="text-[11px] font-medium text-text-faint">{t('fr.week')}</span>
+              <span className="text-[10px] font-medium text-text-faint">{t('fr.week')}</span>
             </div>
-            {ranking.map((p, i) => {
-              const max = ranking[0].weekSec || 1;
-              return (
-                <div key={p.userId} className="flex items-center gap-2.5">
-                  <span className="w-6 text-center text-sm">
-                    {medals[i] ?? <span className="text-xs font-bold text-text-faint">{i + 1}</span>}
-                  </span>
-                  <span
-                    className={`w-28 truncate text-sm font-bold ${p.isMe ? 'text-accent' : 'text-text'}`}
-                  >
-                    {p.isMe ? t('fr.me') : `@${p.username}`}
-                  </span>
-                  <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-[3px] border border-border-strong bg-bg">
-                    <div
-                      className="h-full bg-accent"
-                      style={{
-                        width: `${(p.weekSec / max) * 100}%`,
-                        transition: 'width 600ms cubic-bezier(0.16,1,0.3,1)',
-                      }}
-                    />
-                  </div>
-                  <span className="w-14 shrink-0 text-right font-mono text-xs font-bold tabular-nums text-text-dim">
-                    {formatDurationShort(p.weekSec)}
-                  </span>
-                </div>
-              );
-            })}
+            {ranking.slice(0, 5).map((p, i) => (
+              <div key={p.userId} className="flex items-center gap-2 text-xs">
+                <span className="w-5 text-center">
+                  {medals[i] ?? <span className="font-bold text-text-faint">{i + 1}</span>}
+                </span>
+                <span
+                  className={`min-w-0 flex-1 truncate font-bold ${p.isMe ? 'text-accent' : 'text-text'}`}
+                >
+                  {p.isMe ? t('fr.me') : `@${p.username}`}
+                </span>
+                <span className="shrink-0 font-mono font-bold tabular-nums text-text-dim">
+                  {formatDurationShort(p.weekSec)}
+                </span>
+              </div>
+            ))}
           </div>
         )}
-      </div>
+      </aside>
+
+      {/* RIGHT: chat / profile / placeholder */}
+      <main className="min-h-0 min-w-0 flex-1">
+        {chattingFriend ? (
+          <ChatView
+            friend={chattingFriend}
+            myUserId={me.user_id}
+            statusLine={statusLineFor(
+              social.friendStatus(soc.presence.get(chattingFriend.userId)),
+              soc.presence.get(chattingFriend.userId),
+            )}
+            statusColor={statusText(
+              social.friendStatus(soc.presence.get(chattingFriend.userId)),
+            )}
+            onError={onError}
+            onBack={closeChat}
+            refetchKey={chatRefetchKey}
+            jamAction={
+              myFocus.focusing
+                ? { label: t('jam.invite'), run: () => onSendJam(chattingFriend, 'invite') }
+                : social.isLive(soc.presence.get(chattingFriend.userId))
+                  ? { label: t('jam.request'), run: () => onSendJam(chattingFriend, 'request') }
+                  : { label: t('jam.create'), run: () => onSendJam(chattingFriend, 'invite') }
+            }
+          />
+        ) : viewingFriend ? (
+          <FriendProfile
+            friend={viewingFriend}
+            soc={soc}
+            myFocus={myFocus}
+            onSendJam={onSendJam}
+            onError={onError}
+            onMessage={() => openChat(viewingFriend)}
+            unreadCount={unread[viewingFriend.userId] ?? 0}
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+            <Mascot mood="relax" size={72} />
+            <p className="max-w-xs text-sm font-semibold text-text-faint">{t('fr.select')}</p>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

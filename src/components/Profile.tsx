@@ -15,6 +15,7 @@ interface ProfileProps {
   signedIn: boolean;
   onError: (m: string) => void;
   onOpenFriends: () => void;
+  onOpenBackup: () => void;
   refreshKey: number;
 }
 
@@ -67,6 +68,7 @@ export function ProfilePage({
   signedIn,
   onError,
   onOpenFriends,
+  onOpenBackup,
   refreshKey,
 }: ProfileProps) {
   const me = soc.state?.me ?? null;
@@ -247,6 +249,17 @@ export function ProfilePage({
             </div>
           ))}
         </div>
+
+        {/* message key backup entry point (the chat banner moved here) */}
+        {signedIn && (
+          <button
+            type="button"
+            onClick={onOpenBackup}
+            className="chunk-btn w-full py-3 text-sm text-text"
+          >
+            🔐 {t('key.backup.title')}
+          </button>
+        )}
 
         {/* friends */}
         <div className="chunk space-y-3 p-4">

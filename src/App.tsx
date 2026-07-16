@@ -185,6 +185,15 @@ function AppShell() {
       try {
         if (!appVersion) appVersion = await getVersion().catch(() => '0.0.0');
         const saved = await db.getFocusSecondsSince(socialLib.weekStart().toISOString());
+        // recent projects go public only when the Settings toggle says so
+        let publicProjects: string | null = null;
+        if (settingsRef.current?.profile_projects_public) {
+          const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
+          const projs = await db.getProjectBreakdown(monthAgo).catch(() => []);
+          publicProjects = JSON.stringify(
+            projs.slice(0, 5).map((p) => ({ n: p.project, s: p.total_sec })),
+          );
+        }
         if (cancelled) return;
         await socialLib.publishPresence({
           focusing,
@@ -192,6 +201,7 @@ function AppShell() {
           startedAt: focusing ? new Date(Date.now() - elapsedSec * 1000).toISOString() : null,
           weekSec: saved + (focusing || phase === 'paused' ? elapsedSec : 0),
           appVersion,
+          publicProjects,
         });
       } catch {
         // offline — the next beat wins
@@ -438,9 +448,18 @@ function AppShell() {
       setTab('home');
       pushToast(t('jam.joined', hostUsername), 'info');
     },
-    onGuestJoined: (_invite, guestUsername) => {
+    onGuestJoined: (invite, guestUsername) => {
       const me = myUsernameRef.current ?? 'me';
-      focusRef.current.markJam([me, guestUsername]);
+      if (focusRef.current.phase === 'idle') {
+        // cold-start jam: they accepted while I wasn't focusing — we begin together
+        focusRef.current.startSession(invite.task, null, {
+          startedAt: invite.session_started_at,
+          members: [me, guestUsername],
+        });
+        setTab('home');
+      } else {
+        focusRef.current.markJam([me, guestUsername]);
+      }
       pushToast(t('jam.guestjoined', guestUsername), 'info');
       invoke('show_notice', {
         title: '🎧 JAM',
@@ -499,6 +518,12 @@ function AppShell() {
     return unsub;
   }, [signedIn, refreshUnread, jamLookup, pushToast]);
 
+  // reactions land in real time on whichever chat is open
+  useEffect(() => {
+    if (!signedIn) return;
+    return chatLib.subscribeReactions(() => setChatRefetchKey((k) => k + 1));
+  }, [signedIn]);
+
   const onChatOpened = useCallback(
     (friendId: string | null) => {
       openChatRef.current = friendId;
@@ -524,13 +549,16 @@ function AppShell() {
         return;
       }
       if (kind === 'invite') {
+        // with a running session it's "join my jam"; idle it's "let's start one
+        // right now" — acceptance then starts BOTH sides (cold start)
         const s = focusRef.current.activeSession;
-        if (!s) return;
-        const err = await jam.send(f.userId, f.username, 'invite', s.task, s.started_at);
+        const task = s?.task ?? t('jam.generic');
+        const startedAt = s?.started_at ?? new Date().toISOString();
+        const err = await jam.send(f.userId, f.username, 'invite', task, startedAt);
         if (err) onError(err);
         else {
           pushToast(t('jam.sent.toast', f.username), 'info');
-          if (f.e2ePub) chatLib.sendMessage(f.userId, 'jam', s.task).catch(() => {});
+          if (f.e2ePub) chatLib.sendMessage(f.userId, 'jam', task).catch(() => {});
         }
       } else {
         const row = social.presence.get(f.userId);
@@ -1153,6 +1181,7 @@ function AppShell() {
             signedIn={signedIn}
             onError={onError}
             onOpenFriends={() => setTab('friends')}
+            onOpenBackup={() => setKeyModal('backup')}
             refreshKey={refreshKey}
           />
         )}
@@ -1170,7 +1199,6 @@ function AppShell() {
             unread={unreadMsgs}
             chatRefetchKey={chatRefetchKey}
             onChatOpened={onChatOpened}
-            onOpenBackup={() => setKeyModal('backup')}
             openChatWith={openChatWith}
             onOpenChatConsumed={() => setOpenChatWith(null)}
           />
@@ -1183,6 +1211,21 @@ function AppShell() {
           onOpenFriends={() => setTab('friends')}
           onOpenChat={openChatShortcut}
           unread={unreadMsgs}
+          jamMembers={
+            focus.jam
+              ? focus.jam.members.map((u) => {
+                  const friend = social.state?.friends.find((fr) => fr.username === u);
+                  return {
+                    username: u,
+                    avatar:
+                      u === social.state?.me?.username
+                        ? (social.state?.me?.avatar_b64 ?? null)
+                        : (friend?.avatar ?? null),
+                    isMe: u === social.state?.me?.username,
+                  };
+                })
+              : null
+          }
         />
       )}
       </div>
