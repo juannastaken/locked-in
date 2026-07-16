@@ -357,33 +357,49 @@ function AppShell() {
     invoke('set_autostart', { enabled: true }).catch(() => {});
   }, [settingsHook.settings?.autostart_enabled]);
 
-  // auto-update: check on boot + every 6h → corner popup → one click downloads,
-  // installs with a progress screen and relaunches into the new version
+  // auto-update, Chrome-style: check on boot + every 30min, pre-download in
+  // the background, then install by itself the moment the app is idle (60s
+  // countdown, snoozable 1h). While a session/jam runs nothing ever installs.
+  // latest.json may also carry "min_version" — below it the update is FORCED:
+  // shorter countdown, no snooze, blocking screen while idle.
   const [updating, setUpdating] = useState<{ version: string; pct: number | null } | null>(null);
+  const [updateReady, setUpdateReady] = useState<string | null>(null);
+  const [updateForced, setUpdateForced] = useState(false);
+  const [updateCountdown, setUpdateCountdown] = useState<number | null>(null);
   const pendingUpdateRef = useRef<Update | null>(null);
-  useEffect(() => {
-    let shownFor: string | null = null;
-    const lookForUpdate = () => {
-      check()
-        .then((update) => {
-          if (update && shownFor !== update.version) {
-            shownFor = update.version;
-            pendingUpdateRef.current = update;
-            invoke('show_update_popup', { version: update.version, url: '' }).catch(() => {});
-          }
-        })
-        .catch(() => {}); // offline / manifest missing — silently skip
-    };
-    const boot = window.setTimeout(lookForUpdate, 8_000);
-    const iv = window.setInterval(lookForUpdate, 6 * 3600_000);
+  const downloadedRef = useRef<string | null>(null); // version already on disk
+  const downloadPromiseRef = useRef<Promise<void> | null>(null); // in-flight pre-download
+  const installingRef = useRef(false);
+  const snoozeUntilRef = useRef(0);
 
-    let unlisten: (() => void) | undefined;
-    listen('update:install', async () => {
-      const update = pendingUpdateRef.current;
-      if (!update) return;
-      invoke('show_main_window').catch(() => {});
-      setUpdating({ version: update.version, pct: null });
+  const doInstall = useCallback(async () => {
+    const update = pendingUpdateRef.current;
+    if (!update || installingRef.current) return;
+    installingRef.current = true;
+    setUpdateCountdown(null);
+    invoke('show_main_window').catch(() => {});
+    setUpdating({ version: update.version, pct: null });
+    // flush the cloud snapshot so nothing recent is lost across the restart
+    try {
+      const c = await import('./lib/cloud');
+      if (await c.currentUser()) await c.uploadSnapshot();
+    } catch {
+      // offline — local SQLite survives the restart untouched anyway
+    }
+    // a pre-download may still be in flight — wait for it instead of racing
+    // it with a second download of the same update
+    if (downloadPromiseRef.current) {
       try {
+        await downloadPromiseRef.current;
+      } catch {
+        // pre-download failed — downloadAndInstall below redoes it
+      }
+    }
+    try {
+      if (downloadedRef.current === update.version) {
+        setUpdating({ version: update.version, pct: 100 });
+        await update.install();
+      } else {
         let total = 0;
         let received = 0;
         await update.downloadAndInstall((e) => {
@@ -398,16 +414,71 @@ function AppShell() {
             setUpdating({ version: update.version, pct: 100 });
           }
         });
-        // Do NOT call relaunch() here: the NSIS installer (installMode
-        // "passive") already restarts the app once it finishes. A second
-        // restart raced the first and left WebView2 dead → the black screen
-        // that only a manual reopen fixed. The progress screen stays at 100%
-        // until the installer takes over and relaunches cleanly.
-      } catch (err) {
-        setUpdating(null);
-        pushToast(t('up.error', String(err)), 'error');
       }
-    }).then((u) => {
+      // Do NOT call relaunch() here: the NSIS installer (installMode
+      // "passive") already restarts the app once it finishes. A second
+      // restart raced the first and left WebView2 dead → the black screen
+      // that only a manual reopen fixed. The progress screen stays at 100%
+      // until the installer takes over and relaunches cleanly.
+    } catch (err) {
+      installingRef.current = false;
+      setUpdating(null);
+      pushToast(t('up.error', String(err)), 'error');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pushToast]);
+  const doInstallRef = useRef(doInstall);
+  doInstallRef.current = doInstall;
+
+  useEffect(() => {
+    let shownFor: string | null = null;
+    const lookForUpdate = async () => {
+      try {
+        const update = await check();
+        if (update && pendingUpdateRef.current?.version !== update.version) {
+          pendingUpdateRef.current = update;
+          setUpdateReady(update.version);
+          // pre-download now so the actual install is a near-instant restart
+          downloadPromiseRef.current = update
+            .download(() => {})
+            .then(() => {
+              downloadedRef.current = update.version;
+            })
+            .catch(() => {
+              // download will happen at install time instead
+            })
+            .finally(() => {
+              downloadPromiseRef.current = null;
+            });
+          // mid-session there's no auto countdown — the corner popup lets the
+          // user choose to interrupt themselves
+          if (focusRef.current.phase !== 'idle' && shownFor !== update.version) {
+            shownFor = update.version;
+            invoke('show_update_popup', { version: update.version, url: '' }).catch(() => {});
+          }
+        }
+      } catch {
+        // offline / manifest missing — silently skip
+      }
+      try {
+        const res = await fetch(
+          'https://raw.githubusercontent.com/JuanArtxz/locked-in/main/latest.json',
+          { cache: 'no-store' },
+        );
+        const man = (await res.json()) as { min_version?: string };
+        if (man?.min_version) {
+          const cur = await getVersion();
+          setUpdateForced(cmpVersions(cur, man.min_version) < 0);
+        }
+      } catch {
+        // manifest unreachable — keep last known forced state
+      }
+    };
+    const boot = window.setTimeout(lookForUpdate, 8_000);
+    const iv = window.setInterval(lookForUpdate, 30 * 60_000);
+
+    let unlisten: (() => void) | undefined;
+    listen('update:install', () => doInstallRef.current()).then((u) => {
       unlisten = u;
     });
 
@@ -416,7 +487,47 @@ function AppShell() {
       window.clearInterval(iv);
       unlisten?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // arm the countdown whenever an update is ready and the app turns idle
+  useEffect(() => {
+    if (!updateReady || updating || installingRef.current || updateCountdown !== null) return;
+    if (focus.phase !== 'idle') return;
+    const arm = () => setUpdateCountdown(updateForced ? 15 : 60);
+    if (updateForced) {
+      arm();
+      return;
+    }
+    const wait = snoozeUntilRef.current - Date.now();
+    if (wait <= 0) {
+      arm();
+      return;
+    }
+    const id = window.setTimeout(arm, wait);
+    return () => window.clearTimeout(id);
+  }, [updateReady, updating, updateForced, focus.phase, updateCountdown]);
+
+  // tick — starting a session cancels it, zero installs
+  useEffect(() => {
+    if (updateCountdown === null) return;
+    if (focus.phase !== 'idle') {
+      setUpdateCountdown(null);
+      return;
+    }
+    if (updateCountdown <= 0) {
+      doInstallRef.current();
+      return;
+    }
+    const id = window.setTimeout(
+      () => setUpdateCountdown((c) => (c === null ? null : c - 1)),
+      1000,
+    );
+    return () => window.clearTimeout(id);
+  }, [updateCountdown, focus.phase]);
+
+  const snoozeUpdate = useCallback(() => {
+    snoozeUntilRef.current = Date.now() + 3600_000;
+    setUpdateCountdown(null);
   }, []);
 
   // feed the native watchers (hourly check-in + anti-procrastination nudge);
@@ -1244,6 +1355,64 @@ function AppShell() {
         </div>
       )}
 
+      {/* forced update — running below min_version: blocking while idle,
+          slim banner while a session runs (never interrupts focus) */}
+      {updateForced && updateReady && !updating && (
+        focus.phase === 'idle' ? (
+          <div className="animate-fade-in fixed inset-0 z-[59] flex items-center justify-center bg-black/85 backdrop-blur-sm">
+            <div className="chunk animate-scale-in w-full max-w-sm p-6 text-center">
+              <Mascot mood="sad" size={72} />
+              <h2 className="mt-3 text-lg font-extrabold text-text">{t('up.forced')}</h2>
+              <p className="mt-1 text-xs font-medium text-text-dim">
+                {t('up.forced.sub', updateReady)}
+              </p>
+              {updateCountdown !== null && (
+                <p className="mt-3 font-mono text-sm font-bold tabular-nums text-warn">
+                  {t('up.restartin', String(updateCountdown))}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => doInstall()}
+                className="chunk-btn chunk-btn-accent mt-4 w-full py-2.5 text-sm"
+              >
+                {t('up.get').toUpperCase()}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="fixed left-1/2 top-12 z-[59] -translate-x-1/2 rounded-full border-2 border-warn bg-bg px-4 py-1.5 text-xs font-bold text-warn shadow-lg">
+            {t('up.forced')} — {t('up.aftersession')}
+          </div>
+        )
+      )}
+
+      {/* update ready — self-restarting countdown, snoozable for 1h */}
+      {!updateForced && updateCountdown !== null && !updating && (
+        <div className="animate-scale-in fixed bottom-4 right-4 z-50 w-72 rounded-2xl border-2 border-accent bg-surface p-4 shadow-2xl shadow-black/50">
+          <div className="text-sm font-extrabold text-text">⬆ {t('up.ready', updateReady ?? '')}</div>
+          <div className="mt-0.5 font-mono text-xs font-bold tabular-nums text-accent">
+            {t('up.restartin', String(updateCountdown))}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => doInstall()}
+              className="chunk-btn chunk-btn-accent flex-1 py-2 text-xs"
+            >
+              {t('up.now')}
+            </button>
+            <button
+              type="button"
+              onClick={snoozeUpdate}
+              className="chunk-btn flex-1 py-2 text-xs text-text-dim"
+            >
+              {t('up.snooze')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {updating && (
         <div className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm">
           <div className="animate-scale-in flex w-full max-w-sm flex-col items-center rounded-2xl border border-border bg-surface p-8 text-center shadow-2xl shadow-black/50">
@@ -1496,6 +1665,17 @@ function AppShell() {
       </div>
     </div>
   );
+}
+
+/** "0.23.1" vs "0.24.0" → -1/0/1, missing parts count as 0 */
+function cmpVersions(a: string, b: string): number {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d !== 0) return d < 0 ? -1 : 1;
+  }
+  return 0;
 }
 
 function App() {

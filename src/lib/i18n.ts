@@ -780,6 +780,19 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: "don't close the app — it restarts itself on the new version",
   },
   'up.error': { pt: 'atualização falhou: {0}', en: 'update failed: {0}' },
+  'up.ready': { pt: 'v{0} pronta pra instalar', en: 'v{0} ready to install' },
+  'up.restartin': { pt: 'reiniciando em {0}s', en: 'restarting in {0}s' },
+  'up.now': { pt: 'AGORA', en: 'NOW' },
+  'up.snooze': { pt: 'daqui 1h', en: 'in 1h' },
+  'up.forced': { pt: 'Atualização obrigatória', en: 'Required update' },
+  'up.forced.sub': {
+    pt: 'esta versão não é mais suportada — atualizando pra v{0}',
+    en: 'this version is no longer supported — updating to v{0}',
+  },
+  'up.aftersession': {
+    pt: 'instala sozinho quando a sessão terminar',
+    en: 'installs itself when the session ends',
+  },
 
   // nudge popup
   'nudge.title': { pt: 'ei. LOCKED IN.', en: 'hey. LOCKED IN.' },

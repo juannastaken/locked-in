@@ -3,6 +3,13 @@
 # Builds a signed installer, creates the GitHub release, uploads the artifacts
 # and updates latest.json so every installed app shows the update popup.
 
+param(
+  [string]$Message = "",
+  # oldest version still allowed to run; below it the app force-updates.
+  # Omitted -> keeps whatever min_version the current latest.json carries.
+  [string]$MinVersion = ""
+)
+
 $ErrorActionPreference = "Stop"
 $repo = "JuanArtxz/locked-in"
 
@@ -27,6 +34,15 @@ if ($LASTEXITCODE -ne 0) { throw "gh release failed" }
 
 # updater manifest (GitHub asset names replace spaces with dots)
 $assetName = $exe.Name -replace ' ', '.'
+
+# min_version: explicit param wins, otherwise carry the previous one forward
+if (-not $MinVersion -and (Test-Path "latest.json")) {
+  try {
+    $prev = Get-Content "latest.json" -Raw | ConvertFrom-Json
+    if ($prev.PSObject.Properties.Name -contains "min_version") { $MinVersion = $prev.min_version }
+  } catch {}
+}
+
 $manifest = [ordered]@{
   version   = $version
   pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -37,6 +53,8 @@ $manifest = [ordered]@{
     }
   }
 }
+if ($MinVersion) { $manifest["min_version"] = $MinVersion }
+
 # WriteAllText with BOM-less UTF8: Out-File -Encoding utf8 adds a BOM in PS 5.1,
 # and a BOM breaks the updater's JSON parsing
 $json = $manifest | ConvertTo-Json -Depth 5
