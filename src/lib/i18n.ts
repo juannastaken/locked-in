@@ -364,6 +364,14 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: '{0} left over {1} days — {2}/day',
   },
   'goals.overdue': { pt: 'prazo estourado', en: 'past deadline' },
+  'goals.hint': {
+    pt: 'conta o tempo das sessões iniciadas com este projeto marcado na Home',
+    en: 'counts time from sessions started with this project tagged on Home',
+  },
+  'goals.zero': {
+    pt: 'nada contado ainda — ao dar LOCK IN, marca o chip 🎯 {0}',
+    en: 'nothing counted yet — when you LOCK IN, tag the 🎯 {0} chip',
+  },
 
   // first run
   'firstrun.title': { pt: 'escolhe teu idioma', en: 'pick your language' },

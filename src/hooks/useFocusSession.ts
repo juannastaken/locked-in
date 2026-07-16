@@ -333,6 +333,20 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     return () => window.clearInterval(id);
   }, [phase, activeBreak]);
 
+  /** usernames are identity keys — collapse case-duplicates of the same person */
+  function dedupeUsers(list: string[]): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const u of list) {
+      const k = u.toLowerCase();
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(u);
+      }
+    }
+    return out;
+  }
+
   const startSession = useCallback(
     async (task: string, project: string | null, jamMeta?: JamMeta) => {
       try {
@@ -344,7 +358,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
         });
         resetTelemetry();
         setActiveSession(session);
-        setJam(jamMeta ?? null);
+        setJam(jamMeta ? { ...jamMeta, members: dedupeUsers(jamMeta.members) } : null);
         setElapsedSec(0);
         setTodayElapsedSec(0);
         setPhase('focusing');
@@ -360,7 +374,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     (members: string[]) => {
       if (!activeSession) return;
       const current = jam;
-      const merged = [...new Set([...(current?.members ?? []), ...members])];
+      const merged = dedupeUsers([...(current?.members ?? []), ...members]);
       db.setSessionJamMembers(activeSession.id, merged).catch((err) => setError(String(err)));
       // host keeps their own clock — the jam started when THEIR session did
       setJam({ startedAt: current?.startedAt ?? activeSession.started_at, members: merged });
@@ -374,7 +388,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
   const syncJamMembers = useCallback(
     (members: string[]) => {
       if (!activeSession || !jam) return;
-      const next = [...new Set(members)];
+      const next = dedupeUsers(members);
       const same =
         next.length === jam.members.length && next.every((m) => jam.members.includes(m));
       if (same) return;

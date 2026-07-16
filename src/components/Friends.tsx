@@ -107,11 +107,15 @@ export function statusLineFor(status: social.FriendStatus, row: PresenceRow | un
     const sec = row?.started_at
       ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
       : 0;
-    // in a jam? show who with — names render even for people I haven't added
+    // in a jam? show who with — names render even for people I haven't added.
+    // A jam is 2+ people: a lone name means they're just focusing solo.
     if (row?.jam_members) {
       try {
-        const names = (JSON.parse(row.jam_members) as string[]).map((u) => `@${u}`).join(' ');
-        return `🎧 ${t('fr.injam', names)} · ${formatDurationShort(sec)}`;
+        const list = JSON.parse(row.jam_members) as string[];
+        if (list.length >= 2) {
+          const names = list.map((u) => `@${u}`).join(' ');
+          return `🎧 ${t('fr.injam', names)} · ${formatDurationShort(sec)}`;
+        }
       } catch {
         // fall through to the plain line
       }
@@ -719,12 +723,34 @@ export function FriendsPage({
                 m.in_jam &&
                 (m.user_id === me.user_id || social.isLive(soc.presence.get(m.user_id))),
             );
+          // one jam = one card. Every member publishes the same roster, so a
+          // 1:1 jam between two of my friends would render once per friend —
+          // and a group jam would repeat via its members' presence. Dedupe by
+          // the (case-insensitive) member set.
+          const dedupeNames = (names: string[]) => {
+            const seen = new Set<string>();
+            const out: string[] = [];
+            for (const n of names) {
+              const k = n.toLowerCase();
+              if (!seen.has(k)) {
+                seen.add(k);
+                out.push(n);
+              }
+            }
+            return out;
+          };
+          const keyOf = (names: string[]) =>
+            names
+              .map((n) => n.toLowerCase())
+              .sort()
+              .join('|');
           const groupJams = groupsHook.list
             .filter((g) => g.group.jam_started_at && liveInJam(g).length > 0)
             .map((g) => {
               const live = liveInJam(g);
               return {
                 key: `g${g.group.id}`,
+                jamKey: keyOf(live.map((m) => m.username)),
                 title: g.group.name,
                 task: g.group.jam_task ?? '',
                 count: live.length,
@@ -732,28 +758,44 @@ export function FriendsPage({
                 onClick: () => openGroup(g.group.id),
               };
             });
-          const friendJams = state.friends
-            .map((f) => ({ f, row: soc.presence.get(f.userId) }))
-            .filter(({ row }) => social.isLive(row) && row?.jam_members)
-            .map(({ f, row }) => {
-              let names: string[] = [];
-              try {
-                names = JSON.parse(row!.jam_members as string) as string[];
-              } catch {
-                names = [];
-              }
-              return {
-                key: `f${f.userId}`,
-                title: `@${f.username}`,
-                task: row?.task ?? '',
-                count: names.length,
-                avatars: names.slice(0, 5).map((n) => {
-                  const fr = state.friends.find((x) => x.username === n);
-                  return { name: n, avatar: fr?.avatar ?? (n === f.username ? f.avatar : null) };
-                }),
-                onClick: () => openChat(f),
-              };
+          const seenJams = new Set(groupJams.map((j) => j.jamKey));
+          const friendJams: typeof groupJams = [];
+          for (const f of state.friends) {
+            const row = soc.presence.get(f.userId);
+            if (!social.isLive(row) || !row?.jam_members) continue;
+            let names: string[] = [];
+            try {
+              names = dedupeNames(JSON.parse(row.jam_members) as string[]);
+            } catch {
+              continue;
+            }
+            // a jam is 2+ people — solo focusing is not a jam
+            if (names.length < 2) continue;
+            // my own jam is already pinned in the sidebar
+            if (names.some((n) => n.toLowerCase() === me.username.toLowerCase())) continue;
+            const jamKey = keyOf(names);
+            if (seenJams.has(jamKey)) continue;
+            seenJams.add(jamKey);
+            friendJams.push({
+              key: `f${f.userId}`,
+              jamKey,
+              title: `@${f.username}`,
+              task: row.task ?? '',
+              count: names.length,
+              avatars: names.slice(0, 5).map((n) => {
+                const fr = state.friends.find(
+                  (x) => x.username.toLowerCase() === n.toLowerCase(),
+                );
+                return {
+                  name: n,
+                  avatar:
+                    fr?.avatar ??
+                    (n.toLowerCase() === f.username.toLowerCase() ? f.avatar : null),
+                };
+              }),
+              onClick: () => openChat(f),
             });
+          }
           const jams = [...groupJams, ...friendJams];
           if (jams.length === 0) return null;
           return (

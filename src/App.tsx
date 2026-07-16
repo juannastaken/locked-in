@@ -229,26 +229,44 @@ function AppShell() {
       return;
     }
     const me = myUsernameRef.current;
+    const meKey = me?.toLowerCase() ?? null;
+    // canonicalize first: heal the 'me' placeholder (roster built before my
+    // username had loaded) and collapse case-duplicates of the same person —
+    // both showed up as "2 people" that were really one
+    const seenKeys = new Set<string>();
+    const canonical: string[] = [];
+    for (const raw of jam.members) {
+      const u = raw === 'me' && me ? me : raw;
+      const k = u.toLowerCase();
+      if (!seenKeys.has(k)) {
+        seenKeys.add(k);
+        canonical.push(u);
+      }
+    }
     const uidOf = (u: string) => {
-      const fr = social.state?.friends.find((f) => f.username === u);
+      const k = u.toLowerCase();
+      const fr = social.state?.friends.find((f) => f.username.toLowerCase() === k);
       if (fr) return fr.userId;
-      const gm = groups.list.flatMap((g) => g.members).find((m) => m.username === u);
+      const gm = groups.list
+        .flatMap((g) => g.members)
+        .find((m) => m.username.toLowerCase() === k);
       return gm?.user_id ?? null;
     };
-    const live = jam.members.filter((u) => {
-      if (u === me) return true;
+    const live = canonical.filter((u) => {
+      const k = u.toLowerCase();
+      if (meKey && k === meKey) return true;
       const uid = uidOf(u);
       if (!uid) return true; // unknown identity → keep, can't judge
       const row = social.presence.get(uid);
       // seen-live-first: don't prune someone we've never observed focusing yet
       // (their presence may not have loaded right after they joined)
       if (socialLib.isLive(row)) {
-        jamSeenRef.current.add(u);
+        jamSeenRef.current.add(k);
         return true;
       }
-      return !jamSeenRef.current.has(u); // seen before & now not live → prune
+      return !jamSeenRef.current.has(k); // seen before & now not live → prune
     });
-    if (live.length !== jam.members.length) {
+    if (live.length !== jam.members.length || live.some((u, i) => u !== jam.members[i])) {
       focusRef.current.syncJamMembers(live);
     }
   }, [focus.jam, social.presence, social.state, groups.list]);
@@ -297,7 +315,9 @@ function AppShell() {
           appVersion,
           publicProjects,
           totalSec: life.totalSec + (focusing || phase === 'paused' ? elapsedSec : 0),
-          jamMembers: focusing ? jamMembers : null,
+          // a jam is 2+ people — solo focusing (or a group jam nobody joined
+          // yet) must not read as "in a jam" to friends
+          jamMembers: focusing && jamMembers && jamMembers.length >= 2 ? jamMembers : null,
         });
       } catch {
         // offline — the next beat wins
@@ -1452,7 +1472,7 @@ function AppShell() {
           onOpenChat={openChatShortcut}
           unread={unreadMsgs}
           jamMembers={
-            focus.jam
+            focus.jam && focus.jam.members.length >= 2
               ? focus.jam.members.map((u) => {
                   // avatars come from friends OR from my group rosters — in a
                   // group jam even non-friends are shown (they're groupmates)

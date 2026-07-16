@@ -121,6 +121,7 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
                 <option key={p} value={p} />
               ))}
             </datalist>
+            <p className="text-[11px] leading-relaxed text-text-faint">💡 {t('goals.hint')}</p>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-sm text-text-dim">
                 {t('goals.target')}
@@ -264,6 +265,11 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
                   t('goals.left', formatDurationShort(remainingSec))
                 )}
               </div>
+              {doneSec === 0 && !done && (
+                <div className="mt-1 text-[11px] font-medium text-warn">
+                  {t('goals.zero', goal.project)}
+                </div>
+              )}
             </div>
           );
         })}

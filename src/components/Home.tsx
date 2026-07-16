@@ -28,13 +28,30 @@ export function Home({ focus, settings, onError, refreshKey, onOpenHabits }: Hom
   const [task, setTask] = useState('');
   const [project, setProject] = useState('');
   const [projects, setProjects] = useState<string[]>([]);
+  const [goalProjects, setGoalProjects] = useState<Set<string>>(() => new Set());
   const [today, setToday] = useState<DayStat | null>(null);
   const [rating, setRating] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [breakChoice, setBreakChoice] = useState<number | null>(BREAK_OPTIONS[0].sec);
 
   useEffect(() => {
-    db.listProjects().then(setProjects).catch((err) => onError(String(err)));
+    // goal projects come first: a fresh goal has zero sessions, so it would
+    // never surface via listProjects and the user could never tag time to it
+    Promise.all([db.listProjects(), db.listGoals()])
+      .then(([projs, goals]) => {
+        const seen = new Set<string>();
+        const merged: string[] = [];
+        for (const p of [...goals.map((g) => g.project), ...projs]) {
+          const k = p.toLowerCase();
+          if (!seen.has(k)) {
+            seen.add(k);
+            merged.push(p);
+          }
+        }
+        setProjects(merged);
+        setGoalProjects(new Set(goals.map((g) => g.project.toLowerCase())));
+      })
+      .catch((err) => onError(String(err)));
   }, [onError, refreshKey]);
 
   useEffect(() => {
@@ -135,7 +152,7 @@ export function Home({ focus, settings, onError, refreshKey, onOpenHabits }: Hom
               {focus.activeSession.project}
             </span>
           )}
-          {focus.jam && (
+          {focus.jam && focus.jam.members.length >= 2 && (
             <span className="rounded-full border-2 border-accent bg-accent-dim px-3 py-0.5 text-xs font-bold text-accent">
               🎧 JAM · {focus.jam.members.map((m) => `@${m}`).join(' ')}
             </span>
@@ -399,7 +416,7 @@ export function Home({ focus, settings, onError, refreshKey, onOpenHabits }: Hom
                   : 'border-border text-text-dim hover:border-border-strong hover:text-text'
               }`}
             >
-              {p}
+              {goalProjects.has(p.toLowerCase()) ? `🎯 ${p}` : p}
             </button>
           ))}
           <input
