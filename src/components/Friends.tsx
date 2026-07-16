@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { unlockedBadges } from '../lib/badges';
 import type { Badge } from '../lib/badges';
 import { cleanProfanity } from '../lib/filter';
@@ -1321,8 +1322,11 @@ export function FriendsPage({
         </div>
       )}
 
-      {/* right-click menu on a friend — Discord-style */}
-      {ctxMenu && (
+      {/* right-click menu on a friend — Discord-style. Portaled to <body>:
+          a transformed ancestor (tab-switch animation) turns position:fixed
+          into container-relative and the menu drifted way below the cursor */}
+      {ctxMenu &&
+        createPortal(
         <div className="fixed inset-0 z-[68]" onMouseDown={() => setCtxMenu(null)}>
           <div
             className="animate-scale-in absolute w-48 rounded-xl border-2 border-border-strong bg-surface p-1.5 shadow-2xl shadow-black/60"
@@ -1378,7 +1382,8 @@ export function FriendsPage({
               ✕ {t('fr.unfriend')}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {confirmUnfriend && (
