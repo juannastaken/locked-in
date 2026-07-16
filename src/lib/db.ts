@@ -858,29 +858,65 @@ export async function exportAll(): Promise<Snapshot> {
   });
 }
 
-/** Wipes local tables and rebuilds them from a snapshot (ids preserved). */
+/** Safe SQL identifier — column names from a snapshot must match this. */
+const SAFE_IDENT = /^[a-z_][a-z0-9_]*$/i;
+
+/** Live column set of a table (table name comes only from SNAPSHOT_TABLES). */
+async function tableColumns(dbi: Database, table: string): Promise<Set<string>> {
+  const rows = await dbi.select<{ name: string }[]>(`PRAGMA table_info(${table})`);
+  return new Set(rows.map((r) => r.name));
+}
+
+/**
+ * Replaces local tables with a snapshot. Two safety properties, both by
+ * construction (no reliance on manual transactions — the sql plugin's
+ * connection pool makes BEGIN/COMMIT across calls unreliable):
+ *
+ * 1. Injection-proof: a column name is used only if it matches a safe
+ *    identifier AND exists in the live schema. A crafted key can't break out
+ *    of the query, and a column from a different app version is dropped rather
+ *    than crashing the whole restore.
+ * 2. No half-restore: EVERY insert is fully built and schema-validated BEFORE
+ *    the first DELETE runs. The realistic failure (schema drift) is impossible
+ *    past that point, so the wipe never happens without the refill following.
+ */
 export async function importAll(snap: Snapshot): Promise<void> {
   return run('importAll', async () => {
     const dbi = await getDb();
+
+    // ---- phase 1: build + validate the whole plan, zero mutations ----
+    const plan: { sql: string; params: unknown[] }[] = [];
     for (const table of SNAPSHOT_TABLES) {
-      await dbi.execute(`DELETE FROM ${table}`);
+      const valid = await tableColumns(dbi, table);
       const rows = (snap as unknown as Record<string, Record<string, unknown>[]>)[table] ?? [];
+      if (!Array.isArray(rows)) continue;
       for (const row of rows) {
-        const cols = Object.keys(row);
+        if (!row || typeof row !== 'object') continue;
+        const cols = Object.keys(row).filter((c) => SAFE_IDENT.test(c) && valid.has(c));
         if (cols.length === 0) continue;
         const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
-        await dbi.execute(
-          `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders})`,
-          cols.map((c) => row[c]),
-        );
+        plan.push({
+          sql: `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders})`,
+          params: cols.map((c) => row[c]),
+        });
       }
     }
-    for (const [key, value] of Object.entries(snap.settings ?? {})) {
-      if (key === 'anthropic_api_key') continue;
+    const settingsEntries = Object.entries(snap.settings ?? {}).filter(
+      ([key]) => key !== 'anthropic_api_key' && SAFE_IDENT.test(key),
+    );
+
+    // ---- phase 2: mutate (plan already proven valid against the schema) ----
+    for (const table of SNAPSHOT_TABLES) {
+      await dbi.execute(`DELETE FROM ${table}`);
+    }
+    for (const stmt of plan) {
+      await dbi.execute(stmt.sql, stmt.params);
+    }
+    for (const [key, value] of settingsEntries) {
       await dbi.execute(
         `INSERT INTO settings (key, value) VALUES ($1, $2)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        [key, value],
+        [key, String(value)],
       );
     }
   });
