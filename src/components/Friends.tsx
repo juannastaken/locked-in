@@ -4,6 +4,7 @@ import { formatDurationShort } from '../lib/time';
 import * as social from '../lib/social';
 import type { FriendEntry } from '../lib/social';
 import type { SocialHook } from '../hooks/useSocial';
+import { ChatView } from './Chat';
 import { Mascot } from './Mascot';
 
 export interface MyFocusState {
@@ -19,6 +20,13 @@ interface FriendsProps {
   myFocus: MyFocusState;
   /** send a jam invite ('invite' = join MY jam) or request ('request' = let me join THEIRS) */
   onSendJam: (f: FriendEntry, kind: 'invite' | 'request') => Promise<void>;
+  /** unread message counts per friend userId */
+  unread: Record<string, number>;
+  /** bumped when a realtime message arrives (open chat refetches) */
+  chatRefetchKey: number;
+  /** tells the app which conversation is on screen (null = none) */
+  onChatOpened: (friendUserId: string | null) => void;
+  onOpenBackup: () => void;
 }
 
 /** Username claim form — used by the Friends tab and the mandatory app modal. */
@@ -109,6 +117,8 @@ function FriendProfile({
   onSendJam,
   onError,
   onBack,
+  onMessage,
+  unreadCount,
 }: {
   friend: FriendEntry;
   soc: SocialHook;
@@ -116,6 +126,8 @@ function FriendProfile({
   onSendJam: FriendsProps['onSendJam'];
   onError: (m: string) => void;
   onBack: () => void;
+  onMessage: () => void;
+  unreadCount: number;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -196,6 +208,21 @@ function FriendProfile({
         </div>
       </div>
 
+      {/* message */}
+      <button
+        type="button"
+        onClick={onMessage}
+        className="chunk-btn relative w-full py-3 text-sm text-text"
+      >
+        💬 {t('msg.open')}
+        <span className="ml-1.5 text-[10px] font-bold text-text-faint">🔒 E2E</span>
+        {unreadCount > 0 && (
+          <span className="absolute right-3 top-1/2 inline-flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
       {/* jam actions */}
       <div className="space-y-2">
         {live && !myFocus.focusing && (
@@ -263,11 +290,39 @@ function FriendProfile({
   );
 }
 
-export function FriendsPage({ signedIn, social: soc, onError, myFocus, onSendJam }: FriendsProps) {
+export function FriendsPage({
+  signedIn,
+  social: soc,
+  onError,
+  myFocus,
+  onSendJam,
+  unread,
+  chatRefetchKey,
+  onChatOpened,
+  onOpenBackup,
+}: FriendsProps) {
   const [addName, setAddName] = useState('');
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<FriendEntry | null>(null);
+  const [chatting, setChatting] = useState<FriendEntry | null>(null);
+
+  function openChat(f: FriendEntry) {
+    if (!f.e2ePub) {
+      onError(t('ver.old', f.username));
+      return;
+    }
+    setChatting(f);
+    onChatOpened(f.userId);
+  }
+
+  function closeChat() {
+    setChatting(null);
+    onChatOpened(null);
+  }
+
+  // leaving the tab entirely also counts as closing the conversation
+  useEffect(() => () => onChatOpened(null), [onChatOpened]);
 
   // live "focusing for Xh" durations tick without any network traffic
   const [, setTick] = useState(0);
@@ -324,6 +379,33 @@ export function FriendsPage({ signedIn, social: soc, onError, myFocus, onSendJam
     );
   }
 
+  // ---- chat subview ----
+  if (chatting) {
+    const fresh = state.friends.find((f) => f.friendshipId === chatting.friendshipId);
+    if (!fresh) {
+      closeChat();
+    } else {
+      const row = soc.presence.get(fresh.userId);
+      const friendLive = social.isLive(row);
+      const jamAction =
+        myFocus.focusing
+          ? { label: t('jam.invite'), run: () => onSendJam(fresh, 'invite') }
+          : friendLive
+            ? { label: t('jam.request'), run: () => onSendJam(fresh, 'request') }
+            : null;
+      return (
+        <ChatView
+          friend={fresh}
+          onError={onError}
+          onBack={closeChat}
+          refetchKey={chatRefetchKey}
+          jamAction={jamAction}
+          onOpenBackup={onOpenBackup}
+        />
+      );
+    }
+  }
+
   // ---- friend profile subview ----
   if (viewing) {
     const fresh = state.friends.find((f) => f.friendshipId === viewing.friendshipId);
@@ -340,6 +422,11 @@ export function FriendsPage({ signedIn, social: soc, onError, myFocus, onSendJam
             onSendJam={onSendJam}
             onError={onError}
             onBack={() => setViewing(null)}
+            onMessage={() => {
+              setViewing(null);
+              openChat(fresh);
+            }}
+            unreadCount={unread[fresh.userId] ?? 0}
           />
         </div>
       );
@@ -539,8 +626,15 @@ export function FriendsPage({ signedIn, social: soc, onError, myFocus, onSendJam
                     </div>
                   </div>
                 </div>
-                <span className="shrink-0 text-xs font-bold text-text-faint">
-                  {t('fr.viewprofile')} →
+                <span className="flex shrink-0 items-center gap-2">
+                  {(unread[f.userId] ?? 0) > 0 && (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
+                      {unread[f.userId]}
+                    </span>
+                  )}
+                  <span className="text-xs font-bold text-text-faint">
+                    {t('fr.viewprofile')} →
+                  </span>
                 </span>
               </button>
             );

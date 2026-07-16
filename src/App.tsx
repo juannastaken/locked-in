@@ -7,6 +7,7 @@ import { CheckinPage } from './components/Checkin';
 import { ClaimUsernameForm, FriendsPage } from './components/Friends';
 import { FriendsBar } from './components/FriendsBar';
 import { JamPromptOverlay } from './components/JamPrompt';
+import { KeyBackupModal } from './components/KeyBackup';
 import { GoalsPage } from './components/Goals';
 import { Login } from './components/Login';
 import { Splash } from './components/Splash';
@@ -26,6 +27,8 @@ import { useSocial } from './hooks/useSocial';
 import { useJam } from './hooks/useJam';
 import type { FriendEntry } from './lib/social';
 import * as socialLib from './lib/social';
+import * as chatLib from './lib/chat';
+import * as e2e from './lib/e2e';
 import { ToastProvider, useToast } from './hooks/useToast';
 import * as db from './lib/db';
 import { check } from '@tauri-apps/plugin-updater';
@@ -448,6 +451,65 @@ function AppShell() {
     onDeclined: (username) => pushToast(t('jam.declined', username), 'info'),
   });
 
+  // ---------- E2E messages: keys, unread, realtime notifications ----------
+  const [keyModal, setKeyModal] = useState<'backup' | 'restore' | null>(null);
+  const keyInitRef = useRef(false);
+  useEffect(() => {
+    const me = social.state?.me;
+    if (!signedIn || !me || keyInitRef.current) return;
+    keyInitRef.current = true;
+    e2e.ensureKeys(me.e2e_pub ?? null).then((status) => {
+      if (status === 'restore-needed') setKeyModal('restore');
+    });
+  }, [signedIn, social.state]);
+
+  const [unreadMsgs, setUnreadMsgs] = useState<Record<string, number>>({});
+  const [chatRefetchKey, setChatRefetchKey] = useState(0);
+  const openChatRef = useRef<string | null>(null);
+  const refreshUnread = useCallback(() => {
+    chatLib.fetchUnreadCounts().then(setUnreadMsgs).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    refreshUnread();
+    const unsub = chatLib.subscribeMessages((row) => {
+      const myId = socialStateRef.current?.me?.user_id;
+      if (!row || !myId) {
+        setChatRefetchKey((k) => k + 1); // deletes etc. — just refetch
+        refreshUnread();
+        return;
+      }
+      if (row.recipient !== myId && row.sender !== myId) return;
+      setChatRefetchKey((k) => k + 1);
+      if (row.recipient === myId && openChatRef.current !== row.sender) {
+        refreshUnread();
+        const who = jamLookup(row.sender).username;
+        pushToast(t('msg.new', who), 'info');
+        invoke('show_notice', { title: '💬 @' + who, body: t('msg.new.body'), mood: 'happy' }).catch(
+          () => {},
+        );
+      }
+    });
+    return unsub;
+  }, [signedIn, refreshUnread, jamLookup, pushToast]);
+
+  const onChatOpened = useCallback(
+    (friendId: string | null) => {
+      openChatRef.current = friendId;
+      if (friendId) {
+        chatLib.markConversationRead(friendId);
+        setUnreadMsgs((u) => {
+          if (!u[friendId]) return u;
+          const next = { ...u };
+          delete next[friendId];
+          return next;
+        });
+      }
+    },
+    [],
+  );
+
   const sendJam = useCallback(
     async (f: FriendEntry, kind: 'invite' | 'request') => {
       // feature handshake: the other side needs a build that knows about JAM
@@ -461,19 +523,20 @@ function AppShell() {
         if (!s) return;
         const err = await jam.send(f.userId, f.username, 'invite', s.task, s.started_at);
         if (err) onError(err);
-        else pushToast(t('jam.sent.toast', f.username), 'info');
+        else {
+          pushToast(t('jam.sent.toast', f.username), 'info');
+          if (f.e2ePub) chatLib.sendMessage(f.userId, 'jam', s.task).catch(() => {});
+        }
       } else {
         const row = social.presence.get(f.userId);
         if (!row?.started_at) return;
-        const err = await jam.send(
-          f.userId,
-          f.username,
-          'request',
-          row.task || t('jam.generic'),
-          row.started_at,
-        );
+        const task = row.task || t('jam.generic');
+        const err = await jam.send(f.userId, f.username, 'request', task, row.started_at);
         if (err) onError(err);
-        else pushToast(t('jam.sent.toast', f.username), 'info');
+        else {
+          pushToast(t('jam.sent.toast', f.username), 'info');
+          if (f.e2ePub) chatLib.sendMessage(f.userId, 'jam', task).catch(() => {});
+        }
       }
     },
     [jam, onError, pushToast, social.presence],
@@ -857,6 +920,19 @@ function AppShell() {
         </div>
       )}
 
+      {keyModal && (
+        <KeyBackupModal
+          mode={keyModal}
+          onClose={() => setKeyModal(null)}
+          onDone={() => {
+            setKeyModal(null);
+            pushToast(t(keyModal === 'backup' ? 'key.backup.done' : 'key.restore.done'), 'info');
+          }}
+          onRotated={() => social.refresh()}
+          onError={onError}
+        />
+      )}
+
       {jam.prompt && (
         <JamPromptOverlay
           prompt={jam.prompt}
@@ -1086,6 +1162,10 @@ function AppShell() {
               startedAtIso: focus.activeSession?.started_at ?? null,
             }}
             onSendJam={sendJam}
+            unread={unreadMsgs}
+            chatRefetchKey={chatRefetchKey}
+            onChatOpened={onChatOpened}
+            onOpenBackup={() => setKeyModal('backup')}
           />
         )}
         {tab === 'settings' && <SettingsScreen settingsHook={settingsHook} onError={onError} />}

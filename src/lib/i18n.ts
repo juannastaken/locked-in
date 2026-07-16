@@ -185,6 +185,66 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: 'goal {0}/60 · purity {1}/25 · focus {2}/15 — distraction apps cut into purity',
   },
 
+  // e2e messages
+  'msg.open': { pt: 'Mensagem', en: 'Message' },
+  'msg.send': { pt: 'Enviar', en: 'Send' },
+  'msg.placeholder': { pt: 'mensagem criptografada…', en: 'encrypted message…' },
+  'msg.empty': {
+    pt: 'sem mensagens ainda — fala com @{0}!',
+    en: 'no messages yet — say hi to @{0}!',
+  },
+  'msg.new': { pt: 'mensagem de @{0} 💬', en: 'message from @{0} 💬' },
+  'msg.new.body': {
+    pt: 'te mandou uma mensagem — abre o app pra ler',
+    en: 'sent you a message — open the app to read it',
+  },
+  'msg.undecryptable': {
+    pt: 'mensagem de outra chave (não dá pra decifrar neste PC)',
+    en: 'message from another key (this PC can\'t decrypt it)',
+  },
+  'msg.e2e.hint': {
+    pt: 'criptografia de ponta a ponta: só vocês dois leem — nem o servidor consegue',
+    en: 'end-to-end encrypted: only you two can read this — not even the server',
+  },
+  'msg.err.nokey': {
+    pt: 'tua chave de mensagens não tá neste PC — restaura ou gera uma nova',
+    en: 'your message key is not on this PC — restore it or make a new one',
+  },
+  'msg.err.oldfriend': {
+    pt: '@{0} ainda não tem chave de mensagens — pede pra atualizar o app',
+    en: '@{0} has no message key yet — ask them to update the app',
+  },
+  'msg.backup.nag': {
+    pt: 'tua chave só existe neste PC — cria um backup com senha pra não perder o histórico',
+    en: 'your key only exists on this PC — create a passphrase backup so you never lose history',
+  },
+  'key.backup.title': { pt: 'Backup da chave', en: 'Key backup' },
+  'key.backup.body': {
+    pt: 'a chave é cifrada com essa senha ANTES de subir — sem a senha, nem o servidor abre. Perdeu a senha = perdeu o backup.',
+    en: 'the key is encrypted with this passphrase BEFORE upload — without it, not even the server can open it. Lose the passphrase = lose the backup.',
+  },
+  'key.backup.cta': { pt: 'Criar backup', en: 'Create backup' },
+  'key.backup.done': { pt: 'backup da chave criado 🔐', en: 'key backup created 🔐' },
+  'key.restore.title': { pt: 'Restaurar chave', en: 'Restore key' },
+  'key.restore.body': {
+    pt: 'essa conta já tem chave de mensagens publicada, mas ela não tá neste PC. Digita a senha do backup — ou gera uma chave nova (o histórico antigo fica ilegível).',
+    en: 'this account has a published message key, but it is not on this PC. Enter your backup passphrase — or make a new key (old history becomes unreadable).',
+  },
+  'key.restore.cta': { pt: 'Restaurar', en: 'Restore' },
+  'key.restore.done': { pt: 'chave restaurada 🔓', en: 'key restored 🔓' },
+  'key.pass.placeholder': { pt: 'senha do backup (mín. 8)', en: 'backup passphrase (min 8)' },
+  'key.badpass': { pt: 'senha muito curta (mín. 8)', en: 'passphrase too short (min 8)' },
+  'key.wrongpass': { pt: 'senha errada', en: 'wrong passphrase' },
+  'key.nobackup': {
+    pt: 'não existe backup na nuvem pra essa conta',
+    en: 'no cloud backup exists for this account',
+  },
+  'key.rotate': { pt: 'Gerar chave nova', en: 'Make a new key' },
+  'key.rotate.confirm': {
+    pt: 'certeza? histórico antigo fica ILEGÍVEL pra sempre',
+    en: 'sure? old history becomes UNREADABLE forever',
+  },
+
   'cmd.placeholder': { pt: 'pra onde? (Ctrl+K)', en: 'where to? (Ctrl+K)' },
   'cmd.none': { pt: 'nada com esse nome', en: 'nothing by that name' },
   'cmd.focus': { pt: 'Iniciar foco', en: 'Start focusing' },

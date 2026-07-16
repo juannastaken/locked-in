@@ -12,6 +12,7 @@ export interface Profile {
   user_id: string;
   username: string;
   avatar_b64?: string | null;
+  e2e_pub?: string | null;
 }
 
 export interface FriendEntry {
@@ -19,6 +20,8 @@ export interface FriendEntry {
   userId: string;
   username: string;
   avatar: string | null;
+  /** current message public key — null means their app predates messaging */
+  e2ePub: string | null;
 }
 
 export interface FriendsState {
@@ -67,7 +70,7 @@ export async function getMyProfile(): Promise<Profile | null> {
   if (!user) return null;
   const { data } = await supabase
     .from('profiles')
-    .select('user_id, username, avatar_b64')
+    .select('user_id, username, avatar_b64, e2e_pub')
     .eq('user_id', user.id)
     .maybeSingle();
   return (data as Profile | null) ?? null;
@@ -126,13 +129,16 @@ export async function loadFriendsState(): Promise<FriendsState> {
   }[];
 
   const otherIds = [...new Set(all.map((f) => (f.requester === user.id ? f.addressee : f.requester)))];
-  const profiles = new Map<string, Profile>();
+  interface ProfileWithKey extends Profile {
+    e2e_pub?: string | null;
+  }
+  const profiles = new Map<string, ProfileWithKey>();
   if (otherIds.length > 0) {
     const { data: profs } = await supabase
       .from('profiles')
-      .select('user_id, username, avatar_b64')
+      .select('user_id, username, avatar_b64, e2e_pub')
       .in('user_id', otherIds);
-    for (const p of (profs ?? []) as Profile[]) profiles.set(p.user_id, p);
+    for (const p of (profs ?? []) as ProfileWithKey[]) profiles.set(p.user_id, p);
   }
 
   const entry = (f: (typeof all)[number]): FriendEntry => {
@@ -143,6 +149,7 @@ export async function loadFriendsState(): Promise<FriendsState> {
       userId: other,
       username: p?.username ?? '???',
       avatar: p?.avatar_b64 ?? null,
+      e2ePub: p?.e2e_pub ?? null,
     };
   };
 

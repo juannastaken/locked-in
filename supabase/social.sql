@@ -199,3 +199,77 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+-- ========== E2E encrypted messages ==========
+-- The server only ever stores CIPHERTEXT. Bodies are encrypted client-side
+-- with crypto_box (X25519 + XSalsa20-Poly1305); the private key never leaves
+-- the sender's machine (DPAPI at rest). Public keys are snapshotted per row so
+-- key rotation never breaks old history for whoever still holds their key.
+
+-- each account's current public key (safe to be public by definition)
+alter table public.profiles add column if not exists e2e_pub text;
+
+create table if not exists public.messages (
+  id bigint generated always as identity primary key,
+  sender uuid not null references auth.users(id) on delete cascade,
+  recipient uuid not null references auth.users(id) on delete cascade,
+  kind text not null default 'text' check (kind in ('text', 'jam')),
+  nonce text not null,
+  body_ct text not null check (char_length(body_ct) <= 8000),
+  sender_pub text not null,
+  recipient_pub text not null,
+  created_at timestamptz not null default now(),
+  check (sender <> recipient)
+);
+create index if not exists messages_pair_time
+  on public.messages (least(sender, recipient), greatest(sender, recipient), created_at desc);
+
+alter table public.messages enable row level security;
+
+drop policy if exists messages_select on public.messages;
+create policy messages_select on public.messages
+  for select to authenticated using (auth.uid() in (sender, recipient));
+
+-- only ACCEPTED friends can message each other — strangers can't spam
+drop policy if exists messages_insert on public.messages;
+create policy messages_insert on public.messages
+  for insert to authenticated
+  with check (
+    auth.uid() = sender
+    and exists (
+      select 1 from public.friendships f
+      where f.status = 'accepted'
+        and ((f.requester = sender and f.addressee = recipient)
+          or (f.addressee = sender and f.requester = recipient))
+    )
+  );
+
+-- the author can delete their message (for both sides)
+drop policy if exists messages_delete on public.messages;
+create policy messages_delete on public.messages
+  for delete to authenticated using (auth.uid() = sender);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.messages;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- optional cloud backup of the PRIVATE key, itself encrypted client-side with
+-- a passphrase (Argon2id → XSalsa20-Poly1305). The server never sees the
+-- passphrase or the plaintext key — losing the passphrase = losing the backup.
+create table if not exists public.key_backups (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  salt text not null,
+  nonce text not null,
+  key_ct text not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.key_backups enable row level security;
+
+drop policy if exists key_backups_own on public.key_backups;
+create policy key_backups_own on public.key_backups
+  for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
