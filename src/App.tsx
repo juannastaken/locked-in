@@ -17,7 +17,6 @@ import { ToastProvider, useToast } from './hooks/useToast';
 import * as db from './lib/db';
 import { check } from '@tauri-apps/plugin-updater';
 import type { Update } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
 import { setLang, t } from './lib/i18n';
 import { checkMilestones } from './lib/milestones';
 import { playChime } from './lib/sound';
@@ -153,7 +152,11 @@ function AppShell() {
             setUpdating({ version: update.version, pct: 100 });
           }
         });
-        await relaunch();
+        // Do NOT call relaunch() here: the NSIS installer (installMode
+        // "passive") already restarts the app once it finishes. A second
+        // restart raced the first and left WebView2 dead → the black screen
+        // that only a manual reopen fixed. The progress screen stays at 100%
+        // until the installer takes over and relaunches cleanly.
       } catch (err) {
         setUpdating(null);
         pushToast(t('up.error', String(err)), 'error');
