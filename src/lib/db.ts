@@ -48,9 +48,15 @@ export async function createSession(input: NewSession): Promise<Session> {
     const db = await getDb();
     const startedAt = nowIso();
     const result = await db.execute(
-      `INSERT INTO sessions (task, project, started_at, mode, last_heartbeat_at)
-       VALUES ($1, $2, $3, $4, $3)`,
-      [input.task, input.project, startedAt, input.mode],
+      `INSERT INTO sessions (task, project, started_at, mode, last_heartbeat_at, jam_members)
+       VALUES ($1, $2, $3, $4, $3, $5)`,
+      [
+        input.task,
+        input.project,
+        startedAt,
+        input.mode,
+        input.jamMembers && input.jamMembers.length > 0 ? JSON.stringify(input.jamMembers) : null,
+      ],
     );
     const session = await getSessionById(result.lastInsertId as number);
     if (!session) throw new Error('createSession: session not found after insert');
@@ -254,8 +260,9 @@ export async function endSessionSplit(session: Session, data: SessionEndData): P
       await db.execute(
         `INSERT INTO sessions
            (task, project, started_at, ended_at, duration_sec, focus_rating, mode, notes,
-            last_heartbeat_at, app_usage, afk_sec, afk_intervals, paused_sec, pause_intervals)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $4, $9, $10, $11, $12, $13)`,
+            last_heartbeat_at, app_usage, afk_sec, afk_intervals, paused_sec, pause_intervals,
+            jam_members)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $4, $9, $10, $11, $12, $13, $14)`,
         [
           session.task,
           session.project,
@@ -270,9 +277,21 @@ export async function endSessionSplit(session: Session, data: SessionEndData): P
           seg.afkIntervals.length > 0 ? JSON.stringify(seg.afkIntervals) : null,
           seg.pausedSec,
           seg.pauseIntervals.length > 0 ? JSON.stringify(seg.pauseIntervals) : null,
+          session.jam_members,
         ],
       );
     }
+  });
+}
+
+/** Marks a running session as part of a jam (host side, when someone joins). */
+export async function setSessionJamMembers(id: number, members: string[]): Promise<void> {
+  return run('setSessionJamMembers', async () => {
+    const db = await getDb();
+    await db.execute('UPDATE sessions SET jam_members = $1 WHERE id = $2', [
+      members.length > 0 ? JSON.stringify(members) : null,
+      id,
+    ]);
   });
 }
 
@@ -720,6 +739,7 @@ const SETTINGS_DEFAULTS: Settings = {
   quotes_interval_min: 30,
   profile_projects_public: false,
   friends_bar_enabled: true,
+  pomodoro_enabled: false,
 };
 
 // ---------- reference board ----------

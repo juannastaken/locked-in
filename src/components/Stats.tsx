@@ -12,6 +12,8 @@ import { parseAppUsage } from '../lib/apps';
 import * as db from '../lib/db';
 import { computeInsight } from '../lib/insights';
 import type { Insight } from '../lib/insights';
+import { computeDayScore } from '../lib/score';
+import type { DayScore } from '../lib/score';
 import { dateLocale, getLang, t, weekdayShort } from '../lib/i18n';
 import { Mascot } from './Mascot';
 import { formatDurationShort, localDayKey, todayKey } from '../lib/time';
@@ -56,6 +58,13 @@ export function Stats({ settings, onError, refreshKey }: StatsProps) {
       .then(setInsight)
       .catch(() => setInsight(null));
   }, [refreshKey, settings?.daily_goal_hours]);
+
+  const [dayScore, setDayScore] = useState<DayScore | null>(null);
+  useEffect(() => {
+    computeDayScore(todayKey(), settings?.daily_goal_hours ?? 4, settings?.nudge_apps ?? '')
+      .then(setDayScore)
+      .catch(() => setDayScore(null));
+  }, [refreshKey, settings?.daily_goal_hours, settings?.nudge_apps]);
 
   useEffect(() => {
     const sinceIso = new Date(Date.now() - HEATMAP_WEEKS * 7 * DAY_MS).toISOString();
@@ -210,6 +219,33 @@ export function Stats({ settings, onError, refreshKey }: StatsProps) {
                 {getLang() === 'en' ? insight.tipEn : insight.tipPt}
               </span>
             </p>
+          </div>
+        )}
+
+        {dayScore && (
+          <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4">
+            <div
+              className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-4 font-mono text-xl font-bold tabular-nums ${
+                dayScore.score >= 70
+                  ? 'border-accent text-accent'
+                  : dayScore.score >= 40
+                    ? 'border-warn text-warn'
+                    : 'border-border-strong text-text-dim'
+              }`}
+            >
+              {dayScore.score}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-text">{t('score.title')}</div>
+              <div className="mt-0.5 text-xs leading-relaxed text-text-dim">
+                {t(
+                  'score.parts',
+                  String(dayScore.goalPart),
+                  String(dayScore.purityPart),
+                  String(dayScore.ratingPart),
+                )}
+              </div>
+            </div>
           </div>
         )}
 

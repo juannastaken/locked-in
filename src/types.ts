@@ -19,6 +19,8 @@ export interface Session {
   afk_intervals: string | null;
   /** seconds the session spent paused (never counted as focus) */
   paused_sec: number;
+  /** JSON: string[] — usernames of everyone in the jam; null when solo */
+  jam_members: string | null;
   /** JSON: [startIso, endIso | null][] — pause periods; null end = pause open at crash */
   pause_intervals: string | null;
 }
@@ -27,6 +29,8 @@ export interface NewSession {
   task: string;
   project: string | null;
   mode: SessionMode;
+  /** usernames of everyone in the jam (me included); omitted when solo */
+  jamMembers?: string[];
 }
 
 export interface EndSessionInput {
@@ -88,6 +92,7 @@ export interface Settings {
   quotes_interval_min: number;
   profile_projects_public: boolean;
   friends_bar_enabled: boolean;
+  pomodoro_enabled: boolean;
 }
 
 /** One image pinned on the PureRef-style reference board. */

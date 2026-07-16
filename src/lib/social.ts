@@ -255,3 +255,94 @@ export function subscribeFriendships(onChange: () => void): () => void {
     supabase.removeChannel(channel).catch(() => {});
   };
 }
+
+// ---------- jam (shared focus) ----------
+
+export interface JamInvite {
+  id: number;
+  from_user: string;
+  to_user: string;
+  /** 'invite' = host calls a friend in; 'request' = friend asks to join the host */
+  kind: 'invite' | 'request';
+  task: string;
+  session_started_at: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+}
+
+/** An invite older than this is dead — never prompt for it. */
+export const JAM_INVITE_TTL_MS = 3 * 60_000;
+
+export function jamInviteFresh(inv: JamInvite): boolean {
+  return Date.now() - new Date(inv.created_at).getTime() < JAM_INVITE_TTL_MS;
+}
+
+export async function sendJamInvite(
+  toUserId: string,
+  kind: 'invite' | 'request',
+  task: string,
+  sessionStartedAt: string,
+): Promise<{ id: number } | { error: string }> {
+  const user = await currentUser();
+  if (!user) return { error: 'not signed in' };
+  const { data, error } = await supabase
+    .from('jam_invites')
+    .insert({
+      from_user: user.id,
+      to_user: toUserId,
+      kind,
+      task,
+      session_started_at: sessionStartedAt,
+      status: 'pending',
+    })
+    .select('id')
+    .single();
+  if (error || !data) return { error: error?.message ?? 'insert failed' };
+  return { id: (data as { id: number }).id };
+}
+
+export async function answerJamInvite(
+  id: number,
+  accept: boolean,
+): Promise<string | null> {
+  const { error } = await supabase
+    .from('jam_invites')
+    .update({ status: accept ? 'accepted' : 'declined' })
+    .eq('id', id);
+  return error ? error.message : null;
+}
+
+export async function cancelJamInvite(id: number): Promise<void> {
+  await supabase.from('jam_invites').delete().eq('id', id);
+}
+
+/** Fresh pending invites addressed to me (prompt material). */
+export async function fetchPendingJamInvites(): Promise<JamInvite[]> {
+  const user = await currentUser();
+  if (!user) return [];
+  const sinceIso = new Date(Date.now() - JAM_INVITE_TTL_MS).toISOString();
+  const { data } = await supabase
+    .from('jam_invites')
+    .select('*')
+    .eq('to_user', user.id)
+    .eq('status', 'pending')
+    .gte('created_at', sinceIso)
+    .order('created_at', { ascending: false });
+  return ((data ?? []) as JamInvite[]).filter(jamInviteFresh);
+}
+
+/** One row by id (freshest status). */
+export async function fetchJamInvite(id: number): Promise<JamInvite | null> {
+  const { data } = await supabase.from('jam_invites').select('*').eq('id', id).maybeSingle();
+  return (data as JamInvite | null) ?? null;
+}
+
+export function subscribeJamInvites(onChange: () => void): () => void {
+  const channel = supabase
+    .channel('jam-watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'jam_invites' }, onChange)
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel).catch(() => {});
+  };
+}

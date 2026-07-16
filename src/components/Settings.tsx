@@ -452,6 +452,12 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
               onChange={(v) => update('friends_bar_enabled', v)}
             />
           </Field>
+          <Field label={t('set.pomodoro')} hint={t('set.pomodoro.hint')}>
+            <Toggle
+              checked={settings.pomodoro_enabled}
+              onChange={(v) => update('pomodoro_enabled', v)}
+            />
+          </Field>
         </Section>
 
         <Section title={t('set.system')}>

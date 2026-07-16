@@ -145,3 +145,55 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+-- ========== jam invites (shared focus sessions) ==========
+-- kind 'invite'  = the person FOCUSING invites a friend to join their jam
+-- kind 'request' = a friend asks to join someone's running jam
+-- Either way: from_user creates the row, to_user answers, and whoever is NOT
+-- focusing yet is the one who starts a session on acceptance.
+create table if not exists public.jam_invites (
+  id bigint generated always as identity primary key,
+  from_user uuid not null references auth.users(id) on delete cascade,
+  to_user uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('invite', 'request')),
+  task text not null,
+  -- when the host's session started (shared timer base)
+  session_started_at timestamptz not null,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  check (from_user <> to_user)
+);
+
+alter table public.jam_invites enable row level security;
+
+drop policy if exists jam_select on public.jam_invites;
+create policy jam_select on public.jam_invites
+  for select to authenticated using (auth.uid() in (from_user, to_user));
+
+drop policy if exists jam_insert on public.jam_invites;
+create policy jam_insert on public.jam_invites
+  for insert to authenticated
+  with check (auth.uid() = from_user and status = 'pending');
+
+-- only the receiver answers, and only pending rows
+drop policy if exists jam_answer on public.jam_invites;
+create policy jam_answer on public.jam_invites
+  for update to authenticated
+  using (auth.uid() = to_user and status = 'pending')
+  with check (auth.uid() = to_user and status in ('accepted', 'declined'));
+
+-- column-level lock: an answer may only ever touch `status`
+revoke update on public.jam_invites from authenticated;
+grant update (status) on public.jam_invites to authenticated;
+
+-- sender can cancel (delete) a pending invite; either side can clean up
+drop policy if exists jam_delete on public.jam_invites;
+create policy jam_delete on public.jam_invites
+  for delete to authenticated using (auth.uid() in (from_user, to_user));
+
+do $$
+begin
+  alter publication supabase_realtime add table public.jam_invites;
+exception
+  when duplicate_object then null;
+end $$;

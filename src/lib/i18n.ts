@@ -114,6 +114,72 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: 'mostra teus amigos e quem tá focando agora na lateral direita',
     en: 'shows your friends and who is focusing right now on the right edge',
   },
+  // jam
+  'jam.incoming': { pt: 'chamada de JAM', en: 'JAM call' },
+  'jam.calling': {
+    pt: 'tá te chamando pra focar junto em "{0}"!',
+    en: 'is calling you to focus together on "{0}"!',
+  },
+  'jam.wantsin': {
+    pt: 'quer entrar na tua JAM de "{0}"!',
+    en: 'wants to join your "{0}" JAM!',
+  },
+  'jam.started': { pt: 'começou há {0}', en: 'started {0} ago' },
+  'jam.accept': { pt: 'Entrar agora', en: 'Join now' },
+  'jam.let.in': { pt: 'Deixar entrar', en: 'Let them in' },
+  'jam.decline': { pt: 'Recusar', en: 'Decline' },
+  'jam.busy': {
+    pt: 'termina ou pausa tua sessão atual pra poder entrar',
+    en: 'finish or stop your current session to join',
+  },
+  'jam.over': {
+    pt: 'tua sessão já acabou — a JAM não existe mais',
+    en: 'your session already ended — the JAM is gone',
+  },
+  'jam.invite': { pt: 'Chamar pra JAM', en: 'Call into the JAM' },
+  'jam.request': { pt: 'Pedir pra entrar na JAM', en: 'Ask to join the JAM' },
+  'jam.sent': { pt: 'pedido enviado 🎧', en: 'sent 🎧' },
+  'jam.sent.toast': { pt: 'pedido de JAM enviado pra @{0} 🎧', en: 'JAM request sent to @{0} 🎧' },
+  'jam.none': {
+    pt: 'JAM: chama quando um de vocês estiver focando',
+    en: 'JAM: call when one of you is focusing',
+  },
+  'jam.toast.calling': { pt: '@{0} te chamou pra uma JAM 🎧', en: '@{0} is calling you to a JAM 🎧' },
+  'jam.toast.wantsin': {
+    pt: '@{0} quer entrar na tua JAM 🎧',
+    en: '@{0} wants to join your JAM 🎧',
+  },
+  'jam.joined': { pt: 'você entrou na JAM de @{0} 🎧', en: 'you joined @{0}\'s JAM 🎧' },
+  'jam.guestjoined': { pt: '@{0} entrou na tua JAM 🎧', en: '@{0} joined your JAM 🎧' },
+  'jam.declined': { pt: '@{0} recusou a JAM', en: '@{0} declined the JAM' },
+  'jam.generic': { pt: 'foco', en: 'focus' },
+
+  // friend profile
+  'fr.viewprofile': { pt: 'ver perfil', en: 'view profile' },
+  'fr.profile.week': { pt: '{0} focadas essa semana', en: '{0} focused this week' },
+  'fr.unfriend': { pt: 'Remover amigo', en: 'Remove friend' },
+  'fr.unfriend.confirm': {
+    pt: 'remover @{0} dos teus amigos?',
+    en: 'remove @{0} from your friends?',
+  },
+  'fr.unfriend.yes': { pt: 'Sim, remover', en: 'Yes, remove' },
+
+  // pomodoro + score
+  'set.pomodoro': { pt: 'Pomodoro opcional', en: 'Optional pomodoro' },
+  'set.pomodoro.hint': {
+    pt: 'a cada ciclo de trabalho, um lembrete gentil de pausa (não muda o timer)',
+    en: 'after each work cycle, a gentle break reminder (the timer is untouched)',
+  },
+  'pomo.msg': {
+    pt: 'ciclo completo! que tal uma pausa de {0}min?',
+    en: 'cycle done! how about a {0}min break?',
+  },
+  'score.title': { pt: 'Score de produtividade (hoje)', en: 'Productivity score (today)' },
+  'score.parts': {
+    pt: 'meta {0}/60 · pureza {1}/25 · foco {2}/15 — apps de distração descontam da pureza',
+    en: 'goal {0}/60 · purity {1}/25 · focus {2}/15 — distraction apps cut into purity',
+  },
+
   'cmd.placeholder': { pt: 'pra onde? (Ctrl+K)', en: 'where to? (Ctrl+K)' },
   'cmd.none': { pt: 'nada com esse nome', en: 'nothing by that name' },
   'cmd.focus': { pt: 'Iniciar foco', en: 'Start focusing' },

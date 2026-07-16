@@ -135,6 +135,11 @@ export function Home({ focus, settings, onError, refreshKey, onOpenHabits }: Hom
               {focus.activeSession.project}
             </span>
           )}
+          {focus.jam && (
+            <span className="rounded-full border-2 border-accent bg-accent-dim px-3 py-0.5 text-xs font-bold text-accent">
+              🎧 JAM · {focus.jam.members.map((m) => `@${m}`).join(' ')}
+            </span>
+          )}
         </div>
 
         <div
@@ -143,7 +148,7 @@ export function Home({ focus, settings, onError, refreshKey, onOpenHabits }: Hom
           }`}
           style={paused ? undefined : { textShadow: '0 0 60px rgba(212,255,63,0.12)' }}
         >
-          {formatHms(focus.elapsedSec)}
+          {formatHms(focus.displayElapsedSec)}
         </div>
 
         {paused && <span className="text-xs text-text-faint">{t('home.paused.hint')}</span>}

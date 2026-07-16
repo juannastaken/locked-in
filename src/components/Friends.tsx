@@ -6,12 +6,19 @@ import type { FriendEntry } from '../lib/social';
 import type { SocialHook } from '../hooks/useSocial';
 import { Mascot } from './Mascot';
 
+export interface MyFocusState {
+  focusing: boolean;
+  task: string | null;
+  startedAtIso: string | null;
+}
+
 interface FriendsProps {
   signedIn: boolean;
   social: SocialHook;
   onError: (m: string) => void;
-  /** start a session "together" with a friend that's focusing right now */
-  onJoinFocus: (task: string) => void;
+  myFocus: MyFocusState;
+  /** send a jam invite ('invite' = join MY jam) or request ('request' = let me join THEIRS) */
+  onSendJam: (f: FriendEntry, kind: 'invite' | 'request') => Promise<void>;
 }
 
 /** Username claim form — used by the Friends tab and the mandatory app modal. */
@@ -63,10 +70,22 @@ export function ClaimUsernameForm({ onClaimed }: { onClaimed: () => void }) {
   );
 }
 
-function Avatar({ name, live, photo }: { name: string; live: boolean; photo?: string | null }) {
+function Avatar({
+  name,
+  live,
+  photo,
+  size = 'h-10 w-10',
+}: {
+  name: string;
+  live: boolean;
+  photo?: string | null;
+  size?: string;
+}) {
   return (
     <div className="relative">
-      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border-2 border-border-strong bg-bg text-sm font-extrabold uppercase text-text">
+      <div
+        className={`flex ${size} items-center justify-center overflow-hidden rounded-xl border-2 border-border-strong bg-bg text-sm font-extrabold uppercase text-text`}
+      >
         {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : name.slice(0, 2)}
       </div>
       <span
@@ -78,11 +97,168 @@ function Avatar({ name, live, photo }: { name: string; live: boolean; photo?: st
   );
 }
 
-export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: FriendsProps) {
+/** Full friend profile: photo, status, week hours, jam + unfriend actions. */
+function FriendProfile({
+  friend,
+  soc,
+  myFocus,
+  onSendJam,
+  onError,
+  onBack,
+}: {
+  friend: FriendEntry;
+  soc: SocialHook;
+  myFocus: MyFocusState;
+  onSendJam: FriendsProps['onSendJam'];
+  onError: (m: string) => void;
+  onBack: () => void;
+}) {
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [jamSent, setJamSent] = useState(false);
+
+  const row = soc.presence.get(friend.userId);
+  const live = social.isLive(row);
+  const focusSec =
+    live && row?.started_at
+      ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
+      : 0;
+  const wk = social.weekKey();
+  const weekSec = row && row.week_key === wk ? row.week_sec : 0;
+
+  async function sendJam(kind: 'invite' | 'request') {
+    setBusy(true);
+    try {
+      await onSendJam(friend, kind);
+      setJamSent(true);
+      window.setTimeout(() => setJamSent(false), 4000);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unfriend() {
+    setBusy(true);
+    try {
+      const err = await social.removeFriendship(friend.friendshipId);
+      if (err) onError(err);
+      soc.refresh();
+      onBack();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-xl space-y-4 px-4 pb-10 pt-6 sm:px-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="text-sm font-bold text-text-dim hover:text-text"
+      >
+        ← {t('fr.title')}
+      </button>
+
+      <div className="chunk flex items-center gap-4 p-5">
+        <div className="relative shrink-0">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-border-strong bg-bg text-xl font-extrabold uppercase text-text">
+            {friend.avatar ? (
+              <img src={friend.avatar} alt="" className="h-full w-full object-cover" />
+            ) : (
+              friend.username.slice(0, 2)
+            )}
+          </div>
+          <span
+            className={`absolute bottom-0 right-0 h-5 w-5 rounded-full border-4 border-surface ${
+              live ? 'animate-pulse-dot bg-accent' : 'bg-border-strong'
+            }`}
+          />
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-xl font-extrabold text-text">@{friend.username}</div>
+          <div className={`mt-0.5 text-sm font-semibold ${live ? 'text-accent' : 'text-text-faint'}`}>
+            {live
+              ? `${t('fr.focusing', formatDurationShort(focusSec))}${row?.task ? ` · ${row.task}` : ''}`
+              : t('fr.offline')}
+          </div>
+          <div className="mt-1 text-xs font-medium text-text-dim">
+            {t('fr.profile.week', formatDurationShort(weekSec))}
+          </div>
+        </div>
+      </div>
+
+      {/* jam actions */}
+      <div className="space-y-2">
+        {live && !myFocus.focusing && (
+          <button
+            type="button"
+            disabled={busy || jamSent}
+            onClick={() => sendJam('request')}
+            className="chunk-btn chunk-btn-accent w-full py-3 text-sm"
+          >
+            {jamSent ? t('jam.sent') : `🎧 ${t('jam.request')}`}
+          </button>
+        )}
+        {myFocus.focusing && (
+          <button
+            type="button"
+            disabled={busy || jamSent}
+            onClick={() => sendJam('invite')}
+            className="chunk-btn chunk-btn-accent w-full py-3 text-sm"
+          >
+            {jamSent ? t('jam.sent') : `🎧 ${t('jam.invite')}`}
+          </button>
+        )}
+        {!live && !myFocus.focusing && (
+          <div className="chunk px-4 py-3 text-center text-xs font-semibold text-text-faint">
+            {t('jam.none')}
+          </div>
+        )}
+      </div>
+
+      {/* unfriend — a real confirmation, not a hidden ✕ */}
+      {!confirmRemove ? (
+        <button
+          type="button"
+          onClick={() => setConfirmRemove(true)}
+          className="chunk-btn w-full py-3 text-sm text-danger"
+        >
+          {t('fr.unfriend')}
+        </button>
+      ) : (
+        <div className="chunk space-y-3 border-danger/60 p-4">
+          <p className="text-center text-sm font-bold text-text">
+            {t('fr.unfriend.confirm', friend.username)}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={unfriend}
+              className="chunk-btn flex-1 bg-danger py-2.5 text-sm font-extrabold text-white"
+            >
+              {busy ? '…' : t('fr.unfriend.yes')}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setConfirmRemove(false)}
+              className="chunk-btn flex-1 py-2.5 text-sm text-text"
+            >
+              {t('misc.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function FriendsPage({ signedIn, social: soc, onError, myFocus, onSendJam }: FriendsProps) {
   const [addName, setAddName] = useState('');
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirmUnfriend, setConfirmUnfriend] = useState<number | null>(null);
+  const [viewing, setViewing] = useState<FriendEntry | null>(null);
 
   // live "focusing for Xh" durations tick without any network traffic
   const [, setTick] = useState(0);
@@ -119,8 +295,8 @@ export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: Fri
   const state = soc.state;
   if (!state) {
     return (
-      <div className="flex h-full items-center justify-center text-sm font-semibold text-text-faint">
-        …
+      <div className="flex h-full items-center justify-center">
+        <span className="skeleton h-6 w-40">.</span>
       </div>
     );
   }
@@ -137,6 +313,28 @@ export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: Fri
         </div>
       </div>
     );
+  }
+
+  // ---- friend profile subview ----
+  if (viewing) {
+    const fresh = state.friends.find((f) => f.friendshipId === viewing.friendshipId);
+    if (!fresh) {
+      // unfriended / gone — fall back to the list
+      setViewing(null);
+    } else {
+      return (
+        <div className="h-full overflow-y-auto">
+          <FriendProfile
+            friend={fresh}
+            soc={soc}
+            myFocus={myFocus}
+            onSendJam={onSendJam}
+            onError={onError}
+            onBack={() => setViewing(null)}
+          />
+        </div>
+      );
+    }
   }
 
   async function addFriend() {
@@ -170,16 +368,7 @@ export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: Fri
     soc.refresh();
   }
 
-  async function removeEntry(f: FriendEntry, needsConfirm: boolean) {
-    if (needsConfirm && confirmUnfriend !== f.friendshipId) {
-      setConfirmUnfriend(f.friendshipId);
-      window.setTimeout(
-        () => setConfirmUnfriend((c) => (c === f.friendshipId ? null : c)),
-        3000,
-      );
-      return;
-    }
-    setConfirmUnfriend(null);
+  async function removePending(f: FriendEntry) {
     const err = await social.removeFriendship(f.friendshipId);
     if (err) onError(err);
     soc.refresh();
@@ -266,7 +455,7 @@ export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: Fri
                   </button>
                   <button
                     type="button"
-                    onClick={() => removeEntry(f, false)}
+                    onClick={() => removePending(f)}
                     className="chunk-btn px-3 py-1.5 text-xs text-text-dim"
                   >
                     {t('fr.reject')}
@@ -288,7 +477,7 @@ export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: Fri
                 <span className="truncate text-sm font-semibold text-text-dim">@{f.username}</span>
                 <button
                   type="button"
-                  onClick={() => removeEntry(f, false)}
+                  onClick={() => removePending(f)}
                   className="text-xs font-bold text-text-faint hover:text-danger"
                 >
                   {t('fr.cancel')}
@@ -298,9 +487,9 @@ export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: Fri
           </div>
         )}
 
-        {/* friends list with live presence */}
-        <div className="chunk space-y-3 p-4">
-          <div className="text-xs font-extrabold uppercase tracking-wide text-text-dim">
+        {/* friends list — click a row to open the friend's profile */}
+        <div className="chunk space-y-1 p-3">
+          <div className="px-1 pb-1 text-xs font-extrabold uppercase tracking-wide text-text-dim">
             {t('fr.friends')} ({state.friends.length})
           </div>
           {state.friends.length === 0 && (
@@ -317,7 +506,12 @@ export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: Fri
                 ? Math.max(0, (Date.now() - new Date(row.started_at).getTime()) / 1000)
                 : 0;
             return (
-              <div key={f.friendshipId} className="group flex items-center justify-between gap-2">
+              <button
+                key={f.friendshipId}
+                type="button"
+                onClick={() => setViewing(f)}
+                className="flex w-full items-center justify-between gap-2 rounded-xl px-2 py-2 text-left hover:bg-surface-hover"
+              >
                 <div className="flex min-w-0 items-center gap-2.5">
                   <Avatar name={f.username} live={live} photo={f.avatar} />
                   <div className="min-w-0">
@@ -334,30 +528,10 @@ export function FriendsPage({ signedIn, social: soc, onError, onJoinFocus }: Fri
                     </div>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {live && (
-                    <button
-                      type="button"
-                      onClick={() => onJoinFocus(row?.task || `@${f.username}`)}
-                      className="chunk-btn chunk-btn-accent px-3 py-1.5 text-xs"
-                      title={t('fr.join.title')}
-                    >
-                      {t('fr.join')}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeEntry(f, true)}
-                    className={`rounded-md px-2 py-1 text-[11px] transition-opacity ${
-                      confirmUnfriend === f.friendshipId
-                        ? 'bg-danger/15 font-bold text-danger opacity-100'
-                        : 'text-text-faint opacity-0 hover:text-danger group-hover:opacity-100'
-                    }`}
-                  >
-                    {confirmUnfriend === f.friendshipId ? t('misc.sure') : '✕'}
-                  </button>
-                </div>
-              </div>
+                <span className="shrink-0 text-xs font-bold text-text-faint">
+                  {t('fr.viewprofile')} →
+                </span>
+              </button>
             );
           })}
         </div>

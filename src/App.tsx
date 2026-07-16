@@ -5,6 +5,7 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { CheckinPage } from './components/Checkin';
 import { ClaimUsernameForm, FriendsPage } from './components/Friends';
 import { FriendsBar } from './components/FriendsBar';
+import { JamPromptOverlay } from './components/JamPrompt';
 import { GoalsPage } from './components/Goals';
 import { Login } from './components/Login';
 import { Splash } from './components/Splash';
@@ -21,6 +22,8 @@ import { Week } from './components/Week';
 import { useFocusSession } from './hooks/useFocusSession';
 import { useSettings } from './hooks/useSettings';
 import { useSocial } from './hooks/useSocial';
+import { useJam } from './hooks/useJam';
+import type { FriendEntry } from './lib/social';
 import * as socialLib from './lib/social';
 import { ToastProvider, useToast } from './hooks/useToast';
 import * as db from './lib/db';
@@ -363,7 +366,7 @@ function AppShell() {
   const overlayState: OverlayState = {
     phase: focus.phase === 'rating' ? 'focusing' : focus.phase,
     task: focus.activeSession?.task ?? null,
-    elapsedSec: focus.elapsedSec,
+    elapsedSec: focus.displayElapsedSec,
     breakRemainingSec: focus.breakRemainingSec,
     breakOverrunSec: focus.breakOverrunSec,
     goalProgress,
@@ -394,6 +397,96 @@ function AppShell() {
   // overlay commands + late-join handshake
   const focusRef = useRef(focus);
   focusRef.current = focus;
+
+  // ---------- JAM (shared focus sessions) ----------
+  const myUsername = social.state?.me?.username ?? null;
+  const myUsernameRef = useRef(myUsername);
+  myUsernameRef.current = myUsername;
+  const socialStateRef = useRef(social.state);
+  socialStateRef.current = social.state;
+
+  const jamLookup = useCallback((userId: string) => {
+    const s = socialStateRef.current;
+    const all = [...(s?.friends ?? []), ...(s?.incoming ?? []), ...(s?.outgoing ?? [])];
+    const hit = all.find((f) => f.userId === userId);
+    return { username: hit?.username ?? '???', avatar: hit?.avatar ?? null };
+  }, []);
+
+  const jam = useJam(signedIn, jamLookup, {
+    onPrompt: (p) => {
+      const msg =
+        p.kind === 'invite' ? t('jam.toast.calling', p.username) : t('jam.toast.wantsin', p.username);
+      pushToast(msg, 'info');
+      invoke('show_notice', { title: '🎧 JAM', body: msg, mood: 'hyped' }).catch(() => {});
+      invoke('show_main_window').catch(() => {});
+    },
+    onJoinApproved: (invite, hostUsername) => {
+      // my join request got a yes — hop into the host's jam right now
+      if (focusRef.current.phase !== 'idle') return;
+      const me = myUsernameRef.current ?? 'me';
+      focusRef.current.startSession(invite.task, null, {
+        startedAt: invite.session_started_at,
+        members: [me, hostUsername],
+      });
+      setTab('home');
+      pushToast(t('jam.joined', hostUsername), 'info');
+    },
+    onGuestJoined: (_invite, guestUsername) => {
+      const me = myUsernameRef.current ?? 'me';
+      focusRef.current.markJam([me, guestUsername]);
+      pushToast(t('jam.guestjoined', guestUsername), 'info');
+      invoke('show_notice', {
+        title: '🎧 JAM',
+        body: t('jam.guestjoined', guestUsername),
+        mood: 'hyped',
+      }).catch(() => {});
+    },
+    onDeclined: (username) => pushToast(t('jam.declined', username), 'info'),
+  });
+
+  const sendJam = useCallback(
+    async (f: FriendEntry, kind: 'invite' | 'request') => {
+      if (kind === 'invite') {
+        const s = focusRef.current.activeSession;
+        if (!s) return;
+        const err = await jam.send(f.userId, f.username, 'invite', s.task, s.started_at);
+        if (err) onError(err);
+        else pushToast(t('jam.sent.toast', f.username), 'info');
+      } else {
+        const row = social.presence.get(f.userId);
+        if (!row?.started_at) return;
+        const err = await jam.send(
+          f.userId,
+          f.username,
+          'request',
+          row.task || t('jam.generic'),
+          row.started_at,
+        );
+        if (err) onError(err);
+        else pushToast(t('jam.sent.toast', f.username), 'info');
+      }
+    },
+    [jam, onError, pushToast, social.presence],
+  );
+
+  async function answerJamPrompt(accept: boolean) {
+    const p = await jam.answer(accept);
+    if (!p || !accept) return;
+    const me = myUsernameRef.current ?? 'me';
+    if (p.kind === 'invite') {
+      // I was called into their jam — join with the shared clock
+      if (focusRef.current.phase !== 'idle') return;
+      focusRef.current.startSession(p.task, null, {
+        startedAt: p.session_started_at,
+        members: [me, p.username],
+      });
+      setTab('home');
+    } else {
+      // I let them into MY jam — my running session becomes a jam too
+      focusRef.current.markJam([me, p.username]);
+      pushToast(t('jam.guestjoined', p.username), 'info');
+    }
+  }
   useEffect(() => {
     const unlisteners: (() => void)[] = [];
     // rust re-applies the app icon on every show (Windows loses it after tray cycles)
@@ -511,6 +604,25 @@ function AppShell() {
       .catch(() => {});
   }, [focus.phase, settingsHook.settings?.overlay_enabled]);
 
+  // optional pomodoro: every work_min of focus, a gentle custom nudge to break
+  const pomoCycleRef = useRef(0);
+  useEffect(() => {
+    const s = settingsHook.settings;
+    if (!s?.pomodoro_enabled || focus.phase !== 'focusing') {
+      if (focus.phase === 'idle') pomoCycleRef.current = 0;
+      return;
+    }
+    const workSec = Math.max(5, s.pomodoro_work_min || 25) * 60;
+    const cycles = Math.floor(focus.elapsedSec / workSec);
+    if (cycles > pomoCycleRef.current) {
+      pomoCycleRef.current = cycles;
+      const msg = t('pomo.msg', String(s.pomodoro_break_min || 5));
+      pushToast(msg, 'info');
+      if (s.sound_enabled) playChime();
+      invoke('show_notice', { title: '🍅 Pomodoro', body: msg, mood: 'relax' }).catch(() => {});
+    }
+  }, [focus.elapsedSec, focus.phase, settingsHook.settings, pushToast]);
+
   // anti-burnout: gentle stop signal once per day
   const burnoutNotifiedDay = useRef<string | null>(null);
   useEffect(() => {
@@ -609,7 +721,7 @@ function AppShell() {
   useEffect(() => {
     const tooltip =
       focus.phase === 'focusing'
-        ? t('tray.focusing', formatHms(focus.elapsedSec))
+        ? t('tray.focusing', formatHms(focus.displayElapsedSec))
         : focus.phase === 'paused'
           ? t('tray.paused')
           : focus.phase === 'break'
@@ -659,7 +771,8 @@ function AppShell() {
             focus.phase === 'paused' ? 'text-text-dim' : 'text-text'
           }`}
         >
-          {formatHms(focus.elapsedSec)}
+          {focus.jam ? '🎧 ' : ''}
+          {formatHms(focus.displayElapsedSec)}
         </span>
       </button>
     ) : focus.phase === 'break' ? (
@@ -732,6 +845,17 @@ function AppShell() {
             </div>
           </div>
         </div>
+      )}
+
+      {jam.prompt && (
+        <JamPromptOverlay
+          prompt={jam.prompt}
+          canAccept={
+            jam.prompt.kind === 'invite' ? focus.phase === 'idle' : focus.phase === 'focusing'
+          }
+          onAccept={() => answerJamPrompt(true)}
+          onDecline={() => answerJamPrompt(false)}
+        />
       )}
 
       {/* signed-in account with no username yet → claiming one is mandatory
@@ -946,10 +1070,12 @@ function AppShell() {
             signedIn={signedIn}
             social={social}
             onError={onError}
-            onJoinFocus={(task) => {
-              if (focusRef.current.phase === 'idle') focusRef.current.startSession(task, null);
-              setTab('home');
+            myFocus={{
+              focusing: focus.phase === 'focusing' || focus.phase === 'paused',
+              task: focus.activeSession?.task ?? null,
+              startedAtIso: focus.activeSession?.started_at ?? null,
             }}
+            onSendJam={sendJam}
           />
         )}
         {tab === 'settings' && <SettingsScreen settingsHook={settingsHook} onError={onError} />}

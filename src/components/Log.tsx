@@ -17,6 +17,16 @@ interface DayGroup {
   sessions: Session[];
 }
 
+function jamMembers(s: Session): string[] {
+  if (!s.jam_members) return [];
+  try {
+    const arr = JSON.parse(s.jam_members) as unknown;
+    return Array.isArray(arr) ? arr.filter((m): m is string => typeof m === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 function yesterdayKey(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
@@ -356,6 +366,16 @@ export function Log({ onError, refreshKey }: LogProps) {
                               {s.project && (
                                 <span className="shrink-0 rounded-full border border-border px-2 py-px text-[11px] text-text-dim">
                                   {s.project}
+                                </span>
+                              )}
+                              {jamMembers(s).length > 0 && (
+                                <span
+                                  className="shrink-0 rounded-full border border-accent/50 bg-accent-dim px-2 py-px text-[11px] font-bold text-accent"
+                                  title={jamMembers(s)
+                                    .map((m) => `@${m}`)
+                                    .join(', ')}
+                                >
+                                  🎧 {jamMembers(s).map((m) => `@${m}`).join(' ')}
                                 </span>
                               )}
                             </div>

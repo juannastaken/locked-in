@@ -27,11 +27,22 @@ export interface FocusOptions {
   onAutoEnd?: (task: string, afkMinutes: number, reason: 'afk' | 'paused') => void;
 }
 
+export interface JamMeta {
+  /** when the HOST's session started — the shared timer counts from here */
+  startedAt: string;
+  /** usernames of everyone in the jam, me included */
+  members: string[];
+}
+
 export interface UseFocusSession {
   phase: FocusPhase;
   activeSession: Session | null;
   /** focused seconds of the whole session (pauses already excluded) */
   elapsedSec: number;
+  /** what the timer SHOWS: my elapsed + the jam head start (solo: same as elapsedSec) */
+  displayElapsedSec: number;
+  /** set while this session is part of a jam */
+  jam: JamMeta | null;
   /** focused seconds that belong to TODAY (sessions crossing midnight split correctly) */
   todayElapsedSec: number;
   isAbsurd: boolean;
@@ -41,7 +52,9 @@ export interface UseFocusSession {
   error: string | null;
   pendingAfkSec: number | null;
   resolveAfk: (discount: boolean) => void;
-  startSession: (task: string, project: string | null) => Promise<void>;
+  startSession: (task: string, project: string | null, jam?: JamMeta) => Promise<void>;
+  /** upgrade the running session to a jam (host side) — merges member lists */
+  markJam: (members: string[]) => void;
   pauseSession: () => void;
   resumeSession: () => void;
   stopSession: () => void;
@@ -67,6 +80,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
   const [error, setError] = useState<string | null>(null);
   const [recoveredSession, setRecoveredSession] = useState<Session | null>(null);
   const [pendingAfkSec, setPendingAfkSec] = useState<number | null>(null);
+  const [jam, setJam] = useState<JamMeta | null>(null);
 
   const heartbeatTimer = useRef<number | null>(null);
   const tickTimer = useRef<number | null>(null);
@@ -228,6 +242,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
               stoppedAtRef.current = null;
               resetTelemetry();
               setActiveSession(null);
+              setJam(null);
               setPhase('idle');
               optsRef.current.onAutoEnd?.(session.task, Math.round(idleSec / 60), 'afk');
             } catch (err) {
@@ -284,6 +299,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
         stoppedAtRef.current = null;
         resetTelemetry();
         setActiveSession(null);
+        setJam(null);
         setPhase('idle');
         optsRef.current.onAutoEnd?.(session.task, Math.round(pausedFor / 60), 'paused');
       } catch (err) {
@@ -315,19 +331,43 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     return () => window.clearInterval(id);
   }, [phase, activeBreak]);
 
-  const startSession = useCallback(async (task: string, project: string | null) => {
-    try {
-      const session = await db.createSession({ task, project, mode: 'open' });
-      resetTelemetry();
-      setActiveSession(session);
-      setElapsedSec(0);
-      setTodayElapsedSec(0);
-      setPhase('focusing');
-      setError(null);
-    } catch (err) {
-      setError(String(err));
-    }
-  }, []);
+  const startSession = useCallback(
+    async (task: string, project: string | null, jamMeta?: JamMeta) => {
+      try {
+        const session = await db.createSession({
+          task,
+          project,
+          mode: 'open',
+          jamMembers: jamMeta?.members,
+        });
+        resetTelemetry();
+        setActiveSession(session);
+        setJam(jamMeta ?? null);
+        setElapsedSec(0);
+        setTodayElapsedSec(0);
+        setPhase('focusing');
+        setError(null);
+      } catch (err) {
+        setError(String(err));
+      }
+    },
+    [],
+  );
+
+  const markJam = useCallback(
+    (members: string[]) => {
+      if (!activeSession) return;
+      const current = jam;
+      const merged = [...new Set([...(current?.members ?? []), ...members])];
+      db.setSessionJamMembers(activeSession.id, merged).catch((err) => setError(String(err)));
+      // host keeps their own clock — the jam started when THEIR session did
+      setJam({ startedAt: current?.startedAt ?? activeSession.started_at, members: merged });
+      // keep the in-memory row in sync: a midnight split copies jam_members
+      // from this object, not from the database
+      setActiveSession({ ...activeSession, jam_members: JSON.stringify(merged) });
+    },
+    [activeSession, jam],
+  );
 
   /** persists current pause state so a crash mid-pause recovers correctly */
   function persistPauseState(sessionId: number) {
@@ -425,6 +465,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
           setPhase('idle');
         }
         setActiveSession(null);
+        setJam(null);
         resetTelemetry();
         setError(null);
       } catch (err) {
@@ -500,10 +541,19 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     }
   }, [recoveredSession]);
 
+  // shared timer: the jam started before I joined — show the host's clock,
+  // while everything SAVED (elapsedSec, history) stays my own time only
+  const jamHeadStartSec =
+    jam && activeSession
+      ? Math.max(0, secondsBetween(jam.startedAt, activeSession.started_at))
+      : 0;
+
   return {
     phase,
     activeSession,
     elapsedSec,
+    displayElapsedSec: elapsedSec + jamHeadStartSec,
+    jam,
     todayElapsedSec,
     isAbsurd: elapsedSec >= ABSURD_SESSION_SEC,
     activeBreak,
@@ -513,6 +563,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     pendingAfkSec,
     resolveAfk,
     startSession,
+    markJam,
     pauseSession,
     resumeSession,
     stopSession,
