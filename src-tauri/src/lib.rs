@@ -930,6 +930,73 @@ fn import_ref_image_b64(app: tauri::AppHandle, data: String, ext: String) -> Res
   Ok(target.display().to_string())
 }
 
+/// Encrypts a secret (the user's API key) with Windows DPAPI, tied to the
+/// current Windows user account. The ciphertext is worthless on another
+/// machine or under another account — so even a copied database file can't
+/// leak the key. Returns base64 of the protected blob.
+#[tauri::command]
+fn dpapi_encrypt(plain: String) -> Result<String, String> {
+  use base64::Engine;
+  use windows::Win32::Foundation::{LocalFree, HLOCAL};
+  use windows::Win32::Security::Cryptography::{CryptProtectData, CRYPT_INTEGER_BLOB};
+
+  let mut bytes = plain.into_bytes();
+  let input = CRYPT_INTEGER_BLOB {
+    cbData: bytes.len() as u32,
+    pbData: bytes.as_mut_ptr(),
+  };
+  let mut output = CRYPT_INTEGER_BLOB::default();
+  unsafe {
+    CryptProtectData(
+      &input,
+      windows::core::PCWSTR::null(),
+      None,
+      None,
+      None,
+      0,
+      &mut output,
+    )
+    .map_err(|e| e.to_string())?;
+    let slice = std::slice::from_raw_parts(output.pbData, output.cbData as usize);
+    let b64 = base64::engine::general_purpose::STANDARD.encode(slice);
+    let _ = LocalFree(Some(HLOCAL(output.pbData as *mut _)));
+    Ok(b64)
+  }
+}
+
+/// Reverses `dpapi_encrypt` — only succeeds for the same Windows user.
+#[tauri::command]
+fn dpapi_decrypt(blob: String) -> Result<String, String> {
+  use base64::Engine;
+  use windows::Win32::Foundation::{LocalFree, HLOCAL};
+  use windows::Win32::Security::Cryptography::{CryptUnprotectData, CRYPT_INTEGER_BLOB};
+
+  let mut bytes = base64::engine::general_purpose::STANDARD
+    .decode(blob)
+    .map_err(|e| e.to_string())?;
+  let input = CRYPT_INTEGER_BLOB {
+    cbData: bytes.len() as u32,
+    pbData: bytes.as_mut_ptr(),
+  };
+  let mut output = CRYPT_INTEGER_BLOB::default();
+  unsafe {
+    CryptUnprotectData(
+      &input,
+      None,
+      None,
+      None,
+      None,
+      0,
+      &mut output,
+    )
+    .map_err(|e| e.to_string())?;
+    let slice = std::slice::from_raw_parts(output.pbData, output.cbData as usize);
+    let text = String::from_utf8_lossy(slice).into_owned();
+    let _ = LocalFree(Some(HLOCAL(output.pbData as *mut _)));
+    Ok(text)
+  }
+}
+
 /// Persists the Canvas Mode (Excalidraw) scene as JSON in the app config dir.
 #[tauri::command]
 fn save_canvas(app: tauri::AppHandle, data: String) -> Result<(), String> {
@@ -1173,7 +1240,9 @@ pub fn run() {
       import_ref_image_b64,
       delete_ref_image,
       save_canvas,
-      load_canvas
+      load_canvas,
+      dpapi_encrypt,
+      dpapi_decrypt
     ])
     .setup(|app| {
       // fix dbs coming from legacy installers BEFORE the frontend loads the db

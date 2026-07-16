@@ -1,4 +1,5 @@
 import Database from '@tauri-apps/plugin-sql';
+import { invoke } from '@tauri-apps/api/core';
 import type {
   Break,
   EndSessionInput,
@@ -9,6 +10,12 @@ import type {
   Settings,
 } from '../types';
 import { clipIntervals, intervalsOverlapSec, localMidnightMs, nowIso } from './time';
+
+// The API key is stored encrypted at rest with Windows DPAPI (tied to the
+// Windows account) — a copied database file can't leak it. This prefix marks
+// an already-encrypted value; plaintext keys from older versions are migrated
+// on the next save.
+const DPAPI_PREFIX = 'dpapi:';
 
 const DB_URL = 'sqlite:locked-in.db';
 
@@ -735,6 +742,17 @@ export async function getAllSettings(): Promise<Settings> {
         (result as Record<keyof Settings, unknown>)[key] = parseSettingValue(key, row.value);
       }
     }
+    // decrypt the API key for in-memory use; disk stays encrypted
+    if (result.anthropic_api_key.startsWith(DPAPI_PREFIX)) {
+      try {
+        result.anthropic_api_key = await invoke<string>('dpapi_decrypt', {
+          blob: result.anthropic_api_key.slice(DPAPI_PREFIX.length),
+        });
+      } catch {
+        // wrong Windows user / corrupted blob — treat as no key
+        result.anthropic_api_key = '';
+      }
+    }
     return result;
   });
 }
@@ -745,11 +763,41 @@ export async function setSetting<K extends keyof Settings>(
 ): Promise<void> {
   return run('setSetting', async () => {
     const db = await getDb();
+    let stored = String(value);
+    // encrypt the API key before it ever touches disk
+    if (key === 'anthropic_api_key' && stored && !stored.startsWith(DPAPI_PREFIX)) {
+      try {
+        const enc = await invoke<string>('dpapi_encrypt', { plain: stored });
+        stored = DPAPI_PREFIX + enc;
+      } catch {
+        // DPAPI unavailable — better to store than to silently drop the key
+      }
+    }
     await db.execute(
       `INSERT INTO settings (key, value) VALUES ($1, $2)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [key, String(value)],
+      [key, stored],
     );
+  });
+}
+
+/** One-shot: encrypt a pre-existing plaintext API key (from older versions). */
+export async function migrateApiKeyEncryption(): Promise<void> {
+  return run('migrateApiKeyEncryption', async () => {
+    const db = await getDb();
+    const rows = await db.select<{ value: string }[]>(
+      "SELECT value FROM settings WHERE key = 'anthropic_api_key'",
+    );
+    const raw = rows[0]?.value ?? '';
+    if (!raw || raw.startsWith(DPAPI_PREFIX)) return; // absent or already encrypted
+    try {
+      const enc = await invoke<string>('dpapi_encrypt', { plain: raw });
+      await db.execute("UPDATE settings SET value = $1 WHERE key = 'anthropic_api_key'", [
+        DPAPI_PREFIX + enc,
+      ]);
+    } catch {
+      // DPAPI unavailable — leave as-is, still works, just not encrypted
+    }
   });
 }
 

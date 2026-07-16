@@ -251,8 +251,8 @@ const dict: Record<string, { pt: string; en: string }> = {
   'set.ai': { pt: 'IA', en: 'AI' },
   'set.ai.key': { pt: 'Chave da API Anthropic', en: 'Anthropic API key' },
   'set.ai.hint': {
-    pt: 'Habilita o Chat. Crie em console.anthropic.com → API Keys. Fica só no seu banco local.',
-    en: 'Enables Chat. Create at console.anthropic.com → API Keys. Stays in your local db only.',
+    pt: 'Habilita o Chat. Crie em console.anthropic.com → API Keys. Fica só neste PC, criptografada (DPAPI) — nunca vai pra nuvem.',
+    en: 'Enables Chat. Create at console.anthropic.com → API Keys. Stays on this PC only, encrypted (DPAPI) — never uploaded.',
   },
   'set.autotrack': { pt: 'Auto-track', en: 'Auto-track' },
   'set.autotrack.enable': { pt: 'Ativar', en: 'Enable' },

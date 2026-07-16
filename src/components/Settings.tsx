@@ -435,7 +435,7 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
               type="password"
               value={settings.anthropic_api_key}
               onChange={(e) => update('anthropic_api_key', e.target.value)}
-              placeholder="sk-ant-..."
+              placeholder="sk-ant-…"
               autoComplete="off"
               className="mt-2.5 w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs text-text transition-colors placeholder:text-text-faint focus:border-accent"
             />

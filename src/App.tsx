@@ -83,6 +83,11 @@ function AppShell() {
     return () => window.clearTimeout(id);
   }, []);
 
+  // encrypt any plaintext API key left by older versions (one-shot)
+  useEffect(() => {
+    db.migrateApiKeyEncryption().catch(() => {});
+  }, []);
+
   // keep the Run-key entry pointing at the current exe after updates
   const autostartApplied = useRef(false);
   useEffect(() => {
