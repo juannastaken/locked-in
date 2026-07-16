@@ -767,7 +767,9 @@ export function FriendsPage({
         {/* active jams — group jams + friends currently jamming */}
         {(() => {
           const groupJams = groupsHook.list
-            .filter((g) => g.group.jam_started_at)
+            // require someone actually in_jam: a lingering jam_started_at with
+            // no members (simultaneous-leave race) is a ghost, not a jam
+            .filter((g) => g.group.jam_started_at && g.members.some((m) => m.in_jam))
             .map((g) => ({
               key: `g${g.group.id}`,
               title: g.group.name,

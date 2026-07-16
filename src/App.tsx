@@ -186,7 +186,15 @@ function AppShell() {
     if (activeGroupJamId === null) return;
     const g = groups.list.find((x) => x.group.id === activeGroupJamId);
     if (!g) return;
-    const members = g.members.filter((m) => m.in_jam).map((m) => m.username);
+    const me = myUsernameRef.current;
+    // always include myself — my own in_jam flag may not have round-tripped
+    // through realtime yet, and I must never vanish from my own roster
+    const members = [
+      ...new Set([
+        ...(me ? [me] : []),
+        ...g.members.filter((m) => m.in_jam).map((m) => m.username),
+      ]),
+    ];
     if (members.length > 0) focusRef.current.syncJamMembers(members);
   }, [groups.list, activeGroupJamId]);
 
@@ -678,7 +686,10 @@ function AppShell() {
     (groupId: number, task: string) => {
       const me = myUsernameRef.current ?? 'me';
       if (focusRef.current.phase !== 'idle') {
-        // already focusing → just enlist my running session into the group jam
+        // already focusing → convert my running session into the group jam so
+        // Focus/overlay reflect it and syncJamMembers (which needs a jam) fills
+        // in the roster from the server
+        focusRef.current.markJam([me]);
         setActiveGroupJamId(groupId);
         pushToast(t('grp.jam.started'), 'info');
         return;

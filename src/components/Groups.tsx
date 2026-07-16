@@ -187,8 +187,10 @@ export function GroupView({
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages]);
 
-  const jamActive = !!group.jam_started_at;
   const jamMembers = members.filter((m) => m.in_jam);
+  // a jam with a start time but nobody inside is a ghost (simultaneous-leave
+  // race) — treat it as no active jam so the "start" button shows again
+  const jamActive = !!group.jam_started_at && (jamMembers.length > 0 || meInJam);
   const addable = friends.filter((f) => !members.some((m) => m.user_id === f.userId));
   const canAddMore = members.length < groups.GROUP_MAX;
 
