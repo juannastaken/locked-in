@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import * as cloud from '../lib/cloud';
-import { t } from '../lib/i18n';
+import * as db from '../lib/db';
+import { getLang, setLang, t } from '../lib/i18n';
+import type { Lang } from '../lib/i18n';
 import { Mascot } from './Mascot';
 
 interface LoginProps {
@@ -20,6 +22,13 @@ export function Login({ onDone }: LoginProps) {
   const [conflict, setConflict] = useState<{ cloud: cloud.CloudSnapshot; localCount: number } | null>(
     null,
   );
+  const [lang, setLangState] = useState<Lang>(getLang());
+
+  function pickLang(l: Lang) {
+    setLang(l);
+    setLangState(l);
+    db.setSetting('language', l).catch(() => {});
+  }
 
   function switchTo(s: Screen) {
     setScreen(s);
@@ -184,6 +193,22 @@ export function Login({ onDone }: LoginProps) {
         }}
         aria-hidden
       />
+
+      {/* language toggle, top-right */}
+      <div className="absolute right-4 top-4 flex items-center gap-0.5 rounded-lg border-2 border-border-strong bg-surface p-0.5">
+        {(['pt', 'en'] as const).map((l) => (
+          <button
+            key={l}
+            type="button"
+            onClick={() => pickLang(l)}
+            className={`h-6 w-8 rounded-md text-[11px] font-bold uppercase ${
+              lang === l ? 'bg-accent text-bg' : 'text-text-dim hover:text-text'
+            }`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
 
       <div className="relative w-full max-w-sm">
         {/* mascot + wordmark */}

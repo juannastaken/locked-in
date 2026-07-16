@@ -1,6 +1,6 @@
 export type Lang = 'pt' | 'en';
 
-let current: Lang = 'pt';
+let current: Lang = 'en';
 
 export function setLang(l: Lang): void {
   current = l;

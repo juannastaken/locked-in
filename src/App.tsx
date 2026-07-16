@@ -73,9 +73,9 @@ function AppShell() {
     return () => window.clearTimeout(id);
   }, []);
 
-  // language: apply saved choice; empty = first run, ask
+  // language: apply saved choice; empty = first run, ask. Default is English.
   const language = settingsHook.settings?.language;
-  setLang(language === 'en' ? 'en' : 'pt');
+  setLang(language === 'pt' ? 'pt' : 'en');
   const showFirstRun = settingsHook.settings !== null && language === '';
 
   // auth gate: after the language is picked, show the login screen unless the
