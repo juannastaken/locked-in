@@ -605,6 +605,7 @@ fn show_notice(
   body: String,
   mood: String,
   data: Option<String>,
+  avatar: Option<String>,
 ) {
   let cfg = state.lock().unwrap().cfg.clone();
   fire_popup(
@@ -615,6 +616,7 @@ fn show_notice(
       "body": body,
       "mood": mood,
       "data": data,
+      "avatar": avatar,
       "lang": cfg.lang,
       "sound": false,
       "accent": cfg.accent,

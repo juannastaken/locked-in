@@ -102,6 +102,32 @@ export function statusText(status: social.FriendStatus): string {
   return 'text-text-faint';
 }
 
+/** Friends-tab switch: blocked → every incoming jam invite is auto-declined
+ *  (the actual decline runs in useJam, which reads this same localStorage key) */
+function JamGateToggle() {
+  const [blocked, setBlocked] = useState(() => localStorage.getItem('jams-blocked') === '1');
+  function toggle() {
+    const next = !blocked;
+    localStorage.setItem('jams-blocked', next ? '1' : '0');
+    setBlocked(next);
+  }
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title={t('fr.jams.tip')}
+      className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide transition-colors ${
+        blocked
+          ? 'border-danger/60 text-danger hover:bg-danger/10'
+          : 'border-accent/60 text-accent hover:bg-accent-dim'
+      }`}
+    >
+      <HeadphonesIcon size={12} />
+      {blocked ? t('fr.jams.off') : t('fr.jams.on')}
+    </button>
+  );
+}
+
 export function statusLineFor(status: social.FriendStatus, row: PresenceRow | undefined): string {
   if (status === 'focusing') {
     const sec = row?.started_at
@@ -566,11 +592,14 @@ export function FriendsPage({
     <div className="flex h-full min-h-0">
       {/* LEFT: friends column */}
       <aside className="scrollbar-none flex w-[330px] shrink-0 flex-col gap-3 overflow-y-auto border-r border-border p-3">
-        <div className="px-1">
-          <h1 className="text-base font-extrabold tracking-tight text-text">{t('fr.title')}</h1>
-          <p className="text-[11px] text-text-faint">
-            {t('fr.you')} <span className="font-bold text-accent">@{me.username}</span>
-          </p>
+        <div className="flex items-start justify-between gap-2 px-1">
+          <div className="min-w-0">
+            <h1 className="text-base font-extrabold tracking-tight text-text">{t('fr.title')}</h1>
+            <p className="truncate text-[11px] text-text-faint">
+              {t('fr.you')} <span className="font-bold text-accent">@{me.username}</span>
+            </p>
+          </div>
+          <JamGateToggle />
         </div>
 
         <form

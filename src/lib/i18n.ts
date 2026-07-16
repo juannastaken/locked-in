@@ -789,6 +789,14 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: 'esta versão não é mais suportada — atualizando pra v{0}',
     en: 'this version is no longer supported — updating to v{0}',
   },
+  'msg.kind.image': { pt: 'Imagem', en: 'Image' },
+  'msg.kind.jam': { pt: 'Convite de JAM', en: 'JAM invite' },
+  'fr.jams.on': { pt: 'JAMs on', en: 'JAMs on' },
+  'fr.jams.off': { pt: 'JAMs off', en: 'JAMs off' },
+  'fr.jams.tip': {
+    pt: 'desligado = convites de JAM são recusados automaticamente',
+    en: 'off = incoming JAM invites are auto-declined',
+  },
   'up.aftersession': {
     pt: 'instala sozinho quando a sessão terminar',
     en: 'installs itself when the session ends',

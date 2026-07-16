@@ -391,13 +391,23 @@ export function Popup() {
           }`}
         >
           <div className="flex items-start gap-3">
-            <Mascot mood={asMood(payload.mood)} size={44} />
+            {payload.avatar ? (
+              <img
+                src={payload.avatar}
+                alt=""
+                className="h-11 w-11 shrink-0 rounded-lg border border-border-strong object-cover"
+              />
+            ) : (
+              <Mascot mood={asMood(payload.mood)} size={44} />
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                 <span className="text-sm font-bold tracking-tight text-text">{payload.title}</span>
               </div>
-              <p className="mt-1 text-[13px] leading-snug text-text-dim">{payload.body}</p>
+              <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-text-dim">
+                {payload.body}
+              </p>
             </div>
           </div>
         </button>

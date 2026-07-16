@@ -189,6 +189,8 @@ export type PopupPayload =
       mood: string;
       /** optional click action forwarded to the main window (JSON string) */
       data?: string | null;
+      /** sender photo (data URI) — replaces the mascot, Steam-style */
+      avatar?: string | null;
       lang: string;
       sound: boolean;
       accent: string;

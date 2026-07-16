@@ -8,6 +8,8 @@ export interface JamPrompt extends JamInvite {
 }
 
 export interface JamEvents {
+  /** when true, incoming invites are auto-declined silently (anti-flood) */
+  blockIncoming?: () => boolean;
   /** an invite/request addressed to ME arrived (show the fullscreen prompt) */
   onPrompt?: (p: JamPrompt) => void;
   /** a 'request' I sent was accepted — I should join the host's jam now */
@@ -53,6 +55,15 @@ export function useJam(
 
   const checkIncoming = useCallback(async () => {
     const pending = await social.fetchPendingJamInvites();
+    // jams blocked → decline everything pending, never prompt
+    if (eventsRef.current.blockIncoming?.()) {
+      for (const i of pending) {
+        if (promptedIdsRef.current.has(i.id)) continue;
+        promptedIdsRef.current.add(i.id);
+        social.answerJamInvite(i.id, false).catch(() => {});
+      }
+      return;
+    }
     const fresh = pending.find((i) => !promptedIdsRef.current.has(i.id));
     if (!fresh || promptRef.current) return;
     promptedIdsRef.current.add(fresh.id);

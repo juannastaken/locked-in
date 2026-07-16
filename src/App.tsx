@@ -657,6 +657,8 @@ function AppShell() {
   }, []);
 
   const jam = useJam(signedIn, jamLookup, {
+    // Friends-tab toggle: silently declines every incoming jam (anti-flood)
+    blockIncoming: () => localStorage.getItem('jams-blocked') === '1',
     onPrompt: (p) => {
       const msg =
         p.kind === 'invite' ? t('jam.toast.calling', p.username) : t('jam.toast.wantsin', p.username);
@@ -739,14 +741,30 @@ function AppShell() {
       setChatRefetchKey((k) => k + 1);
       if (row.recipient === myId && openChatRef.current !== row.sender) {
         refreshUnread();
-        const who = jamLookup(row.sender).username;
-        pushToast(t('msg.new', who), 'info');
-        invoke('show_notice', {
-          title: '💬 @' + who,
-          body: t('msg.new.body'),
-          mood: 'happy',
-          data: JSON.stringify({ type: 'chat', userId: row.sender }),
-        }).catch(() => {});
+        const who = jamLookup(row.sender);
+        pushToast(t('msg.new', who.username), 'info');
+        // Steam-style: sender photo + decrypted preview (decryption is local,
+        // the plaintext never leaves this machine)
+        (async () => {
+          let preview = t('msg.new.body');
+          try {
+            if (row.kind === 'image') preview = `📷 ${t('msg.kind.image')}`;
+            else if (row.kind === 'jam') preview = `🎧 ${t('msg.kind.jam')}`;
+            else {
+              const txt = await e2e.decryptRow(row, false);
+              if (txt) preview = txt.length > 90 ? `${txt.slice(0, 90)}…` : txt;
+            }
+          } catch {
+            // undecryptable (key not restored yet) — keep the generic line
+          }
+          invoke('show_notice', {
+            title: '💬 @' + who.username,
+            body: preview,
+            mood: 'happy',
+            avatar: who.avatar,
+            data: JSON.stringify({ type: 'chat', userId: row.sender }),
+          }).catch(() => {});
+        })();
       }
     });
     return unsub;
