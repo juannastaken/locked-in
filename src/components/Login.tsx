@@ -3,6 +3,7 @@ import * as cloud from '../lib/cloud';
 import * as db from '../lib/db';
 import { getLang, setLang, t } from '../lib/i18n';
 import type { Lang } from '../lib/i18n';
+import * as social from '../lib/social';
 import { Mascot } from './Mascot';
 
 interface LoginProps {
@@ -15,6 +16,7 @@ type Screen = 'signin' | 'signup';
 export function Login({ onDone }: LoginProps) {
   const [screen, setScreen] = useState<Screen>('signin');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [pass, setPass] = useState('');
   const [pass2, setPass2] = useState('');
   const [busy, setBusy] = useState(false);
@@ -79,6 +81,11 @@ export function Login({ onDone }: LoginProps) {
       setError(t('login.bademail'));
       return;
     }
+    const uname = username.trim().replace(/^@/, '');
+    if (!social.USERNAME_RE.test(uname)) {
+      setError(t('fr.claim.rules'));
+      return;
+    }
     if (pass.length < 8) {
       setError(t('login.badpass'));
       return;
@@ -89,6 +96,12 @@ export function Login({ onDone }: LoginProps) {
     }
     setBusy(true);
     try {
+      // username first — don't create the auth user if the name is taken
+      const free = await social.usernameAvailable(uname);
+      if (!free) {
+        setError(t('fr.err.taken'));
+        return;
+      }
       const r = await cloud.signUp(email.trim(), pass);
       if (r.kind === 'exists') {
         setError(t('login.existing'));
@@ -104,6 +117,9 @@ export function Login({ onDone }: LoginProps) {
         setError(t('acc.err', err));
         return;
       }
+      // claim the username; if someone raced us to it, the Friends tab
+      // asks again — never blocks the account itself
+      await social.claimUsername(uname).catch(() => {});
       await afterAuth();
     } finally {
       setBusy(false);
@@ -239,6 +255,16 @@ export function Login({ onDone }: LoginProps) {
             autoFocus
             className="chunk-input w-full px-4 py-3 text-[15px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint"
           />
+          {screen === 'signup' && (
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder={t('login.username')}
+              autoComplete="off"
+              maxLength={21}
+              className="chunk-input mt-2.5 w-full px-4 py-3 text-[15px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint"
+            />
+          )}
           <input
             type="password"
             value={pass}

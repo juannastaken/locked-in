@@ -34,6 +34,7 @@ There's a pixel mascot that gets happier the longer you stay focused. It judges 
 | 🔁 **Weekly habits** | No fixed days, no schedule: a weekly target you tick whenever you did the thing |
 | 💡 **Local insights** | Rule-based observations about your own data (best hour, week vs. week, dominant app) — no AI, works offline |
 | 🎯 **Project goals** | Per-project hour targets with progress and the daily pace needed to hit a deadline |
+| 👥 **Friends** | Add friends by unique username (request → inbox → accept), see who's focusing live, weekly ranking, join a friend's focus session |
 | 🖥️ **Floating overlay** | Tiny always-on-top window with the timer, the mascot and your daily goal bar |
 | 🏆 **Milestones** | 10h on a project, goal streaks, personal records — celebrated on the spot |
 | 🔄 **Auto-updates** | One click in the update popup: downloads, installs with a progress screen and restarts itself (cryptographically signed) |

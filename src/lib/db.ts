@@ -601,6 +601,18 @@ export async function deleteGoal(id: number): Promise<void> {
 }
 
 /** Seconds focused on a project since a given ISO time (all time if omitted). */
+/** Total saved focus seconds for sessions started at/after the given instant. */
+export async function getFocusSecondsSince(sinceIso: string): Promise<number> {
+  return run('getFocusSecondsSince', async () => {
+    const db = await getDb();
+    const rows = await db.select<{ s: number }[]>(
+      'SELECT COALESCE(SUM(duration_sec), 0) as s FROM sessions WHERE ended_at IS NOT NULL AND started_at >= $1',
+      [sinceIso],
+    );
+    return rows[0]?.s ?? 0;
+  });
+}
+
 export async function getProjectSecondsSince(
   project: string,
   sinceIso?: string,

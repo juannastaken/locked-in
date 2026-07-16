@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { CheckinPage } from './components/Checkin';
+import { FriendsPage } from './components/Friends';
+import { FriendsBar } from './components/FriendsBar';
 import { GoalsPage } from './components/Goals';
 import { Login } from './components/Login';
 import { Splash } from './components/Splash';
@@ -14,6 +16,8 @@ import { SettingsScreen } from './components/Settings';
 import { Week } from './components/Week';
 import { useFocusSession } from './hooks/useFocusSession';
 import { useSettings } from './hooks/useSettings';
+import { useSocial } from './hooks/useSocial';
+import * as socialLib from './lib/social';
 import { ToastProvider, useToast } from './hooks/useToast';
 import * as db from './lib/db';
 import { check } from '@tauri-apps/plugin-updater';
@@ -31,7 +35,16 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}, ${alpha})`;
 }
 
-type Tab = 'home' | 'checkin' | 'habits' | 'week' | 'goals' | 'log' | 'stats' | 'settings';
+type Tab =
+  | 'home'
+  | 'checkin'
+  | 'habits'
+  | 'week'
+  | 'goals'
+  | 'friends'
+  | 'log'
+  | 'stats'
+  | 'settings';
 
 const TABS: { id: Tab; labelKey: string }[] = [
   { id: 'home', labelKey: 'tab.home' },
@@ -39,6 +52,7 @@ const TABS: { id: Tab; labelKey: string }[] = [
   { id: 'habits', labelKey: 'tab.habits' },
   { id: 'week', labelKey: 'tab.week' },
   { id: 'goals', labelKey: 'tab.goals' },
+  { id: 'friends', labelKey: 'tab.friends' },
   { id: 'log', labelKey: 'tab.log' },
   { id: 'stats', labelKey: 'tab.stats' },
   { id: 'settings', labelKey: 'tab.settings' },
@@ -92,6 +106,49 @@ function AppShell() {
   }, []);
   const showLogin =
     settingsHook.settings !== null && !showFirstRun && authChecked && !signedIn && !guest;
+
+  // friends + live presence (inert for guests)
+  const social = useSocial(signedIn, onError);
+
+  // presence heartbeat: my session state → cloud, on every phase change and
+  // every 60s while the app runs. Friends treat rows older than ~2.5min as
+  // offline, so closing the app (no explicit "stop") self-heals.
+  const heartbeatRef = useRef({
+    phase: focus.phase,
+    task: focus.activeSession?.task ?? null,
+    elapsedSec: focus.elapsedSec,
+  });
+  heartbeatRef.current = {
+    phase: focus.phase,
+    task: focus.activeSession?.task ?? null,
+    elapsedSec: focus.elapsedSec,
+  };
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    const beat = async () => {
+      const { phase, task, elapsedSec } = heartbeatRef.current;
+      const focusing = phase === 'focusing';
+      try {
+        const saved = await db.getFocusSecondsSince(socialLib.weekStart().toISOString());
+        if (cancelled) return;
+        await socialLib.publishPresence({
+          focusing,
+          task: focusing ? task : null,
+          startedAt: focusing ? new Date(Date.now() - elapsedSec * 1000).toISOString() : null,
+          weekSec: saved + (focusing || phase === 'paused' ? elapsedSec : 0),
+        });
+      } catch {
+        // offline — the next beat wins
+      }
+    };
+    beat();
+    const iv = window.setInterval(beat, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(iv);
+    };
+  }, [signedIn, focus.phase]);
 
   // tray menu follows the language
   useEffect(() => {
@@ -702,6 +759,11 @@ function AppShell() {
               }`}
             >
               {t(tabDef.labelKey)}
+              {tabDef.id === 'friends' && (social.state?.incoming.length ?? 0) > 0 && (
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-extrabold text-bg">
+                  {social.state?.incoming.length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -709,6 +771,7 @@ function AppShell() {
         <div className="flex shrink-0 items-center justify-end md:min-w-[110px]">{statusChip}</div>
       </header>
 
+      <div className="flex min-h-0 flex-1">
       <main key={tab} className="animate-fade-up min-h-0 flex-1">
         {tab === 'home' && (
           <Home
@@ -731,12 +794,27 @@ function AppShell() {
           />
         )}
         {tab === 'goals' && <GoalsPage onError={onError} refreshKey={refreshKey} />}
+        {tab === 'friends' && (
+          <FriendsPage
+            signedIn={signedIn}
+            social={social}
+            onError={onError}
+            onJoinFocus={(task) => {
+              if (focusRef.current.phase === 'idle') focusRef.current.startSession(task, null);
+              setTab('home');
+            }}
+          />
+        )}
         {tab === 'log' && <Log onError={onError} refreshKey={refreshKey} />}
         {tab === 'stats' && (
           <Stats settings={settingsHook.settings} onError={onError} refreshKey={refreshKey} />
         )}
         {tab === 'settings' && <SettingsScreen settingsHook={settingsHook} onError={onError} />}
       </main>
+      {signedIn && tab !== 'friends' && (
+        <FriendsBar social={social} onOpenFriends={() => setTab('friends')} />
+      )}
+      </div>
     </div>
   );
 }
