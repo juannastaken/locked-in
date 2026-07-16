@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { t } from '../lib/i18n';
 import { formatDurationShort } from '../lib/time';
 import * as social from '../lib/social';
@@ -9,17 +10,80 @@ interface FriendsBarProps {
   onOpenFriends: () => void;
 }
 
+function Chevron({ left }: { left: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transform: left ? 'rotate(180deg)' : undefined }}
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 /** Fixed-width friends rail on the right edge — same width with or without friends. */
 export function FriendsBar({ social: soc, onOpenFriends }: FriendsBarProps) {
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem('friends-bar-collapsed') === '1',
+  );
   const state = soc.state;
   if (!state?.me) return null;
 
+  function toggle() {
+    setCollapsed((c) => {
+      localStorage.setItem('friends-bar-collapsed', c ? '0' : '1');
+      return !c;
+    });
+  }
+
+  const anyLive = state.friends.some((f) => social.isLive(soc.presence.get(f.userId)));
+
+  // collapsed: a slim strip with just the expand handle (+ signals on it)
+  if (collapsed) {
+    return (
+      <aside className="flex w-7 shrink-0 flex-col items-center border-l border-border pt-2">
+        <button
+          type="button"
+          onClick={toggle}
+          title={t('fr.bar.expand')}
+          className="relative flex h-9 w-5 items-center justify-center rounded-md text-text-faint hover:bg-surface-hover hover:text-text"
+        >
+          <Chevron left />
+          {(anyLive || state.incoming.length > 0) && (
+            <span
+              className={`absolute -top-0.5 right-0 h-2 w-2 rounded-full ${
+                state.incoming.length > 0 ? 'bg-warn' : 'animate-pulse-dot bg-accent'
+              }`}
+            />
+          )}
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="flex w-52 shrink-0 flex-col border-l border-border">
-      <div className="flex items-center justify-between px-3.5 pb-1 pt-3">
-        <span className="text-[11px] font-extrabold uppercase tracking-wide text-text-dim">
-          {t('fr.title')}
-        </span>
+      <div className="flex items-center justify-between px-2.5 pb-1 pt-3">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={toggle}
+            title={t('fr.bar.collapse')}
+            className="flex h-5 w-5 items-center justify-center rounded-md text-text-faint hover:bg-surface-hover hover:text-text"
+          >
+            <Chevron left={false} />
+          </button>
+          <span className="text-[11px] font-extrabold uppercase tracking-wide text-text-dim">
+            {t('fr.title')}
+          </span>
+        </div>
         {state.incoming.length > 0 && (
           <button
             type="button"

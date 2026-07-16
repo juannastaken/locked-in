@@ -107,6 +107,8 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: 'adiciona um amigo agora!',
     en: 'add a friend now!',
   },
+  'fr.bar.collapse': { pt: 'encolher', en: 'collapse' },
+  'fr.bar.expand': { pt: 'mostrar amigos', en: 'show friends' },
   'set.friendsbar': { pt: 'Barra lateral de amigos', en: 'Friends sidebar' },
   'set.friendsbar.hint': {
     pt: 'mostra teus amigos e quem tá focando agora na lateral direita',
