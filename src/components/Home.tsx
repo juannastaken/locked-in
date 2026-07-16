@@ -407,7 +407,7 @@ export function Home({ focus, settings, onError, refreshKey, onOpenHabits }: Hom
         <button
           type="submit"
           disabled={!task.trim()}
-          className="mt-7 rounded-2xl bg-accent px-12 py-4 text-lg font-bold tracking-tight text-bg shadow-lg shadow-accent/10 hover:brightness-110 hover:shadow-accent/20 disabled:cursor-not-allowed disabled:opacity-30 disabled:shadow-none"
+          className="chunk-btn chunk-btn-accent mt-7 px-12 py-4 text-lg tracking-tight"
         >
           LOCK IN
         </button>

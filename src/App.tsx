@@ -4,6 +4,7 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Chat } from './components/Chat';
 import { CheckinPage } from './components/Checkin';
+import { Login } from './components/Login';
 import { HabitsPage } from './components/Habits';
 import { Home } from './components/Home';
 import { Log } from './components/Log';
@@ -69,6 +70,21 @@ function AppShell() {
   const language = settingsHook.settings?.language;
   setLang(language === 'en' ? 'en' : 'pt');
   const showFirstRun = settingsHook.settings !== null && language === '';
+
+  // auth gate: after the language is picked, show the login screen unless the
+  // user is already signed in or chose guest mode on this machine
+  const [authChecked, setAuthChecked] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [guest, setGuest] = useState(() => localStorage.getItem('guest-mode') === '1');
+  useEffect(() => {
+    import('./lib/cloud')
+      .then((cloud) => cloud.currentUser())
+      .then((u) => setSignedIn(!!u))
+      .catch(() => setSignedIn(false))
+      .finally(() => setAuthChecked(true));
+  }, []);
+  const showLogin =
+    settingsHook.settings !== null && !showFirstRun && authChecked && !signedIn && !guest;
 
   // tray menu follows the language
   useEffect(() => {
@@ -548,6 +564,24 @@ function AppShell() {
         </span>
       </button>
     ) : null;
+
+  // while deciding auth (after language is set), hold on a blank dark screen
+  // so the app never flashes before the login gate
+  if (settingsHook.settings !== null && !showFirstRun && !authChecked) {
+    return <div className="h-screen w-screen bg-bg" />;
+  }
+
+  // login gate takes over the whole window (language pick still comes first)
+  if (showLogin) {
+    return (
+      <Login
+        onDone={() => {
+          setGuest(true); // dismiss the gate for this launch/session
+          setSignedIn(true);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col bg-bg text-text">

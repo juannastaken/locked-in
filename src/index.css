@@ -133,6 +133,16 @@
       transform: translateX(1.5px);
     }
   }
+  --animate-mascot-wobble: mascot-wobble 2.6s ease-in-out infinite;
+  @keyframes mascot-wobble {
+    0%,
+    100% {
+      transform: rotate(-4deg) translateY(0);
+    }
+    50% {
+      transform: rotate(4deg) translateY(-6%);
+    }
+  }
   --animate-mascot-sparkle: mascot-sparkle 1.4s ease-in-out infinite;
   @keyframes mascot-sparkle {
     0%,
@@ -187,6 +197,62 @@
 
 :root {
   color-scheme: dark;
+}
+
+/* ---------- chunky / Duolingo-ish design language ----------
+   opt-in classes so nothing existing breaks; applied where the blocky look
+   is wanted. Thick borders, hard offset shadow, press-down on click. */
+.chunk {
+  border: 2px solid var(--color-border-strong);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 4px 0 0 var(--color-border-strong);
+}
+.chunk-btn {
+  border: 2px solid var(--color-border-strong);
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow: 0 4px 0 0 var(--color-border-strong);
+  font-weight: 700;
+  transition:
+    transform 60ms ease,
+    box-shadow 60ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+.chunk-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+.chunk-btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 0 var(--color-border-strong);
+}
+.chunk-btn:disabled {
+  opacity: 0.45;
+}
+/* primary accent variant — the big call-to-action buttons */
+.chunk-btn-accent {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, #000);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  box-shadow: 0 4px 0 0 color-mix(in srgb, var(--color-accent) 55%, #000);
+}
+.chunk-btn-accent:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 90%, #fff);
+}
+.chunk-btn-accent:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, #000);
+}
+.chunk-input {
+  border: 2px solid var(--color-border-strong);
+  border-radius: 14px;
+  background: var(--color-bg);
+  transition: border-color 120ms ease;
+}
+.chunk-input:focus {
+  border-color: var(--color-accent);
+  outline: none;
 }
 
 html,

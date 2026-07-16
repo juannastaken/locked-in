@@ -128,6 +128,19 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: 'too many questions too fast, breathe and retry',
   },
 
+  // login gate
+  'login.tagline': { pt: 'foco que fica com você', en: 'focus that sticks with you' },
+  'login.newhere': { pt: 'Sou novo — criar conta', en: "I'm new — create account" },
+  'login.existing': {
+    pt: 'esse email já tem conta — clica em Entrar',
+    en: 'that email already has an account — hit Sign in',
+  },
+  'login.guest': { pt: 'continuar como convidado', en: 'continue as guest' },
+  'login.guest.hint': {
+    pt: 'sem conta, teus dados ficam só neste PC (criptografados). Cria conta depois pra ter backup na nuvem.',
+    en: 'without an account, your data stays on this PC only (encrypted). Make one later for cloud backup.',
+  },
+
   // cloud account
   'acc.section': { pt: 'Conta', en: 'Account' },
   'acc.title': { pt: 'Sincronize seu progresso na nuvem', en: 'Sync your progress to the cloud' },

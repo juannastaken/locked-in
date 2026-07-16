@@ -95,3 +95,29 @@ export async function restoreSnapshot(snap: CloudSnapshot): Promise<void> {
     await invoke('save_canvas', { data: snap.canvas }).catch(() => {});
   }
 }
+
+export type ReconcileResult =
+  | { kind: 'uploaded' } // no cloud backup existed → local pushed up
+  | { kind: 'restored' } // fresh install → cloud pulled down
+  | { kind: 'conflict'; cloud: CloudSnapshot; localCount: number }
+  | { kind: 'error'; message: string };
+
+/**
+ * Right after login, decides what to do with local vs cloud data:
+ * - no cloud backup  → upload local
+ * - local is empty   → restore cloud
+ * - both have data   → let the caller ask the user (conflict)
+ */
+export async function reconcileAfterLogin(): Promise<ReconcileResult> {
+  const cloudSnap = await downloadSnapshot();
+  const localCount = await db.localDataCount();
+  if (!cloudSnap) {
+    const err = await uploadSnapshot();
+    return err ? { kind: 'error', message: err } : { kind: 'uploaded' };
+  }
+  if (localCount === 0) {
+    await restoreSnapshot(cloudSnap);
+    return { kind: 'restored' };
+  }
+  return { kind: 'conflict', cloud: cloudSnap, localCount };
+}
