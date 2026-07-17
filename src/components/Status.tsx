@@ -367,6 +367,30 @@ export function StatusPage({ soc, onError, onOpenChat }: StatusPageProps) {
 }
 
 // ---------- editor ----------
+// ---------- editor: free composer (Photoshop-lite) ----------
+// A 9:16 board. Add ANY mix of elements — text boxes, mascot stickers, your
+// week card, images from disk — drag/scale each one, ink on top with the pen,
+// then everything is composited into a single image and posted.
+
+const BOARD_W = 480;
+const BOARD_H = 720;
+
+interface BoardElement {
+  id: number;
+  type: 'text' | 'sticker' | 'image';
+  x: number;
+  y: number;
+  scale: number;
+  /** text elements */
+  text?: string;
+  color?: string;
+  /** sticker elements */
+  mood?: MascotMood;
+  /** image elements (data-url, pre-resized) */
+  src?: string;
+  w?: number;
+  h?: number;
+}
 
 function StatusEditor({
   username,
@@ -379,56 +403,131 @@ function StatusEditor({
   onPosted: () => void;
   onError: (m: string) => void;
 }) {
-  const [mode, setMode] = useState<'text' | 'draw' | 'sticker' | 'card'>('text');
-  const [text, setText] = useState('');
   const [bg, setBg] = useState(TEXT_BGS[0]);
-  const [busy, setBusy] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawingRef = useRef(false);
+  const [tool, setTool] = useState<'move' | 'pen'>('move');
   const [penColor, setPenColor] = useState('#f2f2f4');
-  const [cardPreview, setCardPreview] = useState<string | null>(null);
+  const [elements, setElements] = useState<BoardElement[]>([]);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [stickerPick, setStickerPick] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const idRef = useRef(1);
+  const inkRef = useRef<HTMLCanvasElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ id: number; dx: number; dy: number } | null>(null);
+  const penDownRef = useRef(false);
+  const imgInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (mode !== 'draw') return;
-    const c = canvasRef.current;
-    if (!c) return;
-    const ctx = c.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = '#141417';
-    ctx.fillRect(0, 0, c.width, c.height);
-  }, [mode]);
+  const sel = elements.find((e) => e.id === selected) ?? null;
 
-  useEffect(() => {
-    if (mode !== 'card') return;
-    renderWeekCardImage(username).then(setCardPreview).catch(() => {});
-  }, [mode, username]);
-
-  function pos(c: HTMLCanvasElement, e: React.PointerEvent) {
-    const r = c.getBoundingClientRect();
+  function boardPos(e: React.PointerEvent) {
+    const r = boardRef.current?.getBoundingClientRect();
+    if (!r) return { x: 0, y: 0 };
     return {
-      x: ((e.clientX - r.left) / r.width) * c.width,
-      y: ((e.clientY - r.top) / r.height) * c.height,
+      x: ((e.clientX - r.left) / r.width) * BOARD_W,
+      y: ((e.clientY - r.top) / r.height) * BOARD_H,
     };
   }
 
-  async function post() {
+  function addElement(el: Omit<BoardElement, 'id'>) {
+    const id = idRef.current++;
+    setElements((els) => [...els, { ...el, id }]);
+    setSelected(id);
+    setTool('move');
+  }
+
+  function patchSel(patch: Partial<BoardElement>) {
+    if (selected === null) return;
+    setElements((els) => els.map((e) => (e.id === selected ? { ...e, ...patch } : e)));
+  }
+
+  function addImage(file: File | undefined) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX = 380;
+      const s = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * s);
+      canvas.height = Math.round(img.height * s);
+      canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      addElement({
+        type: 'image',
+        x: 60,
+        y: 160,
+        scale: 1,
+        src: canvas.toDataURL('image/jpeg', 0.8),
+        w: canvas.width,
+        h: canvas.height,
+      });
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
+  }
+
+  async function addCard() {
+    const src = await renderWeekCardImage(username).catch(() => '');
+    if (!src) return;
+    addElement({ type: 'image', x: 90, y: 120, scale: 0.6, src, w: 460, h: 640 });
+  }
+
+  // pen strokes go on their own layer, over the background, under nothing —
+  // elements render above so they stay grabbable
+  function penDown(e: React.PointerEvent) {
+    const c = inkRef.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx) return;
+    penDownRef.current = true;
+    const p = boardPos(e);
+    ctx.strokeStyle = penColor;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+
+  function penMove(e: React.PointerEvent) {
+    if (!penDownRef.current) return;
+    const ctx = inkRef.current?.getContext('2d');
+    if (!ctx) return;
+    const p = boardPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+
+  async function publish() {
     setBusy(true);
     try {
-      let err: string | null = null;
-      if (mode === 'text') {
-        const clean = cleanProfanity(text).trim();
-        if (!clean) return;
-        err = await social.postStatus('text', clean.slice(0, 500), bg);
-      } else if (mode === 'draw') {
-        const c = canvasRef.current;
-        if (!c) return;
-        err = await social.postStatus('image', c.toDataURL('image/jpeg', 0.8));
-      } else if (mode === 'sticker') {
-        return; // stickers post directly from the grid
-      } else if (mode === 'card') {
-        if (!cardPreview) return;
-        err = await social.postStatus('image', cardPreview);
+      const out = document.createElement('canvas');
+      out.width = BOARD_W;
+      out.height = BOARD_H;
+      const ctx = out.getContext('2d');
+      if (!ctx) return;
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+      if (inkRef.current) ctx.drawImage(inkRef.current, 0, 0);
+      for (const el of elements) {
+        if (el.type === 'text' && el.text) {
+          const size = Math.round(30 * el.scale);
+          ctx.font = `bold ${size}px Inter, sans-serif`;
+          ctx.fillStyle = el.color ?? '#ffffff';
+          el.text.split('\n').forEach((line, i) => {
+            ctx.fillText(line, el.x, el.y + size + i * size * 1.25);
+          });
+        } else if (el.type === 'sticker' && el.mood) {
+          drawMascot(ctx, el.mood, el.x, el.y, 10 * el.scale, accentColor(), '#141417');
+        } else if (el.type === 'image' && el.src) {
+          const img = new Image();
+          await new Promise<void>((res) => {
+            img.onload = () => res();
+            img.onerror = () => res();
+            img.src = el.src as string;
+          });
+          ctx.drawImage(img, el.x, el.y, (el.w ?? 100) * el.scale, (el.h ?? 100) * el.scale);
+        }
       }
+      const err = await social.postStatus('image', out.toDataURL('image/jpeg', 0.82));
       if (err) onError(err);
       else onPosted();
     } finally {
@@ -436,26 +535,12 @@ function StatusEditor({
     }
   }
 
-  async function postSticker(mood: MascotMood) {
-    setBusy(true);
-    try {
-      const img = renderStickerImage(mood);
-      if (!img) return;
-      const err = await social.postStatus('image', img);
-      if (err) onError(err);
-      else onPosted();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const modeBtn = (m: typeof mode, label: string) => (
+  const toolBtn = (active: boolean, onClick: () => void, label: string) => (
     <button
-      key={m}
       type="button"
-      onClick={() => setMode(m)}
+      onClick={onClick}
       className={`rounded-full border px-3 py-1 text-[11px] font-bold ${
-        mode === m
+        active
           ? 'border-accent bg-accent-dim text-accent'
           : 'border-border text-text-dim hover:border-border-strong hover:text-text'
       }`}
@@ -466,169 +551,263 @@ function StatusEditor({
 
   return (
     <div
-      className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/85 px-6 backdrop-blur-sm"
+      className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/85 px-4 backdrop-blur-sm"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="chunk animate-scale-in flex max-h-[85vh] w-full max-w-md flex-col p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-extrabold text-text">{t('status.new')}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm font-bold text-text-faint hover:text-text"
+      <div className="chunk animate-scale-in flex max-h-[92vh] w-full max-w-2xl gap-4 p-5">
+        {/* board */}
+        <div className="min-w-0 flex-1">
+          <div
+            ref={boardRef}
+            className="relative mx-auto aspect-[2/3] max-h-[70vh] select-none overflow-hidden rounded-2xl border-2 border-border-strong"
+            style={{ backgroundColor: bg, cursor: tool === 'pen' ? 'crosshair' : 'default' }}
+            onPointerDown={(e) => {
+              if (tool === 'pen') {
+                (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+                penDown(e);
+              } else if (e.target === e.currentTarget) {
+                setSelected(null);
+              }
+            }}
+            onPointerMove={(e) => {
+              if (tool === 'pen') {
+                penMove(e);
+                return;
+              }
+              const d = dragRef.current;
+              if (!d) return;
+              const p = boardPos(e);
+              setElements((els) =>
+                els.map((el) => (el.id === d.id ? { ...el, x: p.x - d.dx, y: p.y - d.dy } : el)),
+              );
+            }}
+            onPointerUp={() => {
+              penDownRef.current = false;
+              dragRef.current = null;
+            }}
           >
-            ✕
-          </button>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {modeBtn('text', t('status.mode.text'))}
-          {modeBtn('draw', t('status.mode.draw'))}
-          {modeBtn('sticker', t('status.mode.sticker'))}
-          {modeBtn('card', t('status.mode.card'))}
+            <canvas
+              ref={inkRef}
+              width={BOARD_W}
+              height={BOARD_H}
+              className="pointer-events-none absolute inset-0 h-full w-full"
+            />
+            {elements.map((el) => {
+              const isSel = el.id === selected;
+              const base: React.CSSProperties = {
+                left: `${(el.x / BOARD_W) * 100}%`,
+                top: `${(el.y / BOARD_H) * 100}%`,
+              };
+              return (
+                <div
+                  key={el.id}
+                  className={`absolute cursor-grab active:cursor-grabbing ${
+                    isSel ? 'outline outline-2 outline-dashed outline-white/60' : ''
+                  }`}
+                  style={base}
+                  onPointerDown={(e) => {
+                    if (tool === 'pen') return;
+                    e.stopPropagation();
+                    (boardRef.current as HTMLDivElement).setPointerCapture(e.pointerId);
+                    setSelected(el.id);
+                    const p = boardPos(e);
+                    dragRef.current = { id: el.id, dx: p.x - el.x, dy: p.y - el.y };
+                  }}
+                >
+                  {el.type === 'text' && (
+                    <span
+                      className="whitespace-pre font-bold leading-tight"
+                      style={{
+                        color: el.color ?? '#ffffff',
+                        fontSize: `${30 * el.scale * ((boardRef.current?.clientWidth ?? BOARD_W) / BOARD_W)}px`,
+                      }}
+                    >
+                      {el.text || t('status.text.placeholder')}
+                    </span>
+                  )}
+                  {el.type === 'sticker' && el.mood && (
+                    <Mascot mood={el.mood} size={140 * el.scale * ((boardRef.current?.clientWidth ?? BOARD_W) / BOARD_W)} effects={false} />
+                  )}
+                  {el.type === 'image' && el.src && (
+                    <img
+                      src={el.src}
+                      alt=""
+                      draggable={false}
+                      style={{
+                        width: `${(((el.w ?? 100) * el.scale) / BOARD_W) * 100}%`,
+                      }}
+                      className="pointer-events-none max-w-none"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          {mode === 'text' && (
-            <div>
-              <div
-                className="flex min-h-48 items-center justify-center rounded-2xl p-6"
-                style={{ backgroundColor: bg }}
-              >
-                <textarea
-                  autoFocus
-                  value={text}
-                  onChange={(e) => setText(e.target.value.slice(0, 500))}
-                  placeholder={t('status.text.placeholder')}
-                  rows={4}
-                  className="w-full resize-none bg-transparent text-center text-xl font-bold text-white outline-none placeholder:text-white/50"
-                />
-              </div>
-              <div className="mt-3 flex justify-center gap-2">
-                {TEXT_BGS.map((c) => (
+        {/* tools */}
+        <div className="flex w-44 shrink-0 flex-col gap-3 overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-extrabold text-text">{t('status.new')}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-1.5 text-sm font-bold text-text-faint hover:text-text"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
+              {t('status.tool.add')}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {toolBtn(false, () => addElement({ type: 'text', x: 60, y: 80, scale: 1, text: '', color: '#ffffff' }), `+ ${t('status.mode.text')}`)}
+              {toolBtn(false, () => setStickerPick((s) => !s), `+ ${t('status.mode.sticker')}`)}
+              {toolBtn(false, addCard, `+ ${t('status.mode.card')}`)}
+              {toolBtn(false, () => imgInputRef.current?.click(), `+ ${t('status.tool.image')}`)}
+            </div>
+            {stickerPick && (
+              <div className="grid grid-cols-4 gap-1 rounded-xl border border-border bg-bg p-1.5">
+                {STICKER_MOODS.map((m) => (
                   <button
-                    key={c}
+                    key={m}
                     type="button"
-                    onClick={() => setBg(c)}
-                    className={`h-7 w-7 rounded-full border-2 ${
-                      bg === c ? 'border-text' : 'border-transparent'
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
+                    onClick={() => {
+                      setStickerPick(false);
+                      addElement({ type: 'sticker', x: 160, y: 260, scale: 1, mood: m });
+                    }}
+                    className="flex items-center justify-center rounded-lg py-1.5 hover:bg-surface-hover"
+                  >
+                    <Mascot mood={m} size={26} effects={false} />
+                  </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+            <input
+              ref={imgInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                addImage(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+          </div>
 
-          {mode === 'draw' && (
-            <div>
-              <canvas
-                ref={canvasRef}
-                width={480}
-                height={360}
-                className="w-full cursor-crosshair touch-none rounded-2xl border-2 border-border-strong"
-                onPointerDown={(e) => {
-                  drawingRef.current = true;
-                  const c = canvasRef.current;
-                  if (!c) return;
-                  c.setPointerCapture(e.pointerId);
-                  const ctx = c.getContext('2d');
-                  if (!ctx) return;
-                  const p = pos(c, e);
-                  ctx.strokeStyle = penColor;
-                  ctx.lineWidth = 5;
-                  ctx.lineCap = 'round';
-                  ctx.beginPath();
-                  ctx.moveTo(p.x, p.y);
-                }}
-                onPointerMove={(e) => {
-                  if (!drawingRef.current) return;
-                  const c = canvasRef.current;
-                  const ctx = c?.getContext('2d');
-                  if (!c || !ctx) return;
-                  const p = pos(c, e);
-                  ctx.lineTo(p.x, p.y);
-                  ctx.stroke();
-                }}
-                onPointerUp={() => {
-                  drawingRef.current = false;
-                }}
-              />
-              <div className="mt-3 flex items-center justify-center gap-2">
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
+              {t('status.tool.pen')}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {toolBtn(tool === 'move', () => setTool('move'), t('status.tool.move'))}
+              {toolBtn(tool === 'pen', () => setTool('pen'), t('status.mode.draw'))}
+            </div>
+            {tool === 'pen' && (
+              <div className="flex flex-wrap gap-1.5">
                 {['#f2f2f4', '#d4ff3f', '#7dd3fc', '#f472b6', '#fbbf24', '#f87171'].map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => setPenColor(c)}
-                    className={`h-7 w-7 rounded-full border-2 ${
-                      penColor === c ? 'border-text' : 'border-transparent'
-                    }`}
+                    className={`h-6 w-6 rounded-full border-2 ${penColor === c ? 'border-text' : 'border-transparent'}`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
+              {t('status.tool.bg')}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {TEXT_BGS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setBg(c)}
+                  className={`h-6 w-6 rounded-full border-2 ${bg === c ? 'border-text' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {sel && (
+            <div className="space-y-1.5 rounded-xl border border-border bg-bg p-2">
+              <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
+                {t('status.tool.selected')}
+              </div>
+              {sel.type === 'text' && (
+                <>
+                  <textarea
+                    autoFocus
+                    value={sel.text ?? ''}
+                    onChange={(e) => patchSel({ text: e.target.value.slice(0, 200) })}
+                    rows={2}
+                    placeholder={t('status.text.placeholder')}
+                    className="chunk-input w-full px-2 py-1.5 text-xs font-semibold text-text"
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {['#ffffff', '#d4ff3f', '#7dd3fc', '#f472b6', '#fbbf24', '#111114'].map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => patchSel({ color: c })}
+                        className={`h-5 w-5 rounded-full border-2 ${sel.color === c ? 'border-text' : 'border-border'}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => patchSel({ scale: Math.max(0.3, sel.scale - 0.15) })}
+                  className="chunk-btn h-8 w-8 text-sm text-text"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  onClick={() => patchSel({ scale: Math.min(4, sel.scale + 0.15) })}
+                  className="chunk-btn h-8 w-8 text-sm text-text"
+                >
+                  +
+                </button>
                 <button
                   type="button"
                   onClick={() => {
-                    const c = canvasRef.current;
-                    const ctx = c?.getContext('2d');
-                    if (!c || !ctx) return;
-                    ctx.fillStyle = '#141417';
-                    ctx.fillRect(0, 0, c.width, c.height);
+                    setElements((els) => els.filter((e) => e.id !== sel.id));
+                    setSelected(null);
                   }}
-                  className="ml-2 rounded-lg px-2 py-1 text-[11px] font-bold text-text-faint hover:text-text"
+                  className="chunk-btn ml-auto h-8 px-3 text-xs font-bold text-danger"
                 >
-                  {t('status.draw.clear')}
+                  ✕
                 </button>
               </div>
             </div>
           )}
 
-          {mode === 'sticker' && (
-            <div className="grid grid-cols-4 gap-2">
-              {STICKER_MOODS.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => postSticker(m)}
-                  className="flex items-center justify-center rounded-2xl border-2 border-border bg-bg py-4 transition-transform hover:scale-105 hover:border-accent"
-                >
-                  <Mascot mood={m} size={52} effects={false} />
-                </button>
-              ))}
-            </div>
-          )}
-
-          {mode === 'card' &&
-            (cardPreview ? (
-              <img
-                src={cardPreview}
-                alt=""
-                className="mx-auto max-h-72 rounded-2xl border-2 border-border-strong"
-              />
-            ) : (
-              <Skeleton className="mx-auto h-64 w-48" />
-            ))}
-        </div>
-
-        {mode !== 'sticker' && (
           <button
             type="button"
-            disabled={busy || (mode === 'text' && !text.trim()) || (mode === 'card' && !cardPreview)}
-            onClick={post}
-            className="chunk-btn chunk-btn-accent mt-4 w-full py-3 text-sm"
+            disabled={busy}
+            onClick={publish}
+            className="chunk-btn chunk-btn-accent mt-auto w-full py-3 text-sm"
           >
             {busy ? '…' : t('status.post')}
           </button>
-        )}
-        {mode === 'sticker' && (
-          <p className="mt-3 text-center text-[11px] font-medium text-text-faint">
-            {t('status.sticker.hint')}
-          </p>
-        )}
+        </div>
       </div>
     </div>
   );
 }
+
 
 // ---------- viewer (stories) ----------
 
