@@ -1053,6 +1053,10 @@ const dict: Record<string, { pt: string; en: string }> = {
   'msg.newbelow': { pt: 'novas', en: 'new' },
   'msg.jump': { pt: 'ir até a mensagem', en: 'jump to message' },
   'img.open': { pt: 'abrir imagem', en: 'open image' },
+  'msg.img.staged': {
+    pt: 'imagem pronta — clica em enviar',
+    en: 'image ready — hit send',
+  },
   'img.download': { pt: 'Baixar', en: 'Download' },
   'img.copy': { pt: 'Copiar', en: 'Copy' },
   'img.copied': { pt: 'imagem copiada 📋', en: 'image copied 📋' },

@@ -17,6 +17,10 @@ import {
   TrashIcon,
 } from './Icons';
 
+// last decrypted state per conversation — switching chats paints INSTANTLY
+// from here (no skeleton, no double blink) while a silent refetch runs
+const convoCache = new Map<string, DecryptedMessage[]>();
+
 const REACTION_SET = ['👍', '❤️', '😂', '🔥', '👀'];
 const EMOJI_GRID = [
   '😀', '😂', '🤣', '😅', '😍', '😎', '🤔', '😴',
@@ -274,9 +278,12 @@ export function ChatView({
   jamAction,
 }: ChatProps) {
   const { pushToast } = useToast();
-  const [messages, setMessages] = useState<DecryptedMessage[] | null>(null);
+  const [messages, setMessages] = useState<DecryptedMessage[] | null>(
+    () => convoCache.get(friend.userId) ?? null,
+  );
   const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
+  /** image sitting in the composer (drag/paste/pick) — sends on the button */
+  const [pendingImg, setPendingImg] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<DecryptedMessage | null>(null);
   const [reactFor, setReactFor] = useState<number | null>(null);
   const [menuFor, setMenuFor] = useState<number | null>(null);
@@ -323,6 +330,7 @@ export function ChatView({
                 }),
             ),
         );
+        convoCache.set(friend.userId, msgs);
         setMessages(msgs);
       })
       .catch((err) => onError(String(err)));
@@ -414,37 +422,44 @@ export function ChatView({
   }
 
   async function send() {
+    // staged image goes out first (Discord-style: it sat in the composer)
+    if (pendingImg) {
+      const img = pendingImg;
+      setPendingImg(null);
+      const ri = await chat.sendMessage(friend.userId, 'image', img);
+      if (ri === 'ok') reload();
+      else {
+        setPendingImg(img); // put it back so nothing is lost
+        handleSendError(ri);
+        return;
+      }
+    }
     const text = draft.trim();
-    if (!text || sending) return;
-    setSending(true);
-    try {
-      const r = await chat.sendMessage(friend.userId, 'text', text, replyTo?.id ?? null);
-      if (r === 'ok') {
-        setDraft('');
-        setReplyTo(null);
-        reload();
-      } else handleSendError(r);
-    } finally {
-      setSending(false);
+    if (!text) return;
+    // clear IMMEDIATELY — waiting for the server left fast typers with a
+    // sent message still sitting in the box
+    const reply = replyTo?.id ?? null;
+    setDraft('');
+    setReplyTo(null);
+    const r = await chat.sendMessage(friend.userId, 'text', text, reply);
+    if (r === 'ok') reload();
+    else {
+      setDraft(text); // give the text back on failure
+      handleSendError(r);
     }
   }
 
-  async function sendImage(file: File | undefined) {
+  /** Discord-style: the image lands in the composer, YOU decide when it goes */
+  async function stageImage(file: File | undefined) {
     setClipOpen(false);
-    if (!file) return;
-    setSending(true);
-    try {
-      const dataUrl = await fileToChatImage(file);
-      if (!dataUrl) {
-        onError(t('msg.img.toobig'));
-        return;
-      }
-      const r = await chat.sendMessage(friend.userId, 'image', dataUrl);
-      if (r === 'ok') reload();
-      else handleSendError(r);
-    } finally {
-      setSending(false);
+    if (!file || !file.type.startsWith('image/')) return;
+    const dataUrl = await fileToChatImage(file);
+    if (!dataUrl) {
+      onError(t('msg.img.toobig'));
+      return;
     }
+    setPendingImg(dataUrl);
+    inputRef.current?.focus();
   }
 
   async function saveEdit() {
@@ -479,7 +494,20 @@ export function ChatView({
   const byId = new Map((messages ?? []).map((m) => [m.id, m]));
 
   return (
-    <div key={friend.userId} className="animate-fade-in relative flex h-full min-h-0 flex-col">
+    <div
+      key={friend.userId}
+      className="relative flex h-full min-h-0 flex-col"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'));
+        if (file) {
+          e.preventDefault();
+          stageImage(file);
+        }
+      }}
+    >
       {/* header */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -851,6 +879,27 @@ export function ChatView({
         />
       )}
 
+      {/* staged image — sits in the composer until YOU hit send */}
+      {pendingImg && (
+        <div className="animate-fade-in flex shrink-0 items-center gap-3 border-t border-border bg-surface px-4 py-2.5">
+          <img
+            src={pendingImg}
+            alt=""
+            className="h-16 w-16 rounded-lg border-2 border-border-strong object-cover"
+          />
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-text-dim">
+            {t('msg.img.staged')}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPendingImg(null)}
+            className="shrink-0 rounded-lg px-2 py-1 text-sm font-bold text-text-faint hover:text-text"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* reply bar */}
       {replyTo && (
         <div className="animate-fade-in flex shrink-0 items-center justify-between gap-2 border-t border-border bg-surface px-4 py-2">
@@ -963,7 +1012,7 @@ export function ChatView({
             accept="image/*"
             className="hidden"
             onChange={(e) => {
-              sendImage(e.target.files?.[0]);
+              stageImage(e.target.files?.[0]);
               e.target.value = '';
             }}
           />
@@ -977,13 +1026,13 @@ export function ChatView({
             typingChanRef.current?.sendTyping();
           }}
           onPaste={(e) => {
-            // Ctrl+V straight from the clipboard — screenshots, copied images
+            // Ctrl+V stages the image in the composer (send on the button)
             const file = Array.from(e.clipboardData.files).find((f) =>
               f.type.startsWith('image/'),
             );
             if (file) {
               e.preventDefault();
-              sendImage(file);
+              stageImage(file);
             }
           }}
           placeholder={t('msg.placeholder')}
@@ -993,7 +1042,7 @@ export function ChatView({
         />
         <button
           type="submit"
-          disabled={sending || !draft.trim()}
+          disabled={!draft.trim() && !pendingImg}
           title={t('msg.send')}
           className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-bg transition-all duration-150 hover:scale-105 hover:brightness-110 active:scale-90 disabled:scale-100 disabled:opacity-40"
         >
