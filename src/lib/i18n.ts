@@ -914,6 +914,13 @@ const dict: Record<string, { pt: string; en: string }> = {
   'status.card.bestsession': { pt: 'melhor sessão', en: 'best session' },
   'status.reply.label': { pt: 'respondeu ao teu status', en: 'replied to your status' },
   'msg.quickreply': { pt: 'responder…', en: 'reply…' },
+  'attach.sticker': { pt: 'Sticker', en: 'Sticker' },
+  'msg.pin': { pt: 'fixar', en: 'pin' },
+  'msg.unpin': { pt: 'desafixar', en: 'unpin' },
+  'msg.theme': { pt: 'cor da conversa', en: 'chat color' },
+  'msg.voice.rec': { pt: 'gravar áudio (máx 15s)', en: 'record voice (max 15s)' },
+  'msg.voice.toobig': { pt: 'áudio grande demais', en: 'voice note too big' },
+  'msg.voice.nomic': { pt: 'microfone indisponível', en: 'microphone unavailable' },
   'fr.jams.on': { pt: 'JAMs on', en: 'JAMs on' },
   'fr.jams.off': { pt: 'JAMs off', en: 'JAMs off' },
   'fr.jams.tip': {

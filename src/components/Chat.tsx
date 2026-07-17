@@ -2,6 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useToast } from '../hooks/useToast';
 import * as chat from '../lib/chat';
 import { cleanProfanity } from '../lib/filter';
+import { Mascot } from './Mascot';
+import type { MascotMood } from './Mascot';
+import { renderStickerImage } from './Status';
 import type { DecryptedMessage, TypingChannel } from '../lib/chat';
 import { dateLocale, t } from '../lib/i18n';
 import { formatDurationShort } from '../lib/time';
@@ -11,7 +14,10 @@ import {
   DotsIcon,
   HeadphonesIcon,
   ImageIcon,
+  MicIcon,
+  PaletteIcon,
   PencilIcon,
+  PinIcon,
   ReplyIcon,
   SendIcon,
   SmileIcon,
@@ -23,6 +29,35 @@ import {
 const convoCache = new Map<string, DecryptedMessage[]>();
 
 const REACTION_SET = ['👍', '❤️', '😂', '🔥', '👀'];
+const STICKER_MOODS: MascotMood[] = ['happy', 'hyped', 'focus', 'relax', 'sleep', 'sad', 'angry'];
+const CHAT_THEMES = ['#d4ff3f', '#7dd3fc', '#a78bfa', '#f472b6', '#fb923c', '#34d399'];
+
+/** message that is ONLY 1-3 emoji → rendered jumbo, no bubble */
+function isJumbo(text: string): boolean {
+  if (text.length > 12) return false;
+  const m = text.trim().match(/\p{Extended_Pictographic}/gu);
+  if (!m) return false;
+  const stripped = text.replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}‍️\s]/gu, '');
+  return stripped.length === 0 && m.length <= 3;
+}
+
+const PINS_KEY = 'chat-pins'; // { [friendId]: messageId }
+function pinsMap(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(PINS_KEY) ?? '{}') as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+const THEME_KEY = 'chat-themes'; // { [friendId]: hex }
+function themesMap(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(THEME_KEY) ?? '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
 const EMOJI_GRID = [
   '😀', '😂', '🤣', '😅', '😍', '😎', '🤔', '😴',
   '😭', '😡', '🥶', '🤯', '👍', '👎', '👊', '🙏',
@@ -295,6 +330,94 @@ export function ChatView({
   const [clipOpen, setClipOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [viewImg, setViewImg] = useState<string | null>(null);
+  const [stickerOpen, setStickerOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [pinId, setPinId] = useState<number | null>(() => pinsMap()[friend.userId] ?? null);
+  const [theme, setTheme] = useState<string | null>(() => themesMap()[friend.userId] ?? null);
+  const [recording, setRecording] = useState(false);
+  const [recSec, setRecSec] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recChunksRef = useRef<Blob[]>([]);
+  const recTimerRef = useRef<number | null>(null);
+
+  function setPin(id: number | null) {
+    const map = pinsMap();
+    if (id === null) delete map[friend.userId];
+    else map[friend.userId] = id;
+    localStorage.setItem(PINS_KEY, JSON.stringify(map));
+    setPinId(id);
+  }
+
+  function setChatTheme(hex: string | null) {
+    const map = themesMap();
+    if (hex === null) delete map[friend.userId];
+    else map[friend.userId] = hex;
+    localStorage.setItem(THEME_KEY, JSON.stringify(map));
+    setTheme(hex);
+    setThemeOpen(false);
+  }
+
+  async function sendSticker(mood: MascotMood) {
+    setStickerOpen(false);
+    setClipOpen(false);
+    const img = renderStickerImage(mood);
+    if (!img) return;
+    const r = await chat.sendMessage(friend.userId, 'image', img);
+    if (r === 'ok') reload();
+    else handleSendError(r);
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 16_000,
+      });
+      recChunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) recChunksRef.current.push(e.data);
+      };
+      rec.onstop = async () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        const blob = new Blob(recChunksRef.current, { type: 'audio/webm' });
+        const dataUrl = await new Promise<string>((res) => {
+          const fr = new FileReader();
+          fr.onload = () => res(String(fr.result));
+          fr.readAsDataURL(blob);
+        });
+        if (dataUrl.length > 110_000) {
+          onError(t('msg.voice.toobig'));
+          return;
+        }
+        const r = await chat.sendMessage(friend.userId, 'voice', dataUrl);
+        if (r === 'ok') reload();
+        else handleSendError(r);
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setRecording(true);
+      setRecSec(0);
+      recTimerRef.current = window.setInterval(() => {
+        setRecSec((s) => {
+          if (s + 1 >= 15) stopRecording(); // hard cap keeps the E2E payload small
+          return s + 1;
+        });
+      }, 1000);
+    } catch {
+      onError(t('msg.voice.nomic'));
+    }
+  }
+
+  function stopRecording() {
+    if (recTimerRef.current) {
+      window.clearInterval(recTimerRef.current);
+      recTimerRef.current = null;
+    }
+    setRecording(false);
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    recorderRef.current = null;
+  }
   const [flashId, setFlashId] = useState<number | null>(null);
   const [newCount, setNewCount] = useState(0);
   const typingChanRef = useRef<TypingChannel | null>(null);
@@ -541,16 +664,78 @@ export function ChatView({
             </div>
           </div>
         </div>
-        {jamAction && (
-          <button
-            type="button"
-            onClick={jamAction.run}
-            className="chunk-btn chunk-btn-accent flex shrink-0 items-center gap-1.5 px-3.5 py-2 text-xs"
-          >
-            <HeadphonesIcon size={13} /> {jamAction.label}
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className="relative" data-pop>
+            <button
+              type="button"
+              title={t('msg.theme')}
+              onClick={() => setThemeOpen((o) => !o)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-text-faint hover:bg-surface-hover hover:text-text"
+            >
+              <PaletteIcon size={15} className={theme ? 'text-accent' : undefined} />
+            </button>
+            {themeOpen && (
+              <div className="animate-scale-in absolute right-0 top-10 z-30 flex gap-1.5 rounded-xl border-2 border-border-strong bg-surface p-2 shadow-2xl shadow-black/50">
+                {CHAT_THEMES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setChatTheme(c)}
+                    className={`h-6 w-6 rounded-full border-2 ${theme === c ? 'border-text' : 'border-transparent'}`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setChatTheme(null)}
+                  className="px-1 text-[10px] font-bold text-text-faint hover:text-text"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+          {jamAction && (
+            <button
+              type="button"
+              onClick={jamAction.run}
+              className="chunk-btn chunk-btn-accent flex shrink-0 items-center gap-1.5 px-3.5 py-2 text-xs"
+            >
+              <HeadphonesIcon size={13} /> {jamAction.label}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* pinned message bar */}
+      {pinId !== null &&
+        (() => {
+          const pm = byId.get(pinId);
+          if (!pm) return null;
+          return (
+            <div className="flex shrink-0 items-center gap-2 border-b border-border bg-surface/70 px-4 py-1.5">
+              <PinIcon size={13} className="shrink-0 text-accent" />
+              <button
+                type="button"
+                onClick={() => jumpToMessage(pinId)}
+                className="min-w-0 flex-1 truncate text-left text-[12px] font-semibold text-text-dim hover:text-text"
+              >
+                {pm.kind === 'image'
+                  ? t('msg.kind.image')
+                  : pm.kind === 'voice'
+                    ? t('msg.kind.voice')
+                    : (pm.text ?? '🔒')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPin(null)}
+                className="shrink-0 px-1 text-xs font-bold text-text-faint hover:text-text"
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })()}
 
       {/* messages */}
       <div
@@ -637,6 +822,35 @@ export function ChatView({
                         </div>
                       )}
                     </div>
+                  ) : m.kind === 'voice' ? (
+                    <div
+                      className={`bubble-shadow flex items-center gap-2 rounded-2xl border-2 border-border-strong px-3 py-2 ${
+                        m.mine ? 'rounded-br-md bg-accent' : 'rounded-bl-md bg-surface'
+                      }`}
+                      style={m.mine && theme ? { backgroundColor: theme } : undefined}
+                    >
+                      {m.text ? (
+                        <audio src={m.text} controls className="h-9 w-60" />
+                      ) : (
+                        <span className="px-2 py-1 text-xs italic text-text-faint">
+                          🔒 {t('msg.undecryptable')}
+                        </span>
+                      )}
+                    </div>
+                  ) : m.text !== null && m.kind === 'text' && !quoted && isJumbo(m.text) ? (
+                    <div className="px-1 py-0.5 text-5xl leading-tight">
+                      {m.text}
+                      {lastOfGroup && (
+                        <span className="ml-2 align-middle font-mono text-[11px] tabular-nums text-text-dim">
+                          {timeLabel(m.created_at)}
+                          {m.mine && (
+                            <span className={m.read_at ? 'ml-1 font-bold text-accent' : 'ml-1'}>
+                              {m.read_at ? '✓✓' : '✓'}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                   ) : m.kind === 'status' ? (
                     (() => {
                       // body = JSON {s: status snippet, t: the reply text}
@@ -716,6 +930,7 @@ export function ChatView({
                           ? `border-border-strong bg-accent text-bg ${firstOfGroup ? '' : 'rounded-tr-md'} ${lastOfGroup ? 'rounded-br-md' : 'rounded-br-md'}`
                           : `border-border-strong bg-surface text-text ${firstOfGroup ? '' : 'rounded-tl-md'} ${lastOfGroup ? 'rounded-bl-md' : 'rounded-bl-md'}`
                       }`}
+                      style={m.mine && theme ? { backgroundColor: theme } : undefined}
                     >
                       {quoted && (
                         <button
@@ -811,8 +1026,7 @@ export function ChatView({
                   >
                     <ReplyIcon />
                   </button>
-                  {m.mine && (
-                    <div className="relative">
+                  <div className="relative">
                       <button
                         type="button"
                         onClick={() => {
@@ -825,7 +1039,18 @@ export function ChatView({
                       </button>
                       {menuFor === m.id && (
                         <div className="animate-scale-in absolute bottom-9 right-0 z-20 w-36 rounded-xl border-2 border-border-strong bg-surface p-1 shadow-xl shadow-black/50">
-                          {chat.canEdit(m) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMenuFor(null);
+                              setPin(pinId === m.id ? null : m.id);
+                            }}
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-text hover:bg-surface-hover"
+                          >
+                            <PinIcon size={13} />{' '}
+                            {pinId === m.id ? t('msg.unpin') : t('msg.pin')}
+                          </button>
+                          {m.mine && chat.canEdit(m) && (
                             <button
                               type="button"
                               onClick={() => {
@@ -838,20 +1063,21 @@ export function ChatView({
                               <PencilIcon /> {t('msg.edit')}
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => remove(m.id)}
-                            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold hover:bg-surface-hover ${
-                              confirmDelete === m.id ? 'text-danger' : 'text-text'
-                            }`}
-                          >
-                            <TrashIcon />{' '}
-                            {confirmDelete === m.id ? t('misc.sure') : t('msg.delete')}
-                          </button>
+                          {m.mine && (
+                            <button
+                              type="button"
+                              onClick={() => remove(m.id)}
+                              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold hover:bg-surface-hover ${
+                                confirmDelete === m.id ? 'text-danger' : 'text-text'
+                              }`}
+                            >
+                              <TrashIcon />{' '}
+                              {confirmDelete === m.id ? t('misc.sure') : t('msg.delete')}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -1016,6 +1242,16 @@ export function ChatView({
               >
                 <ImageIcon size={16} /> {t('attach.image')}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setClipOpen(false);
+                  setStickerOpen(true);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-text hover:bg-surface-hover"
+              >
+                <Mascot mood="happy" size={16} effects={false} /> {t('attach.sticker')}
+              </button>
               {jamAction && (
                 <button
                   type="button"
@@ -1028,6 +1264,27 @@ export function ChatView({
                   <HeadphonesIcon size={16} /> {jamAction.label}
                 </button>
               )}
+            </div>
+          )}
+          {stickerOpen && (
+            <div className="animate-scale-in absolute bottom-14 left-0 z-30 grid w-64 grid-cols-4 gap-1.5 rounded-xl border-2 border-border-strong bg-surface p-2 shadow-2xl shadow-black/50">
+              {STICKER_MOODS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => sendSticker(m)}
+                  className="flex items-center justify-center rounded-lg border border-border bg-bg py-2.5 transition-transform hover:scale-110 hover:border-accent"
+                >
+                  <Mascot mood={m} size={34} effects={false} />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setStickerOpen(false)}
+                className="col-span-4 mt-1 rounded-lg py-1 text-[11px] font-bold text-text-faint hover:text-text"
+              >
+                {t('misc.cancel')}
+              </button>
             </div>
           )}
           {emojiOpen && (
@@ -1088,11 +1345,34 @@ export function ChatView({
           autoFocus
           className="chunk-input min-w-0 flex-1 px-4 py-3 text-sm font-semibold text-text placeholder:font-medium placeholder:text-text-faint"
         />
+        {recording ? (
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="flex h-11 shrink-0 items-center gap-2 rounded-xl border-2 border-danger bg-danger/15 px-3 font-mono text-xs font-extrabold tabular-nums text-danger"
+          >
+            <span className="h-2 w-2 animate-pulse-dot rounded-full bg-danger" /> 0:
+            {String(recSec).padStart(2, '0')} ■
+          </button>
+        ) : (
+          !draft.trim() &&
+          !pendingImg && (
+            <button
+              type="button"
+              onClick={startRecording}
+              title={t('msg.voice.rec')}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-border-strong text-text-dim transition-colors hover:border-accent hover:text-text"
+            >
+              <MicIcon size={17} />
+            </button>
+          )
+        )}
         <button
           type="submit"
           disabled={!draft.trim() && !pendingImg}
           title={t('msg.send')}
           className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-bg transition-all duration-150 hover:scale-105 hover:brightness-110 active:scale-90 disabled:scale-100 disabled:opacity-40"
+          style={theme ? { backgroundColor: theme } : undefined}
         >
           <SendIcon size={17} />
         </button>

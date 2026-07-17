@@ -65,7 +65,7 @@ function accentColor(): string {
 }
 
 /** Sticker: mascot on a dark rounded card → jpeg data-url. */
-function renderStickerImage(mood: MascotMood): string {
+export function renderStickerImage(mood: MascotMood): string {
   const W = 420;
   const H = 420;
   const canvas = document.createElement('canvas');
