@@ -69,6 +69,7 @@ export interface UseFocusSession {
   startSession: (task: string, project: string | null, jam?: JamMeta) => Promise<void>;
   /** upgrade the running session to a jam (host side) — merges member lists */
   markJam: (members: string[], pomo?: string | null) => void;
+  adoptJam: (meta: JamMeta) => void;
   /** REPLACE the jam member list (group jams sync it from the server) */
   syncJamMembers: (members: string[]) => void;
   pauseSession: () => void;
@@ -403,6 +404,20 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     [activeSession, jam],
   );
 
+  /** Join an existing jam WITHOUT restarting my session — the shared clock
+   *  becomes the host's. This is what makes "accept while already focusing"
+   *  work instead of silently doing nothing. */
+  const adoptJam = useCallback(
+    (meta: JamMeta) => {
+      if (!activeSession) return;
+      const members = dedupeUsers(meta.members);
+      db.setSessionJamMembers(activeSession.id, members).catch((err) => setError(String(err)));
+      setJam({ startedAt: meta.startedAt, members, pomo: meta.pomo ?? null });
+      setActiveSession({ ...activeSession, jam_members: JSON.stringify(members) });
+    },
+    [activeSession],
+  );
+
   const syncJamMembers = useCallback(
     (members: string[]) => {
       if (!activeSession || !jam) return;
@@ -619,6 +634,7 @@ export function useFocusSession(opts: FocusOptions): UseFocusSession {
     resolveAfk,
     startSession,
     markJam,
+    adoptJam,
     syncJamMembers,
     pauseSession,
     resumeSession,

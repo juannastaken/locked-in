@@ -23,6 +23,7 @@ export interface JamHook {
   prompt: JamPrompt | null;
   clearPrompt: () => void;
   answer: (accept: boolean) => Promise<JamPrompt | null>;
+  cancelSent: () => void;
   send: (
     toUserId: string,
     toUsername: string,
@@ -117,6 +118,16 @@ export function useJam(
     return err ? null : p;
   }, []);
 
+  /** Cancels every invite I sent that's still pending — called when my jam
+   *  fills up (1:1 = 2 people) or my session ends, so a late "accept" can't
+   *  spawn a ghost jam. */
+  const cancelSent = useCallback(() => {
+    for (const [id] of [...sentRef.current]) {
+      sentRef.current.delete(id);
+      social.cancelJamInvite(id).catch(() => {});
+    }
+  }, []);
+
   const send = useCallback(
     async (
       toUserId: string,
@@ -133,5 +144,5 @@ export function useJam(
     [],
   );
 
-  return { prompt, clearPrompt: () => setPrompt(null), answer, send };
+  return { prompt, clearPrompt: () => setPrompt(null), answer, send, cancelSent };
 }

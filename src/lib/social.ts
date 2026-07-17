@@ -395,7 +395,11 @@ export async function sendJamInvite(
     })
     .select('id')
     .single();
-  if (error || !data) return { error: error?.message ?? 'insert failed' };
+  if (error || !data) {
+    // unique "one pending per pair" index — friendly signal, not a raw error
+    if (error?.code === '23505') return { error: 'pending' };
+    return { error: error?.message ?? 'insert failed' };
+  }
   return { id: (data as { id: number }).id };
 }
 

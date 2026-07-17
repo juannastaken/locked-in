@@ -28,6 +28,8 @@ export interface MyFocusState {
   focusing: boolean;
   task: string | null;
   startedAtIso: string | null;
+  /** I'm already in a full jam (2+): friend jams are closed to me */
+  inJam: boolean;
 }
 
 interface FriendsProps {
@@ -264,16 +266,12 @@ function JamDetailModal({
   friends,
   myUsername,
   inJamAlready,
-  requested,
-  onRequest,
   onClose,
 }: {
   detail: { task: string; names: string[]; friend: FriendEntry };
   friends: FriendEntry[];
   myUsername: string;
   inJamAlready: boolean;
-  requested: boolean;
-  onRequest: () => void;
   onClose: () => void;
 }) {
   // non-friends in the jam get their photo straight from profiles
@@ -332,21 +330,16 @@ function JamDetailModal({
             );
           })}
         </div>
-        <button
-          type="button"
-          disabled={requested || meIn || inJamAlready}
-          onClick={onRequest}
-          className="chunk-btn chunk-btn-accent mt-5 w-full py-3 text-sm disabled:opacity-50"
-        >
-          {meIn || inJamAlready
-            ? t('jamdetail.alreadyin')
-            : requested
-              ? t('jamdetail.requested')
-              : t('jamdetail.request')}
-        </button>
-        <p className="mt-2 text-[10px] font-medium text-text-faint">
-          {t('jamdetail.hint', detail.friend.username)}
-        </p>
+        {/* friend jams are STRICTLY 1:1 — closed to thirds. Want a crowd?
+            Make a group and jam there. */}
+        <div className="mt-5 w-full rounded-xl border-2 border-border px-3 py-3 text-center text-xs font-bold text-text-faint">
+          {meIn || inJamAlready ? t('jamdetail.alreadyin') : t('jamdetail.closed')}
+        </div>
+        {!meIn && !inJamAlready && (
+          <p className="mt-2 text-[10px] font-medium text-text-faint">
+            {t('jamdetail.closed.hint')}
+          </p>
+        )}
         <button
           type="button"
           onClick={onClose}
@@ -630,23 +623,30 @@ function FriendProfile({
               </span>
             )}
           </button>
-          {myFocus.focusing ? (
+          {myFocus.inJam ? (
+            <div
+              className="flex items-center justify-center rounded-xl border-2 border-border px-3 py-4 text-center text-xs font-bold text-text-faint"
+              title={t('jam.selfbusy')}
+            >
+              {t('jam.selfbusy.short')}
+            </div>
+          ) : myFocus.focusing ? (
             <button
               type="button"
               disabled={busy || jamSent}
               onClick={() => sendJam('invite')}
-              className="chunk-btn py-4 text-sm text-text"
+              className="chunk-btn flex items-center justify-center gap-1.5 py-4 text-sm text-text"
             >
-              {jamSent ? t('jam.sent') : `🎧 ${t('jam.invite')}`}
+              <HeadphonesIcon size={15} /> {jamSent ? t('jam.sent') : t('jam.invite')}
             </button>
           ) : live ? (
             <button
               type="button"
               disabled={busy || jamSent}
               onClick={() => sendJam('request')}
-              className="chunk-btn py-4 text-sm text-text"
+              className="chunk-btn flex items-center justify-center gap-1.5 py-4 text-sm text-text"
             >
-              {jamSent ? t('jam.sent') : `🎧 ${t('jam.request')}`}
+              <HeadphonesIcon size={15} /> {jamSent ? t('jam.sent') : t('jam.request')}
             </button>
           ) : (
             <button
@@ -654,9 +654,9 @@ function FriendProfile({
               disabled={busy || jamSent}
               onClick={() => sendJam('invite')}
               title={t('jam.create.hint')}
-              className="chunk-btn py-4 text-sm text-text"
+              className="chunk-btn flex items-center justify-center gap-1.5 py-4 text-sm text-text"
             >
-              {jamSent ? t('jam.sent') : `🎧 ${t('jam.create')}`}
+              <HeadphonesIcon size={15} /> {jamSent ? t('jam.sent') : t('jam.create')}
             </button>
           )}
         </div>
@@ -738,7 +738,6 @@ export function FriendsPage({
     names: string[];
     friend: FriendEntry;
   } | null>(null);
-  const [jamRequested, setJamRequested] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; friend: FriendEntry } | null>(
     null,
   );
@@ -1144,10 +1143,7 @@ export function FriendsPage({
                     (n.toLowerCase() === f.username.toLowerCase() ? f.avatar : null),
                 };
               }),
-              onClick: () => {
-                setJamRequested(false);
-                setJamDetail({ task: cleanProfanity(row.task ?? ''), names, friend: f });
-              },
+              onClick: () => setJamDetail({ task: cleanProfanity(row.task ?? ''), names, friend: f }),
             });
           }
           const jams = [...groupJams, ...friendJams];
@@ -1423,11 +1419,6 @@ export function FriendsPage({
               myJamMembers.some((m) => m.toLowerCase() === n.toLowerCase()),
             )
           }
-          requested={jamRequested}
-          onRequest={async () => {
-            setJamRequested(true);
-            await onSendJam(jamDetail.friend, 'request');
-          }}
           onClose={() => setJamDetail(null)}
         />
       )}
@@ -1496,11 +1487,16 @@ export function FriendsPage({
                 onBack={closeChat}
                 refetchKey={chatRefetchKey}
                 jamAction={
-                  myFocus.focusing
-                    ? { label: t('jam.invite'), run: () => onSendJam(chattingFriend, 'invite') }
-                    : live
-                      ? { label: t('jam.request'), run: () => onSendJam(chattingFriend, 'request') }
-                      : { label: t('jam.create'), run: () => onSendJam(chattingFriend, 'invite') }
+                  myFocus.inJam
+                    ? null // friend jams are 1:1 — I'm already paired
+                    : myFocus.focusing
+                      ? { label: t('jam.invite'), run: () => onSendJam(chattingFriend, 'invite') }
+                      : live
+                        ? {
+                            label: t('jam.request'),
+                            run: () => onSendJam(chattingFriend, 'request'),
+                          }
+                        : { label: t('jam.create'), run: () => onSendJam(chattingFriend, 'invite') }
                 }
               />
             );

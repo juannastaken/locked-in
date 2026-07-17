@@ -76,6 +76,31 @@ const dict: Record<string, { pt: string; en: string }> = {
   'fr.seeall': { pt: 'ver todos ({0})', en: 'see all ({0})' },
   'fr.rank.more': { pt: 'ver mais', en: 'see more' },
   'jamdetail.title': { pt: 'JAM ativa', en: 'Active JAM' },
+  'jamdetail.closed': {
+    pt: 'JAM de amigos é 1:1 — fechada',
+    en: 'friend JAMs are 1:1 — closed',
+  },
+  'jamdetail.closed.hint': {
+    pt: 'pra fazer jam com mais gente, monta um grupo e usa INICIAR JAM lá',
+    en: 'to jam with more people, make a group and use START JAM there',
+  },
+  'jam.pending': {
+    pt: 'já tem um convite pendente pra @{0} — espera a resposta',
+    en: 'there is already a pending invite for @{0} — wait for the answer',
+  },
+  'jam.selfbusy': {
+    pt: 'você já tá numa JAM — pra focar com mais gente, cria um grupo',
+    en: "you're already in a JAM — to focus with more people, make a group",
+  },
+  'jam.selfbusy.short': { pt: 'já em JAM (1:1)', en: 'already in a JAM (1:1)' },
+  'jam.targetbusy': {
+    pt: '@{0} já tá numa JAM — a JAM de amigos é só pra dois',
+    en: '@{0} is already in a JAM — friend JAMs are two people only',
+  },
+  'jam.late': {
+    pt: '@{0} aceitou tarde — tua JAM já tá cheia (1:1)',
+    en: '@{0} accepted late — your JAM is already full (1:1)',
+  },
   'jamdetail.notfriend': { pt: 'não é amigo', en: 'not a friend' },
   'jamdetail.request': { pt: 'PEDIR PRA ENTRAR', en: 'ASK TO JOIN' },
   'jamdetail.requested': { pt: 'pedido enviado — aguardando', en: 'request sent — waiting' },

@@ -253,10 +253,9 @@ function AppShell() {
         .find((m) => m.username.toLowerCase() === k);
       return gm?.user_id ?? null;
     };
-    // adopt: when a jam-mate publishes a roster that includes ME, union it in —
-    // keeps 3+ person chains consistent (host approves a joiner and everyone
-    // else learns about them through the host's presence)
-    if (meKey) {
+    // adopt: when a jam-mate publishes a roster that includes ME, union it in.
+    // GROUP jams only — friend jams are strictly 1:1 now, nothing to adopt
+    if (meKey && activeGroupJamId !== null) {
       for (const u of [...canonical]) {
         const uid = uidOf(u);
         if (!uid) continue;
@@ -291,10 +290,18 @@ function AppShell() {
       }
       return !jamSeenRef.current.has(k); // seen before & now not live → prune
     });
-    if (live.length !== jam.members.length || live.some((u, i) => u !== jam.members[i])) {
-      focusRef.current.syncJamMembers(live);
+    // friend jams are two people, full stop — anything beyond is a stale
+    // artifact from older versions and gets trimmed to me + first partner
+    let final = live;
+    if (activeGroupJamId === null && final.length > 2 && meKey) {
+      const meEntry = final.filter((u) => u.toLowerCase() === meKey);
+      const others = final.filter((u) => u.toLowerCase() !== meKey);
+      final = [...meEntry, ...others.slice(0, 1)];
     }
-  }, [focus.jam, social.presence, social.state, groups.list]);
+    if (final.length !== jam.members.length || final.some((u, i) => u !== jam.members[i])) {
+      focusRef.current.syncJamMembers(final);
+    }
+  }, [focus.jam, social.presence, social.state, groups.list, activeGroupJamId]);
 
   // presence heartbeat: my session state → cloud, on every phase change and
   // every 60s while the app runs. Friends treat rows older than ~2.5min as
@@ -702,13 +709,21 @@ function AppShell() {
     },
     onJoinApproved: (invite, hostUsername) => {
       // my join request got a yes — hop into the host's jam right now
-      if (focusRef.current.phase !== 'idle') return;
       const me = myUsernameRef.current ?? 'me';
-      focusRef.current.startSession(invite.task, null, {
-        startedAt: invite.session_started_at,
-        members: [me, hostUsername],
-      });
-      setTab('home');
+      if (focusRef.current.jam && focusRef.current.jam.members.length >= 2) return; // already paired
+      if (focusRef.current.phase === 'idle') {
+        focusRef.current.startSession(invite.task, null, {
+          startedAt: invite.session_started_at,
+          members: [me, hostUsername],
+        });
+        setTab('home');
+      } else {
+        // approved while I was already focusing → my session joins their clock
+        focusRef.current.adoptJam({
+          startedAt: invite.session_started_at,
+          members: [me, hostUsername],
+        });
+      }
       pushToast(t('jam.joined', hostUsername), 'info');
     },
     onGuestJoined: (invite, guestUsername) => {
@@ -721,6 +736,13 @@ function AppShell() {
         });
         setTab('home');
       } else {
+        // friend jams are strictly 1:1 — a late accept after the seat filled
+        // (race with cancelSent) is refused instead of spawning a trio
+        const cur = focusRef.current.jam;
+        if (cur && cur.members.length >= 2) {
+          pushToast(t('jam.late', guestUsername), 'info');
+          return;
+        }
         focusRef.current.markJam([me, guestUsername]);
       }
       pushToast(t('jam.guestjoined', guestUsername), 'info');
@@ -732,6 +754,14 @@ function AppShell() {
     },
     onDeclined: (username) => pushToast(t('jam.declined', username), 'info'),
   });
+
+  // outgoing invites die the moment they can't be honored anymore: my 1:1
+  // seat filled, or my session ended — kills the "late accept ghost jam"
+  useEffect(() => {
+    if (focus.phase === 'idle' || (focus.jam && focus.jam.members.length >= 2)) {
+      jam.cancelSent();
+    }
+  }, [focus.phase, focus.jam, jam]);
 
   // ---------- E2E messages: keys, unread, realtime notifications ----------
   const [keyModal, setKeyModal] = useState<'backup' | 'restore' | null>(null);
@@ -847,6 +877,23 @@ function AppShell() {
         pushToast(t('ver.old', f.username), 'error');
         return;
       }
+      // friend jams are strictly TWO people — for more, make a group.
+      // Me already paired → no new invites/requests.
+      if (focusRef.current.jam && focusRef.current.jam.members.length >= 2) {
+        pushToast(t('jam.selfbusy'), 'info');
+        return;
+      }
+      // target already paired → their jam is closed to thirds
+      if (presRow?.jam_members) {
+        try {
+          if ((JSON.parse(presRow.jam_members) as string[]).length >= 2) {
+            pushToast(t('jam.targetbusy', f.username), 'info');
+            return;
+          }
+        } catch {
+          // unreadable roster — let the attempt through
+        }
+      }
       if (kind === 'invite') {
         // with a running session it's "join my jam"; idle it's "let's start one
         // right now" — acceptance then starts BOTH sides (cold start)
@@ -854,7 +901,8 @@ function AppShell() {
         const task = s?.task ?? t('jam.generic');
         const startedAt = s?.started_at ?? new Date().toISOString();
         const err = await jam.send(f.userId, f.username, 'invite', task, startedAt);
-        if (err) onError(err);
+        if (err === 'pending') pushToast(t('jam.pending', f.username), 'info');
+        else if (err) onError(err);
         else {
           pushToast(t('jam.sent.toast', f.username), 'info');
           if (f.e2ePub) chatLib.sendMessage(f.userId, 'jam', task).catch(() => {});
@@ -864,7 +912,8 @@ function AppShell() {
         if (!row?.started_at) return;
         const task = row.task || t('jam.generic');
         const err = await jam.send(f.userId, f.username, 'request', task, row.started_at);
-        if (err) onError(err);
+        if (err === 'pending') pushToast(t('jam.pending', f.username), 'info');
+        else if (err) onError(err);
         else {
           pushToast(t('jam.sent.toast', f.username), 'info');
           if (f.e2ePub) chatLib.sendMessage(f.userId, 'jam', task).catch(() => {});
@@ -1254,12 +1303,25 @@ function AppShell() {
     const me = myUsernameRef.current ?? 'me';
     if (p.kind === 'invite') {
       // I was called into their jam — join with the shared clock
-      if (focusRef.current.phase !== 'idle') return;
-      focusRef.current.startSession(p.task, null, {
-        startedAt: p.session_started_at,
-        members: [me, p.username],
-      });
-      setTab('home');
+      if (focusRef.current.jam && focusRef.current.jam.members.length >= 2) {
+        pushToast(t('jam.selfbusy'), 'info');
+        return;
+      }
+      if (focusRef.current.phase === 'idle') {
+        focusRef.current.startSession(p.task, null, {
+          startedAt: p.session_started_at,
+          members: [me, p.username],
+        });
+        setTab('home');
+      } else {
+        // accepting mid-session used to silently do nothing — now my running
+        // session simply joins their jam clock
+        focusRef.current.adoptJam({
+          startedAt: p.session_started_at,
+          members: [me, p.username],
+        });
+        pushToast(t('jam.joined', p.username), 'info');
+      }
     } else {
       // I let them into MY jam — my running session becomes a jam too
       focusRef.current.markJam([me, p.username]);
@@ -1947,6 +2009,7 @@ function AppShell() {
               focusing: focus.phase === 'focusing' || focus.phase === 'paused',
               task: focus.activeSession?.task ?? null,
               startedAtIso: focus.activeSession?.started_at ?? null,
+              inJam: !!focus.jam && focus.jam.members.length >= 2,
             }}
             onSendJam={sendJam}
             unread={unreadMsgs}
