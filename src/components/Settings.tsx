@@ -59,6 +59,86 @@ function DetectNow() {
   );
 }
 
+/** Mic input + speaker output pickers for voice notes. Labels only appear
+ *  after one granted getUserMedia, so the button asks for permission first. */
+function AudioDevices() {
+  const [inputs, setInputs] = useState<MediaDeviceInfo[]>([]);
+  const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
+  const [inputId, setInputId] = useState(() => localStorage.getItem('audio-input-id') ?? '');
+  const [outputId, setOutputId] = useState(() => localStorage.getItem('audio-output-id') ?? '');
+  const [scanned, setScanned] = useState(false);
+
+  async function scan() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((tr) => tr.stop());
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      setInputs(devs.filter((d) => d.kind === 'audioinput'));
+      setOutputs(devs.filter((d) => d.kind === 'audiooutput'));
+      setScanned(true);
+    } catch {
+      setScanned(true);
+    }
+  }
+
+  function pick(kind: 'input' | 'output', id: string) {
+    const key = kind === 'input' ? 'audio-input-id' : 'audio-output-id';
+    if (id) localStorage.setItem(key, id);
+    else localStorage.removeItem(key);
+    if (kind === 'input') setInputId(id);
+    else setOutputId(id);
+  }
+
+  return (
+    <div className="px-4 py-3">
+      <div className="text-sm text-text">{t('set.audio.devices')}</div>
+      <div className="mt-0.5 text-xs text-text-faint">{t('set.audio.hint')}</div>
+      {!scanned ? (
+        <button
+          type="button"
+          onClick={scan}
+          className="chunk-btn mt-2.5 px-4 py-2 text-xs text-text"
+        >
+          {t('set.audio.scan')}
+        </button>
+      ) : (
+        <div className="mt-2.5 space-y-2">
+          <label className="flex items-center justify-between gap-3 text-xs text-text-dim">
+            {t('set.audio.mic')}
+            <select
+              value={inputId}
+              onChange={(e) => pick('input', e.target.value)}
+              className="max-w-56 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-text"
+            >
+              <option value="">{t('set.audio.default')}</option>
+              {inputs.map((d) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || d.deviceId.slice(0, 12)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center justify-between gap-3 text-xs text-text-dim">
+            {t('set.audio.out')}
+            <select
+              value={outputId}
+              onChange={(e) => pick('output', e.target.value)}
+              className="max-w-56 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-text"
+            >
+              <option value="">{t('set.audio.default')}</option>
+              {outputs.map((d) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || d.deviceId.slice(0, 12)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
   const { settings, update } = settingsHook;
   const { pushToast } = useToast();
@@ -355,6 +435,10 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
             />
           </div>
           <DetectNow />
+        </Section>
+
+        <Section title={t('set.audio')}>
+          <AudioDevices />
         </Section>
 
         <Section title={t('set.quotes')}>

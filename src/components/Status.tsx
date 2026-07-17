@@ -404,8 +404,10 @@ function StatusEditor({
   onError: (m: string) => void;
 }) {
   const [bg, setBg] = useState(TEXT_BGS[0]);
-  const [tool, setTool] = useState<'move' | 'pen'>('move');
+  const [tool, setTool] = useState<'move' | 'pen' | 'eraser'>('move');
   const [penColor, setPenColor] = useState('#f2f2f4');
+  const [penSize, setPenSize] = useState(6);
+  const undoStack = useRef<ImageData[]>([]);
   const [elements, setElements] = useState<BoardElement[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [stickerPick, setStickerPick] = useState(false);
@@ -478,13 +480,31 @@ function StatusEditor({
     const c = inkRef.current;
     const ctx = c?.getContext('2d');
     if (!c || !ctx) return;
+    // snapshot for undo (cap the stack at 20 strokes)
+    undoStack.current.push(ctx.getImageData(0, 0, BOARD_W, BOARD_H));
+    if (undoStack.current.length > 20) undoStack.current.shift();
     penDownRef.current = true;
     const p = boardPos(e);
+    ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
     ctx.strokeStyle = penColor;
-    ctx.lineWidth = 6;
+    ctx.lineWidth = tool === 'eraser' ? penSize * 3 : penSize;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
+  }
+
+  function undoInk() {
+    const ctx = inkRef.current?.getContext('2d');
+    const snap = undoStack.current.pop();
+    if (ctx && snap) ctx.putImageData(snap, 0, 0);
+  }
+
+  function clearInk() {
+    const c = inkRef.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx) return;
+    undoStack.current.push(ctx.getImageData(0, 0, BOARD_W, BOARD_H));
+    ctx.clearRect(0, 0, c.width, c.height);
   }
 
   function penMove(e: React.PointerEvent) {
@@ -560,7 +580,7 @@ function StatusEditor({
           <div
             ref={boardRef}
             className="relative mx-auto aspect-[2/3] max-h-[70vh] select-none overflow-hidden rounded-2xl border-2 border-border-strong"
-            style={{ backgroundColor: bg, cursor: tool === 'pen' ? 'crosshair' : 'default' }}
+            style={{ backgroundColor: bg, cursor: tool !== 'move' ? 'crosshair' : 'default' }}
             onPointerDown={(e) => {
               if (tool === 'pen') {
                 (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
@@ -704,19 +724,57 @@ function StatusEditor({
             <div className="flex flex-wrap items-center gap-1.5">
               {toolBtn(tool === 'move', () => setTool('move'), t('status.tool.move'))}
               {toolBtn(tool === 'pen', () => setTool('pen'), t('status.mode.draw'))}
+              {toolBtn(tool === 'eraser', () => setTool('eraser'), t('status.tool.eraser'))}
             </div>
-            {tool === 'pen' && (
-              <div className="flex flex-wrap gap-1.5">
-                {['#f2f2f4', '#d4ff3f', '#7dd3fc', '#f472b6', '#fbbf24', '#f87171'].map((c) => (
+            {tool !== 'move' && (
+              <>
+                {tool === 'pen' && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {['#f2f2f4', '#d4ff3f', '#7dd3fc', '#f472b6', '#fbbf24', '#f87171'].map(
+                      (c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setPenColor(c)}
+                          className={`h-6 w-6 rounded-full border-2 ${penColor === c ? 'border-text' : 'border-transparent'}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ),
+                    )}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[3, 6, 12].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setPenSize(s)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${
+                        penSize === s ? 'border-accent' : 'border-border'
+                      }`}
+                    >
+                      <span
+                        className="rounded-full bg-text"
+                        style={{ width: s, height: s }}
+                      />
+                    </button>
+                  ))}
                   <button
-                    key={c}
                     type="button"
-                    onClick={() => setPenColor(c)}
-                    className={`h-6 w-6 rounded-full border-2 ${penColor === c ? 'border-text' : 'border-transparent'}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
+                    onClick={undoInk}
+                    className="rounded-lg px-2 py-1 text-[11px] font-bold text-text-dim hover:text-text"
+                  >
+                    ↶ {t('status.tool.undo')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearInk}
+                    className="rounded-lg px-2 py-1 text-[11px] font-bold text-danger hover:underline"
+                  >
+                    {t('status.draw.clear')}
+                  </button>
+                </div>
+              </>
             )}
           </div>
 
@@ -779,6 +837,16 @@ function StatusEditor({
                   className="chunk-btn h-8 w-8 text-sm text-text"
                 >
                   +
+                </button>
+                <button
+                  type="button"
+                  title={t('status.tool.dup')}
+                  onClick={() =>
+                    addElement({ ...sel, x: sel.x + 24, y: sel.y + 24 })
+                  }
+                  className="chunk-btn h-8 px-2.5 text-xs font-bold text-text"
+                >
+                  ⧉
                 </button>
                 <button
                   type="button"
@@ -953,6 +1021,25 @@ function StatusViewer({
           onClick={() => (idx < person.items.length - 1 ? setIdx((i) => i + 1) : onClose())}
           className="absolute bottom-0 right-0 top-0 w-1/3"
         />
+        {/* visible arrows when there's more than one story */}
+        {idx > 0 && (
+          <button
+            type="button"
+            onClick={() => setIdx((i) => i - 1)}
+            className="absolute left-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white/25 bg-black/50 text-lg font-bold text-white hover:bg-black/80"
+          >
+            ‹
+          </button>
+        )}
+        {idx < person.items.length - 1 && (
+          <button
+            type="button"
+            onClick={() => setIdx((i) => i + 1)}
+            className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white/25 bg-black/50 text-lg font-bold text-white hover:bg-black/80"
+          >
+            ›
+          </button>
+        )}
       </div>
 
       {/* footer: delete (mine) or reply + quick reactions (theirs) */}

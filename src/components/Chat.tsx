@@ -387,11 +387,20 @@ export function ChatView({
 
   async function reallyStartRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 16_000,
+      const inputId = localStorage.getItem('audio-input-id');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: inputId ? { deviceId: { exact: inputId } } : true,
       });
+      // some machines reject the explicit opus mime — fall back gracefully
+      let rec: MediaRecorder;
+      try {
+        rec = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus',
+          audioBitsPerSecond: 16_000,
+        });
+      } catch {
+        rec = new MediaRecorder(stream, { audioBitsPerSecond: 16_000 });
+      }
       recChunksRef.current = [];
       rec.ondataavailable = (e) => {
         if (e.data.size > 0) recChunksRef.current.push(e.data);
@@ -422,8 +431,17 @@ export function ChatView({
           return s + 1;
         });
       }, 1000);
-    } catch {
-      onError(t('msg.voice.nomic'));
+    } catch (err) {
+      const name = (err as DOMException | undefined)?.name ?? '';
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        onError(t('msg.voice.denied'));
+      } else if (name === 'OverconstrainedError') {
+        // saved device disappeared — forget it and retry with the default
+        localStorage.removeItem('audio-input-id');
+        onError(t('msg.voice.devicegone'));
+      } else {
+        onError(t('msg.voice.nomic'));
+      }
     }
   }
 
@@ -472,6 +490,12 @@ export function ChatView({
                 }),
             ),
         );
+        // "new message" baseline comes from the FRESH fetch — never the cache.
+        // Cache-based baselines made every message that arrived while the chat
+        // was closed spring-animate on open (THE bump).
+        if (initialMaxIdRef.current === null) {
+          initialMaxIdRef.current = msgs.reduce((acc, m) => Math.max(acc, m.id), 0);
+        }
         convoCache.set(friend.userId, msgs);
         setMessages(msgs);
       })
@@ -483,11 +507,6 @@ export function ChatView({
     chat.markConversationRead(friend.userId);
   }, [friend.userId, refetchKey]);
 
-  // arm the new-message spring: everything at/below this id is history
-  useEffect(() => {
-    if (messages === null || initialMaxIdRef.current !== null) return;
-    initialMaxIdRef.current = messages.reduce((acc, m) => Math.max(acc, m.id), 0);
-  }, [messages]);
 
   // column-reverse container: bottom = scrollTop 0 (scrolling up goes negative)
   const scrollToBottom = useCallback((smooth = false) => {
@@ -851,7 +870,19 @@ export function ChatView({
                       style={m.mine && theme ? { backgroundColor: theme } : undefined}
                     >
                       {m.text ? (
-                        <audio src={m.text} controls className="h-9 w-60" />
+                        <audio
+                          src={m.text}
+                          controls
+                          className="h-9 w-60"
+                          ref={(el) => {
+                            const out = localStorage.getItem('audio-output-id');
+                            if (el && out && 'setSinkId' in el) {
+                              (el as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> })
+                                .setSinkId(out)
+                                .catch(() => {});
+                            }
+                          }}
+                        />
                       ) : (
                         <span className="px-2 py-1 text-xs italic text-text-faint">
                           🔒 {t('msg.undecryptable')}

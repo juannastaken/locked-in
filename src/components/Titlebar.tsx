@@ -33,35 +33,38 @@ export function PersonIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-/** Square on/off gate (jam invites / pokes) living beside the gear. */
+/** Labeled on/off gate (jam invites / pokes) living beside the gear. */
 function GateSquare({
   storageKey,
-  titleOn,
-  titleOff,
+  label,
+  tip,
   icon,
 }: {
   storageKey: string;
-  titleOn: string;
-  titleOff: string;
+  label: string;
+  tip: string;
   icon: ReactNode;
 }) {
   const [blocked, setBlocked] = useState(() => localStorage.getItem(storageKey) === '1');
   return (
     <button
       type="button"
-      title={blocked ? titleOff : titleOn}
+      title={tip}
       onClick={() => {
         const next = !blocked;
         localStorage.setItem(storageKey, next ? '1' : '0');
         setBlocked(next);
       }}
-      className={`ml-1 flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-colors ${
+      className={`ml-1.5 flex h-10 items-center gap-1.5 rounded-xl border-2 px-3 text-[11px] font-extrabold uppercase tracking-wide transition-colors ${
         blocked
           ? 'border-danger/50 text-danger hover:bg-danger/10'
           : 'border-border text-accent hover:border-accent/60 hover:bg-accent-dim'
       }`}
     >
       {icon}
+      <span>
+        {label} {blocked ? 'OFF' : 'ON'}
+      </span>
     </button>
   );
 }
@@ -158,15 +161,15 @@ export function Titlebar({
           <>
             <GateSquare
               storageKey="jams-blocked"
-              titleOn={t('fr.jams.on')}
-              titleOff={t('fr.jams.off')}
-              icon={<HeadphonesIcon size={15} />}
+              label="JAM"
+              tip={t('fr.jams.tip')}
+              icon={<HeadphonesIcon size={14} />}
             />
             <GateSquare
               storageKey="pokes-blocked"
-              titleOn={t('poke.gate.tip')}
-              titleOff={t('poke.gate.tip')}
-              icon={<PointIcon size={15} />}
+              label={t('poke.cta').toUpperCase()}
+              tip={t('poke.gate.tip')}
+              icon={<PointIcon size={14} />}
             />
           </>
         )}
