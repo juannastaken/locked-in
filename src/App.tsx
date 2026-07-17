@@ -326,10 +326,12 @@ function AppShell() {
     let appVersion = '';
     const beat = async () => {
       const { phase, task, elapsedSec, afkSec, jamMembers } = heartbeatRef.current;
-      const focusing = phase === 'focusing';
+      // paused/rating still count as "in the session" for friends — otherwise a
+      // 2-minute pause (or just opening the stop screen) kicked you out of the
+      // jam on everyone else's side
+      const focusing = phase === 'focusing' || phase === 'paused' || phase === 'rating';
       // fairness: AFK time never counts toward the published leaderboard
-      const liveSec =
-        focusing || phase === 'paused' ? Math.max(0, elapsedSec - afkSec) : 0;
+      const liveSec = focusing ? Math.max(0, elapsedSec - afkSec) : 0;
       try {
         if (!appVersion) appVersion = await getVersion().catch(() => '0.0.0');
         const saved = await db.getFocusSecondsSince(socialLib.weekStart().toISOString());
@@ -1237,8 +1239,14 @@ function AppShell() {
     const prev = prevJamSummaryRef.current;
     prevJamSummaryRef.current = cur;
     if (prev && !cur) {
+      // only when the jam dissolved AROUND me (others left) — when I'm the one
+      // stopping, phase is already idle and announcing "you left" is noise
+      const stillInSession =
+        focusRef.current.phase !== 'idle' && focusRef.current.phase !== 'rating';
       const sec = Math.max(0, (Date.now() - new Date(prev.startedAt).getTime()) / 1000);
-      if (sec >= 300) pushToast(t('jam.summary', formatDurationShort(sec)), 'info');
+      if (sec >= 300 && stillInSession) {
+        pushToast(t('jam.summary', formatDurationShort(sec)), 'info');
+      }
     }
   }, [focus.jam, pushToast]);
 
