@@ -685,6 +685,13 @@ drop trigger if exists feed_cap on public.feed_events;
 create trigger feed_cap before insert on public.feed_events
   for each row execute function public.feed_guard();
 
+-- live feed updates (RLS still filters who sees what)
+do $$
+begin
+  alter publication supabase_realtime add table public.feed_events;
+exception when duplicate_object then null;
+end $$;
+
 -- ---------- anti-abuse hardening ----------
 
 -- one pending jam invite per pair (kills invite flooding at the source);

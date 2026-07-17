@@ -606,3 +606,13 @@ export function joinJamShame(onMsg: (p: ShamePayload) => void): {
     },
   };
 }
+
+export function subscribeFeed(onChange: () => void): () => void {
+  const chan = supabase
+    .channel('feed-watch')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feed_events' }, onChange)
+    .subscribe();
+  return () => {
+    supabase.removeChannel(chan).catch(() => {});
+  };
+}

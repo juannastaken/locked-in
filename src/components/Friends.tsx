@@ -179,10 +179,20 @@ function FeedSection({ soc }: { soc: SocialHook }) {
     () => localStorage.getItem('feed-share-off') === '1',
   );
   useEffect(() => {
-    social
-      .fetchFeed()
-      .then(setEvents)
-      .catch(() => {});
+    const refetch = () => {
+      social
+        .fetchFeed()
+        .then(setEvents)
+        .catch(() => {});
+    };
+    refetch();
+    // realtime inserts (RLS-filtered) + a slow poll as backstop
+    const unsub = social.subscribeFeed(refetch);
+    const iv = window.setInterval(refetch, 120_000);
+    return () => {
+      unsub();
+      window.clearInterval(iv);
+    };
   }, []);
   const me = soc.state?.me;
   const nameOf = (uid: string) => {
@@ -220,7 +230,7 @@ function FeedSection({ soc }: { soc: SocialHook }) {
           {shareOff ? t('feed.share.off') : t('feed.share.on')}
         </button>
       </div>
-      {visible.slice(0, 8).map((e) => {
+      {visible.slice(0, 3).map((e) => {
         const who = nameOf(e.user_id);
         const KindIcon =
           e.kind === 'streak' ? FlameIcon : e.kind === 'jam' ? HeadphonesIcon : TrophyIcon;
