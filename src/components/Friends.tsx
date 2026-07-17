@@ -1471,6 +1471,7 @@ export function FriendsPage({
                 : 0;
             return (
               <ChatView
+                key={chattingFriend.userId}
                 friend={chattingFriend}
                 myUserId={me.user_id}
                 statusLine={statusLineFor(chatStatus, presRow, chattingFriend.statusText, chattingFriend.username)}
@@ -1509,6 +1510,7 @@ export function FriendsPage({
         ) : openGroupSummary ? (
           <div className="relative h-full">
             <GroupView
+              key={openGroupSummary.group.id}
               summary={openGroupSummary}
               myUserId={me.user_id}
               friends={state.friends}
