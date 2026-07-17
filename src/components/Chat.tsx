@@ -4,14 +4,15 @@ import * as chat from '../lib/chat';
 import { cleanProfanity } from '../lib/filter';
 import { Mascot } from './Mascot';
 import type { MascotMood } from './Mascot';
-import { renderStickerImage } from './Status';
 import type { DecryptedMessage, TypingChannel } from '../lib/chat';
 import { dateLocale, t } from '../lib/i18n';
 import { formatDurationShort } from '../lib/time';
 import type { FriendEntry } from '../lib/social';
 import {
+  CheckIcon,
   ClipIcon,
   DotsIcon,
+  DoubleCheckIcon,
   HeadphonesIcon,
   ImageIcon,
   MicIcon,
@@ -360,14 +361,31 @@ export function ChatView({
   async function sendSticker(mood: MascotMood) {
     setStickerOpen(false);
     setClipOpen(false);
-    const img = renderStickerImage(mood);
-    if (!img) return;
-    const r = await chat.sendMessage(friend.userId, 'image', img);
+    // stickers travel as a tiny marker and render as the LIVE animated mascot
+    const r = await chat.sendMessage(friend.userId, 'text', `[sticker:${mood}]`);
     if (r === 'ok') reload();
     else handleSendError(r);
   }
 
+  const stickerOf = (text: string | null): MascotMood | null => {
+    const m = text?.match(/^\[sticker:(\w+)\]$/);
+    if (!m) return null;
+    const mood = m[1] as MascotMood;
+    return STICKER_MOODS.includes(mood) ? mood : null;
+  };
+
+  const [micAsk, setMicAsk] = useState(false);
+
   async function startRecording() {
+    // first time: our own explainer BEFORE the raw WebView2 permission prompt
+    if (!localStorage.getItem('mic-explained')) {
+      setMicAsk(true);
+      return;
+    }
+    await reallyStartRecording();
+  }
+
+  async function reallyStartRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const rec = new MediaRecorder(stream, {
@@ -471,24 +489,23 @@ export function ChatView({
     initialMaxIdRef.current = messages.reduce((acc, m) => Math.max(acc, m.id), 0);
   }, [messages]);
 
-  // direct scrollTop assignment BEFORE paint — scrollIntoView after paint was
-  // the visible "conversation adjusting itself" bounce on open
+  // column-reverse container: bottom = scrollTop 0 (scrolling up goes negative)
   const scrollToBottom = useCallback((smooth = false) => {
     const el = listRef.current;
     if (!el) return;
-    if (smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    else el.scrollTop = el.scrollHeight;
+    if (smooth) el.scrollTo({ top: 0, behavior: 'smooth' });
+    else el.scrollTop = 0;
   }, []);
 
-  // smart scroll: follow the bottom while you're there; scrolled up + new
-  // incoming message → floating "new messages" chip instead of yanking you down
+  // the browser keeps us pinned to the bottom by itself; this only counts
+  // unseen messages while the user scrolled up
   useLayoutEffect(() => {
     const last = messages?.[messages.length - 1];
     const lastId = last?.id ?? null;
     const grew = lastId !== null && lastId !== lastMsgIdRef.current;
     lastMsgIdRef.current = lastId;
     if (atBottomRef.current || (grew && last?.mine)) {
-      scrollToBottom();
+      if (grew && last?.mine) scrollToBottom();
       setNewCount(0);
     } else if (grew && last && !last.mine) {
       setNewCount((c) => c + 1);
@@ -498,7 +515,7 @@ export function ChatView({
   function onListScroll() {
     const el = listRef.current;
     if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const atBottom = el.scrollTop > -80;
     atBottomRef.current = atBottom;
     if (atBottom) setNewCount(0);
   }
@@ -738,12 +755,16 @@ export function ChatView({
         })()}
 
       {/* messages */}
+      {/* column-reverse = the browser pins the view to the BOTTOM natively.
+          No manual scroll positioning → no "conversation teleports down" jump:
+          the chat is simply born at the bottom, like every real chat app. */}
       <div
         ref={listRef}
         onScroll={onListScroll}
-        style={{ overflowAnchor: 'none', scrollbarGutter: 'stable' }}
-        className="chat-backdrop min-h-0 flex-1 overflow-y-auto px-5 py-4"
+        style={{ scrollbarGutter: 'stable' }}
+        className="chat-backdrop flex min-h-0 flex-1 flex-col-reverse overflow-y-auto px-5 py-4"
       >
+      <div>
         {messages === null && (
           <div className="flex justify-center py-8">
             <span className="skeleton h-5 w-48">.</span>
@@ -837,17 +858,33 @@ export function ChatView({
                         </span>
                       )}
                     </div>
+                  ) : m.kind === 'text' && stickerOf(m.text) ? (
+                    <div className="px-1 py-1">
+                      <Mascot mood={stickerOf(m.text) as MascotMood} size={80} />
+                      {lastOfGroup && (
+                        <div className="mt-0.5 font-mono text-[11px] tabular-nums text-text-dim">
+                          {timeLabel(m.created_at)}
+                          {m.mine &&
+                            (m.read_at ? (
+                              <DoubleCheckIcon size={14} className="ml-1 inline align-[-2px] text-accent" />
+                            ) : (
+                              <CheckIcon size={12} className="ml-1 inline align-[-2px]" />
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   ) : m.text !== null && m.kind === 'text' && !quoted && isJumbo(m.text) ? (
                     <div className="px-1 py-0.5 text-5xl leading-tight">
                       {m.text}
                       {lastOfGroup && (
                         <span className="ml-2 align-middle font-mono text-[11px] tabular-nums text-text-dim">
                           {timeLabel(m.created_at)}
-                          {m.mine && (
-                            <span className={m.read_at ? 'ml-1 font-bold text-accent' : 'ml-1'}>
-                              {m.read_at ? '✓✓' : '✓'}
-                            </span>
-                          )}
+                          {m.mine &&
+                            (m.read_at ? (
+                              <DoubleCheckIcon size={14} className="ml-1 inline align-[-2px] text-accent" />
+                            ) : (
+                              <CheckIcon size={12} className="ml-1 inline align-[-2px]" />
+                            ))}
                         </span>
                       )}
                     </div>
@@ -970,11 +1007,12 @@ export function ChatView({
                         >
                           {m.edited_at ? `${t('msg.edited')} · ` : ''}
                           {timeLabel(m.created_at)}
-                          {m.mine && (
-                            <span className={m.read_at ? 'ml-1 font-bold text-emerald-700' : 'ml-1'}>
-                              {m.read_at ? '✓✓' : '✓'}
-                            </span>
-                          )}
+                          {m.mine &&
+                            (m.read_at ? (
+                              <DoubleCheckIcon size={14} className="ml-1 inline align-[-2px] text-emerald-700" />
+                            ) : (
+                              <CheckIcon size={12} className="ml-1 inline align-[-2px]" />
+                            ))}
                         </span>
                       )}
                     </div>
@@ -1130,6 +1168,7 @@ export function ChatView({
         )}
         <div ref={bottomRef} />
       </div>
+      </div>
 
       {/* scrolled up + new incoming → floating catcher */}
       {newCount > 0 && (
@@ -1143,6 +1182,41 @@ export function ChatView({
         >
           ↓ {newCount} {t('msg.newbelow')}
         </button>
+      )}
+
+      {micAsk && (
+        <div
+          className="animate-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-6 backdrop-blur-sm"
+          onMouseDown={(e) => e.target === e.currentTarget && setMicAsk(false)}
+        >
+          <div className="chunk animate-scale-in w-full max-w-sm p-6 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-dim">
+              <MicIcon size={26} className="text-accent" />
+            </div>
+            <h2 className="mt-3 text-lg font-extrabold text-text">{t('msg.mic.title')}</h2>
+            <p className="mt-1.5 text-sm font-medium leading-relaxed text-text-dim">
+              {t('msg.mic.body')}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mic-explained', '1');
+                setMicAsk(false);
+                reallyStartRecording();
+              }}
+              className="chunk-btn chunk-btn-accent mt-4 w-full py-3 text-sm"
+            >
+              {t('msg.mic.cta')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMicAsk(false)}
+              className="mt-2 text-xs font-bold text-text-faint hover:text-text"
+            >
+              {t('misc.cancel')}
+            </button>
+          </div>
+        </div>
       )}
 
       {viewImg && (

@@ -234,3 +234,20 @@ export function PaletteIcon({ size = 15, className }: IconProps) {
     </svg>
   );
 }
+
+export function CheckIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+export function DoubleCheckIcon({ size = 15, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="16 7 6.5 17 2.5 13" />
+      <polyline points="21.5 7 12 17 10.5 15.4" />
+    </svg>
+  );
+}

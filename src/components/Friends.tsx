@@ -5,7 +5,7 @@ import type { Badge } from '../lib/badges';
 import { cleanProfanity } from '../lib/filter';
 import { dateLocale, getLang, t } from '../lib/i18n';
 import { BadgeModal } from './BadgeModal';
-import { ChatIcon, FlameIcon, HeadphonesIcon, PointIcon, ProfileIcon } from './Icons';
+import { ChatIcon, CheckIcon, DoubleCheckIcon, FlameIcon, HeadphonesIcon, PointIcon, ProfileIcon } from './Icons';
 import { formatDurationShort } from '../lib/time';
 import * as social from '../lib/social';
 import type { FriendEntry, PresenceRow } from '../lib/social';
@@ -108,56 +108,6 @@ export function statusText(status: social.FriendStatus): string {
   if (status === 'focusing') return 'text-accent';
   if (status === 'online') return 'text-sky-400';
   return 'text-text-faint';
-}
-
-/** Friends-tab switch: blocked → every incoming jam invite is auto-declined
- *  (the actual decline runs in useJam, which reads this same localStorage key) */
-function JamGateToggle() {
-  const [blocked, setBlocked] = useState(() => localStorage.getItem('jams-blocked') === '1');
-  function toggle() {
-    const next = !blocked;
-    localStorage.setItem('jams-blocked', next ? '1' : '0');
-    setBlocked(next);
-  }
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      title={t('fr.jams.tip')}
-      className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide transition-colors ${
-        blocked
-          ? 'border-danger/60 text-danger hover:bg-danger/10'
-          : 'border-accent/60 text-accent hover:bg-accent-dim'
-      }`}
-    >
-      <HeadphonesIcon size={12} />
-      {blocked ? t('fr.jams.off') : t('fr.jams.on')}
-    </button>
-  );
-}
-
-/** Same pattern for pokes: blocked → incoming pokes/cheers are shown to no one */
-function PokeGateToggle() {
-  const [blocked, setBlocked] = useState(() => localStorage.getItem('pokes-blocked') === '1');
-  function toggle() {
-    const next = !blocked;
-    localStorage.setItem('pokes-blocked', next ? '1' : '0');
-    setBlocked(next);
-  }
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      title={t('poke.gate.tip')}
-      className={`flex shrink-0 items-center gap-1 rounded-full border-2 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide transition-colors ${
-        blocked
-          ? 'border-danger/60 text-danger hover:bg-danger/10'
-          : 'border-accent/60 text-accent hover:bg-accent-dim'
-      }`}
-    >
-      <PointIcon size={12} /> {blocked ? t('misc.off') : t('misc.on')}
-    </button>
-  );
 }
 
 /** Detail popup for an active jam: task, everyone inside (friends or not),
@@ -858,6 +808,7 @@ export function FriendsPage({
     if (lm.kind === 'jam') return t('msg.kind.jam');
     if (lm.kind === 'voice') return t('msg.kind.voice');
     if (lm.kind === 'status') return t('msg.kind.status');
+    if (lm.text && /^\[sticker:\w+\]$/.test(lm.text)) return t('attach.sticker');
     return lm.text === null ? '🔒' : cleanProfanity(lm.text);
   };
   const friendRow = (f: FriendEntry) => {
@@ -905,15 +856,12 @@ export function FriendsPage({
               </div>
             ) : lm ? (
               <div className="flex items-center gap-1 text-[11px] font-medium text-text-dim">
-                {lm.mine && (
-                  <span
-                    className={`shrink-0 font-mono text-[10px] ${
-                      lm.read_at ? 'font-bold text-accent' : 'text-text-faint'
-                    }`}
-                  >
-                    {lm.read_at ? '✓✓' : '✓'}
-                  </span>
-                )}
+                {lm.mine &&
+                  (lm.read_at ? (
+                    <DoubleCheckIcon size={13} className="shrink-0 text-accent" />
+                  ) : (
+                    <CheckIcon size={11} className="shrink-0 text-text-faint" />
+                  ))}
                 <span className="truncate">
                   {lm.mine ? `${t('msg.you')} ` : ''}
                   {previewOf(lm)}
@@ -955,10 +903,6 @@ export function FriendsPage({
             <p className="truncate text-[11px] text-text-faint">
               {t('fr.you')} <span className="font-bold text-accent">@{me.username}</span>
             </p>
-          </div>
-          <div className="flex shrink-0 gap-1.5">
-            <PokeGateToggle />
-            <JamGateToggle />
           </div>
         </div>
 

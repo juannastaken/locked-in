@@ -927,6 +927,12 @@ const dict: Record<string, { pt: string; en: string }> = {
   'msg.voice.rec': { pt: 'gravar áudio (máx 15s)', en: 'record voice (max 15s)' },
   'msg.voice.toobig': { pt: 'áudio grande demais', en: 'voice note too big' },
   'msg.voice.nomic': { pt: 'microfone indisponível', en: 'microphone unavailable' },
+  'msg.mic.title': { pt: 'Mensagem de voz', en: 'Voice message' },
+  'msg.mic.body': {
+    pt: 'na primeira vez o Windows mostra um aviso pedindo acesso ao microfone — clica em "Permitir" e nunca mais aparece',
+    en: 'the first time, Windows shows a prompt asking for microphone access — click "Allow" and it never shows again',
+  },
+  'msg.mic.cta': { pt: 'BELEZA, GRAVAR', en: 'GOT IT, RECORD' },
   'grp.photo.set': { pt: 'mudar foto do grupo', en: 'change group photo' },
   'grp.invite.copy': { pt: 'copiar link de convite', en: 'copy invite link' },
   'grp.invite.copied': { pt: 'link copiado ✓', en: 'link copied ✓' },
