@@ -711,7 +711,11 @@ export function ChatView({
                         >
                           {m.edited_at ? `${t('msg.edited')} · ` : ''}
                           {timeLabel(m.created_at)}
-                          {m.mine ? ' ✓' : ''}
+                          {m.mine && (
+                            <span className={m.read_at ? 'ml-1 font-bold text-emerald-700' : 'ml-1'}>
+                              {m.read_at ? '✓✓' : '✓'}
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>

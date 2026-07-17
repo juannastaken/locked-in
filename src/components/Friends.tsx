@@ -3,23 +3,16 @@ import { createPortal } from 'react-dom';
 import { unlockedBadges } from '../lib/badges';
 import type { Badge } from '../lib/badges';
 import { cleanProfanity } from '../lib/filter';
-import { getLang, t } from '../lib/i18n';
+import { dateLocale, getLang, t } from '../lib/i18n';
 import { BadgeModal } from './BadgeModal';
-import {
-  BoltIcon,
-  ChatIcon,
-  FlameIcon,
-  HeadphonesIcon,
-  PointIcon,
-  ProfileIcon,
-  TrophyIcon,
-} from './Icons';
+import { ChatIcon, FlameIcon, HeadphonesIcon, PointIcon, ProfileIcon } from './Icons';
 import { formatDurationShort } from '../lib/time';
 import * as social from '../lib/social';
 import type { FriendEntry, PresenceRow } from '../lib/social';
 import type { SocialHook } from '../hooks/useSocial';
 import type { GroupsHook } from '../hooks/useGroups';
 import { ChatView } from './Chat';
+import * as chatLib from '../lib/chat';
 import { ConfirmModal } from './Confirm';
 import { CreateGroupModal, GroupView } from './Groups';
 import { Mascot } from './Mascot';
@@ -40,6 +33,8 @@ interface FriendsProps {
   /** 'invite' = come into MY jam (cold-start allowed); 'request' = let me join yours */
   onSendJam: (f: FriendEntry, kind: 'invite' | 'request') => Promise<void>;
   unread: Record<string, number>;
+  /** friend userIds typing to me right now */
+  typingIds: Set<string>;
   chatRefetchKey: number;
   onChatOpened: (friendUserId: string | null) => void;
   openChatWith: string | null;
@@ -162,100 +157,6 @@ function PokeGateToggle() {
     >
       <PointIcon size={12} /> {blocked ? t('misc.off') : t('misc.on')}
     </button>
-  );
-}
-
-function feedAgo(iso: string): string {
-  const min = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000));
-  if (min < 60) return `${min}min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
-
-/** Friends' recent wins — records, streaks, finished jams. Data is
- *  self-reported by each client and only ever spans already-visible facts. */
-function FeedSection({ soc }: { soc: SocialHook }) {
-  const [events, setEvents] = useState<social.FeedEvent[]>([]);
-  const [shareOff, setShareOff] = useState(
-    () => localStorage.getItem('feed-share-off') === '1',
-  );
-  useEffect(() => {
-    const refetch = () => {
-      social
-        .fetchFeed()
-        .then(setEvents)
-        .catch(() => {});
-    };
-    refetch();
-    // realtime inserts (RLS-filtered) + a slow poll as backstop
-    const unsub = social.subscribeFeed(refetch);
-    const iv = window.setInterval(refetch, 120_000);
-    return () => {
-      unsub();
-      window.clearInterval(iv);
-    };
-  }, []);
-  const me = soc.state?.me;
-  const nameOf = (uid: string) => {
-    if (uid === me?.user_id)
-      return { name: t('fr.me'), avatar: me?.avatar_b64 ?? null, me: true };
-    const f = soc.state?.friends.find((x) => x.userId === uid);
-    return { name: f ? `@${f.username}` : '@?', avatar: f?.avatar ?? null, me: false };
-  };
-  const line = (e: social.FeedEvent): string => {
-    const sec = e.payload?.sec ?? 0;
-    const n = e.payload?.n ?? 0;
-    if (e.kind === 'streak') return t('feed.streak', String(n));
-    if (e.kind === 'record_session') return t('feed.rec.session', formatDurationShort(sec));
-    if (e.kind === 'record_day') return t('feed.rec.day', formatDurationShort(sec));
-    return t('feed.jam', formatDurationShort(sec), String(n));
-  };
-  const visible = events.filter((e) => soc.state?.friends.some((f) => f.userId === e.user_id) || e.user_id === me?.user_id);
-  if (visible.length === 0) return null;
-  return (
-    <div className="space-y-1.5 rounded-2xl border border-border bg-surface/50 p-2.5">
-      <div className="flex items-center justify-between px-0.5">
-        <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
-          <BoltIcon size={11} /> {t('feed.title')}
-        </span>
-        <button
-          type="button"
-          title={t('feed.share.tip')}
-          onClick={() => {
-            const next = !shareOff;
-            localStorage.setItem('feed-share-off', next ? '1' : '0');
-            setShareOff(next);
-          }}
-          className={`text-[9px] font-extrabold uppercase ${shareOff ? 'text-danger' : 'text-text-faint hover:text-text'}`}
-        >
-          {shareOff ? t('feed.share.off') : t('feed.share.on')}
-        </button>
-      </div>
-      {visible.slice(0, 3).map((e) => {
-        const who = nameOf(e.user_id);
-        const KindIcon =
-          e.kind === 'streak' ? FlameIcon : e.kind === 'jam' ? HeadphonesIcon : TrophyIcon;
-        return (
-          <div key={e.id} className="flex items-center gap-2 px-0.5">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-strong bg-bg text-[8px] font-extrabold uppercase text-text-dim">
-              {who.avatar ? (
-                <img src={who.avatar} alt="" className="h-full w-full object-cover" />
-              ) : (
-                who.name.replace('@', '').slice(0, 2)
-              )}
-            </div>
-            <KindIcon size={11} className="shrink-0 text-accent" />
-            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-text-dim">
-              <span className="font-bold text-text">{who.name}</span> {line(e)}
-            </span>
-            <span className="shrink-0 text-[9px] font-bold text-text-faint">
-              {feedAgo(e.created_at)}
-            </span>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
@@ -715,6 +616,7 @@ export function FriendsPage({
   myFocus,
   onSendJam,
   unread,
+  typingIds,
   chatRefetchKey,
   onChatOpened,
   openChatWith,
@@ -727,6 +629,19 @@ export function FriendsPage({
   onLeaveGroupJam,
 }: FriendsProps) {
   const [addName, setAddName] = useState('');
+  // WhatsApp-style rows: last decrypted message per conversation
+  const [lastMsgs, setLastMsgs] = useState<Map<string, chatLib.LastMessage>>(() => new Map());
+  useEffect(() => {
+    const load = () => {
+      chatLib
+        .fetchLastMessages()
+        .then(setLastMsgs)
+        .catch(() => {});
+    };
+    load();
+    const iv = window.setInterval(load, 45_000);
+    return () => window.clearInterval(iv);
+  }, [chatRefetchKey]);
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null); // friend userId
@@ -872,10 +787,30 @@ export function FriendsPage({
 
   const wk = social.weekKey();
   const sortedFriends = sortFriendsByStatus(state.friends, soc.statusOf);
+  // WhatsApp-style time: today → HH:mm, yesterday → label, older → dd/mm
+  const rowTime = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString())
+      return d.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
+    const yest = new Date(now);
+    yest.setDate(yest.getDate() - 1);
+    if (d.toDateString() === yest.toDateString()) return t('msg.yesterday').toLowerCase();
+    return d.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' });
+  };
+  const previewOf = (lm: chatLib.LastMessage) => {
+    if (lm.kind === 'image') return t('msg.kind.image');
+    if (lm.kind === 'jam') return t('msg.kind.jam');
+    if (lm.kind === 'voice') return t('msg.kind.voice');
+    if (lm.kind === 'status') return t('msg.kind.status');
+    return lm.text === null ? '🔒' : cleanProfanity(lm.text);
+  };
   const friendRow = (f: FriendEntry) => {
     const row = soc.presence.get(f.userId);
     const status = soc.statusOf(f.userId);
     const active = chatting === f.userId || viewing === f.userId;
+    const lm = lastMsgs.get(f.userId);
+    const isTyping = typingIds.has(f.userId);
     return (
       <div
         key={f.friendshipId}
@@ -898,36 +833,49 @@ export function FriendsPage({
           active ? 'bg-surface-hover' : 'hover:bg-surface-hover'
         }`}
       >
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <Avatar name={f.username} status={status} photo={f.avatar} />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-bold text-text">@{f.username}</div>
-            <div className={`truncate text-[11px] font-medium ${statusText(status)}`}>
-              {statusLineFor(status, row, f.statusText, f.username)}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-sm font-bold text-text">@{f.username}</span>
+              {lm && (
+                <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-text-faint">
+                  {rowTime(lm.created_at)}
+                </span>
+              )}
             </div>
+            {isTyping ? (
+              <div className="truncate text-[11px] font-semibold italic text-accent">
+                {t('msg.typing')}
+              </div>
+            ) : lm ? (
+              <div className="flex items-center gap-1 text-[11px] font-medium text-text-dim">
+                {lm.mine && (
+                  <span
+                    className={`shrink-0 font-mono text-[10px] ${
+                      lm.read_at ? 'font-bold text-accent' : 'text-text-faint'
+                    }`}
+                  >
+                    {lm.read_at ? '✓✓' : '✓'}
+                  </span>
+                )}
+                <span className="truncate">
+                  {lm.mine ? `${t('msg.you')} ` : ''}
+                  {previewOf(lm)}
+                </span>
+              </div>
+            ) : (
+              <div className={`truncate text-[11px] font-medium ${statusText(status)}`}>
+                {statusLineFor(status, row, f.statusText, f.username)}
+              </div>
+            )}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {(unread[f.userId] ?? 0) > 0 && (
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
-              {unread[f.userId]}
-            </span>
-          )}
-          <button
-            type="button"
-            title={t('fr.viewprofile')}
-            onClick={(e) => {
-              e.stopPropagation();
-              setAllFriendsOpen(false);
-              setChatting(null);
-              onChatOpened(null);
-              setViewing(f.userId);
-            }}
-            className="rounded-lg p-1.5 text-text-faint transition-all duration-150 hover:bg-bg hover:text-text"
-          >
-            <ProfileIcon size={15} />
-          </button>
-        </div>
+        {(unread[f.userId] ?? 0) > 0 && (
+          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-extrabold text-bg">
+            {unread[f.userId]}
+          </span>
+        )}
       </div>
     );
   };
@@ -1190,9 +1138,6 @@ export function FriendsPage({
             </div>
           );
         })()}
-
-        {/* activity feed */}
-        <FeedSection soc={soc} />
 
         {/* groups */}
         <div className="space-y-1">

@@ -5,7 +5,7 @@ import { currentUser, supabase } from './cloud';
 import * as e2e from './e2e';
 import { cleanProfanity } from './filter';
 
-export type MessageKind = 'text' | 'jam' | 'image';
+export type MessageKind = 'text' | 'jam' | 'image' | 'voice' | 'status';
 
 export interface MessageRow {
   id: number;
@@ -18,6 +18,7 @@ export interface MessageRow {
   recipient_pub: string;
   reply_to: number | null;
   edited_at: string | null;
+  read_at: string | null;
   created_at: string;
 }
 
@@ -29,8 +30,20 @@ export interface DecryptedMessage {
   text: string | null;
   reply_to: number | null;
   edited_at: string | null;
+  /** server-stamped when the recipient opened the conversation (✓✓) */
+  read_at: string | null;
   /** emoji → users who reacted ('me' aware via mine flag on caller side) */
   reactions: { emoji: string; count: number; mine: boolean }[];
+  created_at: string;
+}
+
+/** Last message of each conversation, decrypted — the WhatsApp-style row line. */
+export interface LastMessage {
+  friendId: string;
+  mine: boolean;
+  kind: MessageKind;
+  text: string | null;
+  read_at: string | null;
   created_at: string;
 }
 
@@ -133,6 +146,7 @@ export async function listConversation(
         text: await e2e.decryptRow(r, mine),
         reply_to: r.reply_to,
         edited_at: r.edited_at,
+        read_at: r.read_at ?? null,
         reactions: reactionMap.get(r.id) ?? [],
         created_at: r.created_at,
       };
@@ -174,27 +188,26 @@ export function subscribeReactions(onChange: () => void): () => void {
 
 // ---------- typing indicator (ephemeral broadcast, nothing stored) ----------
 
-function pairKey(a: string, b: string): string {
-  return [a, b].sort().join(':');
-}
-
 export interface TypingChannel {
   sendTyping: () => void;
   close: () => void;
 }
 
 /** Joins the per-conversation typing channel; onTyping fires on peer keystrokes. */
+// single global typing channel: the open chat AND the friend list both listen,
+// so "typing…" can show on rows without one websocket channel per pair
 export function joinTyping(
   myId: string,
   otherId: string,
   onTyping: () => void,
 ): TypingChannel {
-  const channel = supabase.channel(`typing:${pairKey(myId, otherId)}`, {
+  const channel = supabase.channel('typing-g', {
     config: { broadcast: { self: false } },
   });
   channel
     .on('broadcast', { event: 'typing' }, (p) => {
-      if ((p.payload as { user?: string })?.user !== myId) onTyping();
+      const pay = p.payload as { from?: string; to?: string } | undefined;
+      if (pay?.from === otherId && pay?.to === myId) onTyping();
     })
     .subscribe();
   let last = 0;
@@ -203,11 +216,29 @@ export function joinTyping(
       const now = Date.now();
       if (now - last < 1500) return; // throttle keystrokes
       last = now;
-      channel.send({ type: 'broadcast', event: 'typing', payload: { user: myId } }).catch(() => {});
+      channel
+        .send({ type: 'broadcast', event: 'typing', payload: { from: myId, to: otherId } })
+        .catch(() => {});
     },
     close: () => {
       supabase.removeChannel(channel).catch(() => {});
     },
+  };
+}
+
+/** App-wide listener: fires with the friendId whenever anyone types TO me. */
+export function subscribeTypingAll(myId: string, onTyping: (fromId: string) => void): () => void {
+  const channel = supabase.channel('typing-g', {
+    config: { broadcast: { self: false } },
+  });
+  channel
+    .on('broadcast', { event: 'typing' }, (p) => {
+      const pay = p.payload as { from?: string; to?: string } | undefined;
+      if (pay?.to === myId && pay.from) onTyping(pay.from);
+    })
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel).catch(() => {});
   };
 }
 
@@ -275,6 +306,51 @@ export function markConversationRead(friendId: string): void {
   const map = lastReadMap();
   map[friendId] = new Date().toISOString();
   localStorage.setItem(LAST_READ_KEY, JSON.stringify(map));
+  // server-side read receipt (✓✓ for the sender) — trigger guards the stamp
+  currentUser()
+    .then((user) => {
+      if (!user) return;
+      return supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('recipient', user.id)
+        .eq('sender', friendId)
+        .is('read_at', null);
+    })
+    .catch(() => {});
+}
+
+/** Newest message per conversation, decrypted (for the friend-list preview). */
+export async function fetchLastMessages(): Promise<Map<string, LastMessage>> {
+  const out = new Map<string, LastMessage>();
+  const user = await currentUser();
+  if (!user) return out;
+  const { data } = await supabase
+    .from('messages')
+    .select('*')
+    .or(`sender.eq.${user.id},recipient.eq.${user.id}`)
+    .order('created_at', { ascending: false })
+    .limit(150);
+  const rows = (data ?? []) as MessageRow[];
+  const tops = new Map<string, MessageRow>();
+  for (const r of rows) {
+    const other = r.sender === user.id ? r.recipient : r.sender;
+    if (!tops.has(other)) tops.set(other, r); // rows are newest-first
+  }
+  await Promise.all(
+    [...tops.entries()].map(async ([friendId, r]) => {
+      const mine = r.sender === user.id;
+      out.set(friendId, {
+        friendId,
+        mine,
+        kind: r.kind,
+        text: r.kind === 'text' ? await e2e.decryptRow(r, mine) : null,
+        read_at: r.read_at ?? null,
+        created_at: r.created_at,
+      });
+    }),
+  );
+  return out;
 }
 
 /** Count of messages from each friend newer than my local last-read stamp. */

@@ -872,6 +872,10 @@ const dict: Record<string, { pt: string; en: string }> = {
   },
   'msg.kind.image': { pt: 'Imagem', en: 'Image' },
   'msg.kind.jam': { pt: 'Convite de JAM', en: 'JAM invite' },
+  'msg.kind.voice': { pt: 'Mensagem de voz', en: 'Voice message' },
+  'msg.kind.status': { pt: 'Resposta ao status', en: 'Status reply' },
+  'msg.you': { pt: 'você:', en: 'you:' },
+  'msg.quickreply': { pt: 'responder…', en: 'reply…' },
   'fr.jams.on': { pt: 'JAMs on', en: 'JAMs on' },
   'fr.jams.off': { pt: 'JAMs off', en: 'JAMs off' },
   'fr.jams.tip': {

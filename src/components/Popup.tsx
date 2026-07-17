@@ -374,43 +374,88 @@ export function Popup() {
 
   // generic notice (milestones, burnout, auto-end, break end)
   if (payload.kind === 'notice') {
+    const chatData = (() => {
+      try {
+        const d = JSON.parse(payload.data ?? '') as { type?: string; userId?: string };
+        return d?.type === 'chat' ? d : null;
+      } catch {
+        return null;
+      }
+    })();
     return (
       <div className="flex h-screen w-screen items-end justify-end p-2">
-        <button
-          type="button"
-          onClick={() => {
-            // notices can carry a click action (e.g. open that conversation)
-            if (payload.data) {
-              emit('notice:action', { data: payload.data }).catch(() => {});
-              invoke('show_main_window').catch(() => {});
-            }
-            hide();
-          }}
-          className={`w-full cursor-pointer rounded-2xl border border-border bg-surface p-4 text-left shadow-2xl shadow-black/60 hover:border-border-strong ${
+        <div
+          className={`w-full rounded-2xl border border-border bg-surface p-4 shadow-2xl shadow-black/60 ${
             leaving ? 'animate-popup-out' : 'animate-popup-in'
           }`}
         >
-          <div className="flex items-start gap-3">
-            {payload.avatar ? (
-              <img
-                src={payload.avatar}
-                alt=""
-                className="h-11 w-11 shrink-0 rounded-lg border border-border-strong object-cover"
-              />
-            ) : (
-              <Mascot mood={asMood(payload.mood)} size={44} />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                <span className="text-sm font-bold tracking-tight text-text">{payload.title}</span>
+          <button
+            type="button"
+            onClick={() => {
+              // notices can carry a click action (e.g. open that conversation)
+              if (payload.data) {
+                emit('notice:action', { data: payload.data }).catch(() => {});
+                invoke('show_main_window').catch(() => {});
+              }
+              hide();
+            }}
+            className="block w-full cursor-pointer text-left"
+          >
+            <div className="flex items-start gap-3">
+              {payload.avatar ? (
+                <img
+                  src={payload.avatar}
+                  alt=""
+                  className="h-11 w-11 shrink-0 rounded-lg border border-border-strong object-cover"
+                />
+              ) : (
+                <Mascot mood={asMood(payload.mood)} size={44} />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  <span className="text-sm font-bold tracking-tight text-text">
+                    {payload.title}
+                  </span>
+                </div>
+                <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-text-dim">
+                  {payload.body}
+                </p>
               </div>
-              <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-text-dim">
-                {payload.body}
-              </p>
             </div>
-          </div>
-        </button>
+          </button>
+          {/* quick reply straight from the popup — no app switch needed */}
+          {chatData && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const v = text.trim();
+                if (!v) return;
+                emit('notice:reply', { data: payload.data, text: v }).catch(() => {});
+                hide();
+              }}
+              className="mt-2.5"
+            >
+              <input
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  textRef.current = e.target.value;
+                }}
+                onFocus={() => {
+                  // typing pauses the auto-hide — nobody loses a half-written reply
+                  if (autoTimer.current) {
+                    window.clearTimeout(autoTimer.current);
+                    autoTimer.current = null;
+                  }
+                }}
+                placeholder={t('msg.quickreply')}
+                maxLength={500}
+                className="w-full rounded-xl border-2 border-border-strong bg-bg px-3 py-2 text-[13px] font-medium text-text outline-none placeholder:text-text-faint focus:border-accent"
+              />
+            </form>
+          )}
+        </div>
       </div>
     );
   }

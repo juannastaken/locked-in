@@ -17,6 +17,8 @@ interface FriendsBarProps {
   onOpenFriends: () => void;
   onOpenChat: (friendUserId: string) => void;
   unread: Record<string, number>;
+  /** friend userIds typing to me right now */
+  typingIds: Set<string>;
   /** members of MY running jam (me included), null when not in a jam */
   jamMembers: JamMemberView[] | null;
 }
@@ -40,7 +42,14 @@ function Chevron({ left }: { left: boolean }) {
 }
 
 /** Fixed-width friends rail on the right edge — same width with or without friends. */
-export function FriendsBar({ social: soc, onOpenFriends, onOpenChat, unread, jamMembers }: FriendsBarProps) {
+export function FriendsBar({
+  social: soc,
+  onOpenFriends,
+  onOpenChat,
+  unread,
+  typingIds,
+  jamMembers,
+}: FriendsBarProps) {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('friends-bar-collapsed') === '1',
   );
@@ -180,7 +189,11 @@ export function FriendsBar({ social: soc, onOpenFriends, onOpenChat, unread, jam
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13px] font-bold text-text">{f.username}</div>
                     <div className={`truncate text-[10px] font-semibold ${statusText(status)}`}>
-                      {statusLineFor(status, row, f.statusText, f.username)}
+                      {typingIds.has(f.userId) ? (
+                        <span className="italic text-accent">{t('msg.typing')}</span>
+                      ) : (
+                        statusLineFor(status, row, f.statusText, f.username)
+                      )}
                     </div>
                   </div>
                   {(unread[f.userId] ?? 0) > 0 && (

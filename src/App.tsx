@@ -861,6 +861,35 @@ function AppShell() {
     return chatLib.subscribeReactions(() => setChatRefetchKey((k) => k + 1));
   }, [signedIn]);
 
+  // who's typing TO me right now — shown on friend rows, not just in the chat
+  const [typingMap, setTypingMap] = useState<Map<string, number>>(() => new Map());
+  useEffect(() => {
+    const myId = social.state?.me?.user_id;
+    if (!signedIn || !myId) return;
+    const unsub = chatLib.subscribeTypingAll(myId, (fromId) => {
+      setTypingMap((m) => new Map(m).set(fromId, Date.now()));
+    });
+    const iv = window.setInterval(() => {
+      setTypingMap((m) => {
+        const now = Date.now();
+        let changed = false;
+        const next = new Map(m);
+        for (const [k, ts] of next) {
+          if (now - ts > 3000) {
+            next.delete(k);
+            changed = true;
+          }
+        }
+        return changed ? next : m;
+      });
+    }, 1500);
+    return () => {
+      unsub();
+      window.clearInterval(iv);
+    };
+  }, [signedIn, social.state?.me?.user_id]);
+  const typingIds = new Set(typingMap.keys());
+
   // clicking a corner popup that carries an action (e.g. a new message) jumps
   // straight into that conversation
   useEffect(() => {
@@ -875,7 +904,25 @@ function AppShell() {
     }).then((u) => {
       unlisten = u;
     });
-    return () => unlisten?.();
+    // quick reply typed straight into the notification popup
+    let unlistenReply: (() => void) | undefined;
+    listen<{ data: string; text: string }>('notice:reply', (e) => {
+      try {
+        const action = JSON.parse(e.payload.data) as { type?: string; userId?: string };
+        const text = e.payload.text?.trim();
+        if (action.type === 'chat' && action.userId && text) {
+          chatLib.sendMessage(action.userId, 'text', text).catch(() => {});
+        }
+      } catch {
+        // malformed — ignore
+      }
+    }).then((u) => {
+      unlistenReply = u;
+    });
+    return () => {
+      unlisten?.();
+      unlistenReply?.();
+    };
   }, [openChatShortcut]);
 
   const onChatOpened = useCallback(
@@ -1142,83 +1189,6 @@ function AppShell() {
       unsub();
     };
   }, [signedIn, jamLookup, pushToast]);
-
-  // ---- activity feed: self-report wins AFTER each saved session. Golden
-  // rule: nothing private — records/streak/jams only, and only user-visible
-  // magnitudes. First run just baselines old records so history isn't spammed.
-  useEffect(() => {
-    if (!signedIn) return;
-    if (localStorage.getItem('feed-share-off') === '1') return;
-    (async () => {
-      try {
-        const marks = JSON.parse(localStorage.getItem('feed-marks') ?? '{}') as {
-          bestSession?: number;
-          bestDay?: number;
-          streakTier?: number;
-          lastJamSessionId?: number;
-        };
-        const next = { ...marks };
-        const rec = await db.getRecords();
-        if (marks.bestSession === undefined) {
-          next.bestSession = rec.bestSessionSec;
-        } else if (rec.bestSessionSec > marks.bestSession) {
-          next.bestSession = rec.bestSessionSec;
-          if (rec.bestSessionSec >= 1800)
-            socialLib.postFeedEvent('record_session', { sec: rec.bestSessionSec }).catch(() => {});
-        }
-        if (marks.bestDay === undefined) {
-          next.bestDay = rec.bestDaySec;
-        } else if (rec.bestDaySec > marks.bestDay) {
-          next.bestDay = rec.bestDaySec;
-          if (rec.bestDaySec >= 3600)
-            socialLib.postFeedEvent('record_day', { sec: rec.bestDaySec }).catch(() => {});
-        }
-        // streak tier (days hitting the daily goal, counted like milestones)
-        const goalSec = (settingsRef.current?.daily_goal_hours ?? 4) * 3600;
-        const byDay = new Map(
-          (
-            await db.getDailyTotals(new Date(Date.now() - 400 * 86_400_000).toISOString())
-          ).map((d) => [d.date, d.total_sec]),
-        );
-        const dayKey = (dt: Date) =>
-          `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-        const cur = new Date();
-        if ((byDay.get(dayKey(cur)) ?? 0) < goalSec) cur.setDate(cur.getDate() - 1);
-        let streak = 0;
-        while ((byDay.get(dayKey(cur)) ?? 0) >= goalSec) {
-          streak++;
-          cur.setDate(cur.getDate() - 1);
-        }
-        const tier = [100, 50, 30, 14, 7, 3].find((n) => streak >= n) ?? 0;
-        if (marks.streakTier === undefined || tier < marks.streakTier) {
-          next.streakTier = tier; // baseline / streak broke — rearm quietly
-        } else if (tier > marks.streakTier) {
-          next.streakTier = tier;
-          socialLib.postFeedEvent('streak', { n: tier }).catch(() => {});
-        }
-        // finished jam sessions (2+ people, ≥5min)
-        const last = (await db.listSessions({ limit: 1 }))[0];
-        if (last?.ended_at && last.id !== marks.lastJamSessionId) {
-          if (last.jam_members) {
-            try {
-              const members = JSON.parse(last.jam_members) as string[];
-              if (members.length >= 2 && (last.duration_sec ?? 0) >= 300) {
-                socialLib
-                  .postFeedEvent('jam', { sec: last.duration_sec ?? 0, n: members.length })
-                  .catch(() => {});
-              }
-            } catch {
-              // bad json — skip
-            }
-          }
-          next.lastJamSessionId = last.id;
-        }
-        localStorage.setItem('feed-marks', JSON.stringify(next));
-      } catch {
-        // offline / db busy — the next saved session retries
-      }
-    })();
-  }, [refreshKey, signedIn]);
 
   // ---- jam room data: members of MY jam with avatar/live info ----
   const jamRoomMembers = focus.jam
@@ -2075,6 +2045,7 @@ function AppShell() {
             }}
             onSendJam={sendJam}
             unread={unreadMsgs}
+            typingIds={typingIds}
             chatRefetchKey={chatRefetchKey}
             onChatOpened={onChatOpened}
             openChatWith={openChatWith}
@@ -2095,6 +2066,7 @@ function AppShell() {
           onOpenFriends={() => setTab('friends')}
           onOpenChat={openChatShortcut}
           unread={unreadMsgs}
+          typingIds={typingIds}
           jamMembers={
             focus.jam && focus.jam.members.length >= 2
               ? focus.jam.members.map((u) => {

@@ -735,6 +735,139 @@ drop trigger if exists group_time_guard_t on public.group_members;
 create trigger group_time_guard_t before update on public.group_members
   for each row execute function public.group_time_guard();
 
+-- ========== v0.33+: read receipts, statuses, group photo/invite, rich presence ==========
+
+-- read receipts: the RECIPIENT stamps read_at once; nobody can unread or forge
+alter table public.messages add column if not exists read_at timestamptz;
+revoke update on public.messages from authenticated;
+grant update (nonce, body_ct, edited_at, sender_pub, recipient_pub, read_at)
+  on public.messages to authenticated;
+drop policy if exists messages_mark_read on public.messages;
+create policy messages_mark_read on public.messages
+  for update to authenticated
+  using (auth.uid() = recipient)
+  with check (auth.uid() = recipient);
+create or replace function public.read_receipt_guard()
+returns trigger language plpgsql as $$
+begin
+  if new.read_at is distinct from old.read_at then
+    -- only the recipient sets it, only once, always to "now"
+    if auth.uid() <> old.recipient or old.read_at is not null then
+      new.read_at := old.read_at;
+    else
+      new.read_at := now();
+    end if;
+  end if;
+  -- the recipient may ONLY touch read_at — everything else snaps back
+  if auth.uid() = old.recipient and auth.uid() <> old.sender then
+    new.nonce := old.nonce;
+    new.body_ct := old.body_ct;
+    new.edited_at := old.edited_at;
+    new.sender_pub := old.sender_pub;
+    new.recipient_pub := old.recipient_pub;
+  end if;
+  return new;
+end $$;
+drop trigger if exists read_receipt_guard_t on public.messages;
+create trigger read_receipt_guard_t before update on public.messages
+  for each row execute function public.read_receipt_guard();
+
+-- new message kinds: status replies + voice notes
+alter table public.messages drop constraint if exists messages_kind_check;
+alter table public.messages add constraint messages_kind_check
+  check (kind in ('text', 'jam', 'image', 'voice', 'status'));
+
+-- ---------- statuses (24h stories: text / drawing / sticker / week card) ----------
+create table if not exists public.statuses (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('text', 'image')),
+  -- text statuses: the text itself; image statuses: a data-url (<=200KB)
+  body text not null check (char_length(body) <= 280000),
+  -- background color for text statuses (hex)
+  bg text,
+  created_at timestamptz not null default now()
+);
+create index if not exists statuses_time on public.statuses (user_id, created_at desc);
+
+alter table public.statuses enable row level security;
+
+drop policy if exists statuses_insert on public.statuses;
+create policy statuses_insert on public.statuses
+  for insert to authenticated with check (auth.uid() = user_id);
+
+drop policy if exists statuses_select on public.statuses;
+create policy statuses_select on public.statuses
+  for select to authenticated
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1 from public.friendships f
+      where f.status = 'accepted'
+        and ((f.requester = auth.uid() and f.addressee = user_id)
+          or (f.addressee = auth.uid() and f.requester = user_id))
+    )
+  );
+
+drop policy if exists statuses_delete on public.statuses;
+create policy statuses_delete on public.statuses
+  for delete to authenticated using (auth.uid() = user_id);
+
+-- cap 20/day + self-gc of expired stories (>25h keeps clocks lenient)
+create or replace function public.status_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from statuses
+      where user_id = new.user_id and created_at > now() - interval '1 day') >= 20 then
+    raise exception 'status daily cap reached';
+  end if;
+  delete from statuses
+    where user_id = new.user_id and created_at < now() - interval '25 hours';
+  return new;
+end;
+$$;
+drop trigger if exists status_cap on public.statuses;
+create trigger status_cap before insert on public.statuses
+  for each row execute function public.status_guard();
+
+do $$
+begin
+  alter publication supabase_realtime add table public.statuses;
+exception when duplicate_object then null;
+end $$;
+
+-- ---------- group photo + join-by-invite-code ----------
+alter table public.groups add column if not exists avatar_b64 text;
+alter table public.groups add column if not exists invite_code text unique;
+revoke update on public.groups from authenticated;
+grant update (name, jam_task, jam_started_at, jam_pomo, week_goal_hours, avatar_b64, invite_code)
+  on public.groups to authenticated;
+
+-- redeem: anyone signed-in with a valid code joins (cap still enforced)
+create or replace function public.redeem_group_invite(code text)
+returns bigint language plpgsql security definer set search_path = public as $$
+declare gid bigint;
+begin
+  select id into gid from groups where invite_code = code and invite_code is not null;
+  if gid is null then
+    raise exception 'invalid invite';
+  end if;
+  if (select count(*) from group_members where group_id = gid) >= 5 then
+    raise exception 'group is full (max 5 members)';
+  end if;
+  insert into group_members (group_id, user_id, added_by)
+    values (gid, auth.uid(), auth.uid())
+    on conflict (group_id, user_id) do nothing;
+  return gid;
+end;
+$$;
+revoke all on function public.redeem_group_invite(text) from public;
+grant execute on function public.redeem_group_invite(text) to authenticated;
+
+-- ---------- rich presence: current work app (opt-in) + personal records ----------
+alter table public.presence add column if not exists fg_app text;
+alter table public.presence add column if not exists records text;
+
 -- ---------- anti-abuse hardening ----------
 
 -- one pending jam invite per pair (kills invite flooding at the source);
