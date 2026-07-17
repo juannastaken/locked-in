@@ -620,3 +620,55 @@ export function subscribeFeed(onChange: () => void): () => void {
     supabase.removeChannel(chan).catch(() => {});
   };
 }
+
+// ---------- 24h statuses (stories) ----------
+
+export interface StatusRow {
+  id: number;
+  user_id: string;
+  kind: 'text' | 'image';
+  /** text statuses: the text; image statuses: a data-url */
+  body: string;
+  /** background color for text statuses */
+  bg: string | null;
+  created_at: string;
+}
+
+export async function postStatus(
+  kind: 'text' | 'image',
+  body: string,
+  bg: string | null = null,
+): Promise<string | null> {
+  const user = await currentUser();
+  if (!user) return 'not signed in';
+  const { error } = await supabase
+    .from('statuses')
+    .insert({ user_id: user.id, kind, body, bg });
+  return error ? error.message : null;
+}
+
+/** Everything visible to me from the last 24h, newest first. */
+export async function fetchStatuses(): Promise<StatusRow[]> {
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data } = await supabase
+    .from('statuses')
+    .select('*')
+    .gt('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  return (data ?? []) as StatusRow[];
+}
+
+export async function deleteStatus(id: number): Promise<void> {
+  await supabase.from('statuses').delete().eq('id', id);
+}
+
+export function subscribeStatuses(onChange: () => void): () => void {
+  const chan = supabase
+    .channel('status-watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'statuses' }, onChange)
+    .subscribe();
+  return () => {
+    supabase.removeChannel(chan).catch(() => {});
+  };
+}

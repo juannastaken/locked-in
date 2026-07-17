@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useToast } from '../hooks/useToast';
 import * as chat from '../lib/chat';
+import { cleanProfanity } from '../lib/filter';
 import type { DecryptedMessage, TypingChannel } from '../lib/chat';
 import { dateLocale, t } from '../lib/i18n';
 import { formatDurationShort } from '../lib/time';
@@ -636,6 +637,49 @@ export function ChatView({
                         </div>
                       )}
                     </div>
+                  ) : m.kind === 'status' ? (
+                    (() => {
+                      // body = JSON {s: status snippet, t: the reply text}
+                      let snippet = '';
+                      let txt = m.text ?? '';
+                      try {
+                        const j = JSON.parse(m.text ?? '') as { s?: string; t?: string };
+                        snippet = j.s ?? '';
+                        txt = j.t ?? '';
+                      } catch {
+                        // legacy/undecryptable — show raw
+                      }
+                      return (
+                        <div
+                          className={`bubble-shadow relative rounded-2xl border-2 px-4 py-2.5 text-[15px] font-medium leading-relaxed ${
+                            m.mine
+                              ? 'rounded-br-md border-border-strong bg-accent text-bg'
+                              : 'rounded-bl-md border-border-strong bg-surface text-text'
+                          }`}
+                        >
+                          <div
+                            className={`mb-1.5 rounded-lg border-l-4 px-2 py-1 text-[11px] ${
+                              m.mine
+                                ? 'border-bg/40 bg-bg/10 text-bg/80'
+                                : 'border-accent/60 bg-bg/40 text-text-dim'
+                            }`}
+                          >
+                            {t('status.reply.label')}
+                            {snippet ? `: “${cleanProfanity(snippet)}”` : ''}
+                          </div>
+                          {txt}
+                          {(lastOfGroup || m.edited_at) && (
+                            <span
+                              className={`ml-2 align-baseline font-mono text-[11px] tabular-nums ${
+                                m.mine ? 'text-bg/70' : 'text-text-dim'
+                              }`}
+                            >
+                              {timeLabel(m.created_at)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()
                   ) : isEditing ? (
                     <div className="bubble-shadow w-72 rounded-2xl border-2 border-accent bg-surface p-2">
                       <input

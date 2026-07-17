@@ -19,6 +19,7 @@ import { CommandPalette } from './components/CommandPalette';
 import type { Command } from './components/CommandPalette';
 import { ProfilePage } from './components/Profile';
 import { SettingsScreen } from './components/Settings';
+import { StatusPage } from './components/Status';
 import { Titlebar } from './components/Titlebar';
 import { Week } from './components/Week';
 import { cleanProfanity } from './lib/filter';
@@ -49,7 +50,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}, ${alpha})`;
 }
 
-type Tab = 'home' | 'routine' | 'analytics' | 'goals' | 'friends' | 'profile' | 'settings';
+type Tab = 'home' | 'routine' | 'analytics' | 'goals' | 'friends' | 'status' | 'profile' | 'settings';
 
 // settings + profile intentionally not in the nav — the titlebar gear and
 // avatar menu open them. Check-in/Hábitos live under Rotina; Semana/Stats/
@@ -60,6 +61,7 @@ const TABS: { id: Tab; labelKey: string }[] = [
   { id: 'analytics', labelKey: 'tab.analytics' },
   { id: 'goals', labelKey: 'tab.goals' },
   { id: 'friends', labelKey: 'tab.friends' },
+  { id: 'status', labelKey: 'tab.status' },
 ];
 
 function SubTabs<T extends string>({
@@ -2057,6 +2059,9 @@ function AppShell() {
             onJoinGroupJam={joinGroupJam}
             onLeaveGroupJam={leaveGroupJam}
           />
+        )}
+        {tab === 'status' && (
+          <StatusPage soc={social} onError={onError} onOpenChat={openChatShortcut} />
         )}
         {tab === 'settings' && <SettingsScreen settingsHook={settingsHook} onError={onError} />}
       </main>

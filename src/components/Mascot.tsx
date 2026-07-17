@@ -145,6 +145,12 @@ function buildMap(face: Face, feet: string): string[] {
   ];
 }
 
+/** Static pixel map (frame A, feet at rest) — used to draw the mascot on a
+ *  canvas outside React (stickers, status editor). '.'=empty B=accent D=dark */
+export function mascotMap(mood: MascotMood): string[] {
+  return buildMap(MOOD_FACES[mood][0], FEET_REST);
+}
+
 interface MascotProps {
   mood: MascotMood;
   size?: number;
