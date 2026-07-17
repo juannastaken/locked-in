@@ -1367,16 +1367,40 @@ pub fn run() {
       // shows (and a previously clicked "Block" can't wedge the feature)
       #[cfg(windows)]
       {
-        use webview2_com::PermissionRequestedEventHandler;
+        use webview2_com::{PermissionRequestedEventHandler, SetPermissionStateCompletedHandler};
         use webview2_com::Microsoft::Web::WebView2::Win32::{
-          COREWEBVIEW2_PERMISSION_KIND, COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
-          COREWEBVIEW2_PERMISSION_STATE_ALLOW,
+          ICoreWebView2Profile4, ICoreWebView2_13, COREWEBVIEW2_PERMISSION_KIND,
+          COREWEBVIEW2_PERMISSION_KIND_MICROPHONE, COREWEBVIEW2_PERMISSION_STATE_ALLOW,
         };
+        use windows::core::{Interface, HSTRING, PCWSTR};
         let _ = window.with_webview(|webview| unsafe {
           let core = match webview.controller().CoreWebView2() {
             Ok(c) => c,
             Err(_) => return,
           };
+          // a previously clicked "Block" is persisted in the profile and silently
+          // auto-denies without ever raising PermissionRequested — overwrite the
+          // saved state with ALLOW for every origin the app can run under
+          if let Ok(wv13) = core.cast::<ICoreWebView2_13>() {
+            if let Ok(profile) = wv13.Profile() {
+              if let Ok(p4) = profile.cast::<ICoreWebView2Profile4>() {
+                for origin in [
+                  "http://tauri.localhost",
+                  "https://tauri.localhost",
+                  "http://localhost:1420",
+                ] {
+                  let origin = HSTRING::from(origin);
+                  let done = SetPermissionStateCompletedHandler::create(Box::new(|_| Ok(())));
+                  let _ = p4.SetPermissionState(
+                    COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
+                    PCWSTR(origin.as_ptr()),
+                    COREWEBVIEW2_PERMISSION_STATE_ALLOW,
+                    &done,
+                  );
+                }
+              }
+            }
+          }
           let mut token: i64 = 0;
           let handler = PermissionRequestedEventHandler::create(Box::new(|_, args| {
             if let Some(args) = args {
