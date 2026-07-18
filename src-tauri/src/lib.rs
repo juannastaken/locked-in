@@ -1322,8 +1322,8 @@ pub fn run() {
         )?;
       }
 
-      let show_item = MenuItem::with_id(app, "show", "Abrir", true, None::<&str>)?;
-      let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
+      let show_item = MenuItem::with_id(app, "show", "Open", true, None::<&str>)?;
+      let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
       let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
       let _tray = TrayIconBuilder::with_id("main-tray")

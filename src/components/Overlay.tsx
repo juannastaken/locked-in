@@ -17,7 +17,7 @@ const INITIAL: OverlayState = {
   breakOverrunSec: 0,
   goalProgress: 0,
   todaySec: 0,
-  cfg: { opacity: 40, size: 'md', showTask: true, showGoal: true, accent: '#d4ff3f', lang: 'pt' },
+  cfg: { opacity: 40, size: 'md', showTask: true, showGoal: true, accent: '#d4ff3f', lang: 'en' },
 };
 
 const SIZES: Record<

@@ -188,6 +188,10 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
     setLogoutBusy(true);
     try {
       const r = await cloud.logoutAndReset();
+      if (r.kind === 'canvas-too-big') {
+        pushToast(t('acc.logout.canvasbig'), 'error');
+        return;
+      }
       if (r.kind === 'sync-failed') {
         pushToast(t('acc.logout.syncfail', r.message), 'error');
         return;
@@ -326,7 +330,7 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
                 { value: 'pt', label: 'PT' },
                 { value: 'en', label: 'EN' },
               ]}
-              value={settings.language || 'pt'}
+              value={settings.language || 'en'}
               onChange={(v) => update('language', v)}
             />
           </Field>

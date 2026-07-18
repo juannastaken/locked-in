@@ -490,8 +490,7 @@ function AppShell() {
 
   // tray menu follows the language
   useEffect(() => {
-    if (!language) return;
-    invoke('set_tray_lang', { lang: language }).catch(() => {});
+    invoke('set_tray_lang', { lang: language === 'pt' ? 'pt' : 'en' }).catch(() => {});
   }, [language]);
 
   // daily local backup of the sqlite db — delayed so the copy (which briefly
@@ -706,7 +705,7 @@ function AppShell() {
       quotes_interval_min: s.quotes_interval_min,
       session_active: focus.phase === 'focusing',
       suspended: focus.phase === 'paused' || focus.phase === 'break',
-      lang: s.language === 'en' ? 'en' : 'pt',
+      lang: s.language === 'pt' ? 'pt' : 'en',
       sound: s.sound_enabled,
       accent: s.accent_color,
     };
@@ -778,7 +777,7 @@ function AppShell() {
       showTask: settingsHook.settings?.overlay_show_task ?? true,
       showGoal: settingsHook.settings?.overlay_show_goal ?? true,
       accent: accentColor,
-      lang: language === 'en' ? 'en' : 'pt',
+      lang: language === 'pt' ? 'pt' : 'en',
     },
   };
   const overlayStateRef = useRef(overlayState);

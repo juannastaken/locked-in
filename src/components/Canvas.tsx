@@ -33,7 +33,7 @@ export function CanvasMode() {
   useEffect(() => {
     db.getAllSettings()
       .then((s) => {
-        const l = s.language === 'en' ? 'en' : 'pt';
+        const l = s.language === 'pt' ? 'pt' : 'en';
         setLang(l);
         setLangState(l);
       })

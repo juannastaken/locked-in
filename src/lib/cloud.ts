@@ -86,7 +86,10 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
-export type LogoutResult = { kind: 'ok' } | { kind: 'sync-failed'; message: string };
+export type LogoutResult =
+  | { kind: 'ok' }
+  | { kind: 'sync-failed'; message: string }
+  | { kind: 'canvas-too-big' };
 
 /**
  * Signing out turns this device back into a fresh guest: the account's data
@@ -97,6 +100,14 @@ export type LogoutResult = { kind: 'ok' } | { kind: 'sync-failed'; message: stri
  */
 export async function logoutAndReset(): Promise<LogoutResult> {
   await ensureFreshSession(); // heal a WebView2-frozen token before the final push
+  // a canvas over the snapshot size cap silently skips backup — wiping it after
+  // that would be permanent data loss, so refuse and let the user trim it first
+  try {
+    const canvas = await invoke<string>('load_canvas');
+    if (canvas.length > 8_000_000) return { kind: 'canvas-too-big' };
+  } catch {
+    /* no canvas — nothing at risk */
+  }
   const err = await uploadSnapshot();
   if (err) return { kind: 'sync-failed', message: err };
   await supabase.auth.signOut();

@@ -43,7 +43,7 @@ export function Popup() {
     // baseline language straight from the db — even if a payload ever arrives
     // without lang, the popup already speaks the user's language
     db.getAllSettings()
-      .then((s) => setLang(s.language === 'en' ? 'en' : 'pt'))
+      .then((s) => setLang(s.language === 'pt' ? 'pt' : 'en'))
       .catch(() => {});
     let unlisten: (() => void) | undefined;
     listen<PopupPayload>('popup:show', (e) => {

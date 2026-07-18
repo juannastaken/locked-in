@@ -614,6 +614,10 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: 'Teu progresso fica salvo na tua conta, na nuvem. Este computador volta a ser um convidado do zero — pra ver tudo de novo é só entrar na conta.',
     en: 'Your progress stays saved to your account in the cloud. This computer goes back to a fresh guest — sign in again anytime to get everything back.',
   },
+  'acc.logout.canvasbig': {
+    pt: 'teu canvas passa de 8 MB e não cabe no backup — apaga umas imagens dele antes de sair, senão ele seria perdido.',
+    en: 'your canvas is over 8 MB and does not fit in the backup — remove some images from it before signing out, or it would be lost.',
+  },
   'acc.logout.syncfail': {
     pt: 'não deu pra salvar teus dados na nuvem ({0}) — nada foi apagado. Verifica a conexão e tenta de novo.',
     en: "couldn't save your data to the cloud ({0}) — nothing was deleted. Check your connection and try again.",
