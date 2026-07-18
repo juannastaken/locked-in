@@ -364,7 +364,7 @@ const dict: Record<string, { pt: string; en: string }> = {
   // e2e messages
   'msg.open': { pt: 'Mensagem', en: 'Message' },
   'msg.send': { pt: 'Enviar', en: 'Send' },
-  'msg.placeholder': { pt: 'mensagem criptografada…', en: 'encrypted message…' },
+  'msg.placeholder': { pt: 'mensagem…', en: 'message…' },
   'msg.empty': {
     pt: 'sem mensagens ainda — fala com @{0}!',
     en: 'no messages yet — say hi to @{0}!',

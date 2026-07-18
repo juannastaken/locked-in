@@ -1,5 +1,8 @@
-// E2E-encrypted 1:1 messages between accepted friends (see e2e.ts for the
-// crypto; supabase/social.sql for the RLS that keeps strangers out).
+// 1:1 messages between accepted friends. Since v0.46 new messages travel as
+// PLAINTEXT protected by RLS only (the Discord model: sign in and everything
+// loads — no per-device key, no backups, no "another key" dead ends). Rows
+// from the E2EE era still decrypt through e2e.ts when this device has the old
+// key; media blobs stay encrypted with the per-blob key inside their marker.
 
 import { currentUser, supabase } from './cloud';
 import * as e2e from './e2e';
@@ -12,14 +15,26 @@ export interface MessageRow {
   sender: string;
   recipient: string;
   kind: MessageKind;
-  nonce: string;
-  body_ct: string;
-  sender_pub: string;
-  recipient_pub: string;
+  /** plaintext body (v0.46+); null on E2EE-era rows */
+  body: string | null;
+  nonce: string | null;
+  body_ct: string | null;
+  sender_pub: string | null;
+  recipient_pub: string | null;
   reply_to: number | null;
   edited_at: string | null;
   read_at: string | null;
   created_at: string;
+}
+
+/** Plaintext body, or the legacy decrypt when this device still has the key. */
+async function readBody(r: MessageRow, mine: boolean): Promise<string | null> {
+  if (r.body !== null && r.body !== undefined) return r.body;
+  if (!r.body_ct || !r.nonce || !r.sender_pub || !r.recipient_pub) return null;
+  return e2e.decryptRow(
+    { nonce: r.nonce, body_ct: r.body_ct, sender_pub: r.sender_pub, recipient_pub: r.recipient_pub },
+    mine,
+  );
 }
 
 export interface DecryptedMessage {
@@ -79,22 +94,16 @@ export async function sendMessage(
   if (!user) return 'error';
   // images/voice travel as data-urls — profanity filter/char cap apply to text
   // only (slicing a data-url corrupts the payload; the filter can mangle base64)
+  const isSticker = /^\[sticker:\w+\]$/.test(plaintext);
   const body =
-    kind === 'image' || kind === 'voice'
+    kind === 'image' || kind === 'voice' || isSticker
       ? plaintext
       : cleanProfanity(plaintext).slice(0, MESSAGE_MAX_CHARS);
-  const theirPub = await fetchFriendPub(recipientId);
-  if (!theirPub) return 'friend-no-key';
-  const env = await e2e.encryptTo(body, theirPub);
-  if (!env) return 'no-key';
   const { error } = await supabase.from('messages').insert({
     sender: user.id,
     recipient: recipientId,
     kind,
-    nonce: env.nonce,
-    body_ct: env.bodyCt,
-    sender_pub: env.senderPub,
-    recipient_pub: env.recipientPub,
+    body,
     reply_to: replyTo,
   });
   return error ? 'error' : 'ok';
@@ -148,7 +157,7 @@ export async function listConversation(
         id: r.id,
         mine,
         kind: r.kind,
-        text: await e2e.decryptRow(r, mine),
+        text: await readBody(r, mine),
         reply_to: r.reply_to,
         edited_at: r.edited_at,
         read_at: r.read_at ?? null,
@@ -294,21 +303,18 @@ export function joinGroupTyping(
  */
 export async function editMessage(
   m: DecryptedMessage,
-  recipientId: string,
+  _recipientId: string,
   newText: string,
 ): Promise<SendResult> {
-  const theirPub = await fetchFriendPub(recipientId);
-  if (!theirPub) return 'friend-no-key';
   const body = cleanProfanity(newText).slice(0, MESSAGE_MAX_CHARS);
-  const env = await e2e.encryptTo(body, theirPub);
-  if (!env) return 'no-key';
+  // legacy E2EE rows get converted to plaintext by the edit (ciphertext
+  // columns cleared) — the 2-minute window means this basically never fires
   const { error } = await supabase
     .from('messages')
     .update({
-      nonce: env.nonce,
-      body_ct: env.bodyCt,
-      sender_pub: env.senderPub,
-      recipient_pub: env.recipientPub,
+      body,
+      nonce: null,
+      body_ct: null,
       edited_at: new Date().toISOString(),
     })
     .eq('id', m.id);
@@ -390,7 +396,7 @@ export async function fetchLastMessages(): Promise<Map<string, LastMessage>> {
         friendId,
         mine,
         kind: r.kind,
-        text: r.kind === 'text' ? await e2e.decryptRow(r, mine) : null,
+        text: r.kind === 'text' ? await readBody(r, mine) : null,
         read_at: r.read_at ?? null,
         created_at: r.created_at,
       });

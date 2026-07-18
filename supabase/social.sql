@@ -1605,3 +1605,51 @@ create policy gmsg_update on public.group_messages
 -- stay locked, so an edit can't move a message or forge authorship
 revoke update on public.group_messages from authenticated;
 grant update (body, edited_at) on public.group_messages to authenticated;
+
+-- ========== v0.46: DMs drop E2EE for NEW messages (RLS-only, Discord model) ==========
+-- Old ciphertext rows stay untouched (clients still decrypt them locally when
+-- the legacy key exists). New rows carry plaintext in `body`; RLS already
+-- limits every row to its sender+recipient.
+
+alter table public.messages add column if not exists body text;
+alter table public.messages alter column nonce drop not null;
+alter table public.messages alter column body_ct drop not null;
+alter table public.messages alter column sender_pub drop not null;
+alter table public.messages alter column recipient_pub drop not null;
+
+-- one of the two forms must be present, and plaintext keeps the same size cap
+alter table public.messages drop constraint if exists messages_body_form_check;
+alter table public.messages add constraint messages_body_form_check
+  check (body is not null or body_ct is not null) not valid;
+alter table public.messages drop constraint if exists messages_body_len_check;
+alter table public.messages add constraint messages_body_len_check
+  check (body is null or char_length(body) <= 120000);
+
+-- edits now write plaintext (and may clear legacy ciphertext columns)
+revoke update on public.messages from authenticated;
+grant update (body, nonce, body_ct, edited_at, sender_pub, recipient_pub, read_at)
+  on public.messages to authenticated;
+
+-- the read-receipt guard must also snap the NEW body column back when the
+-- recipient stamps read_at — otherwise a recipient could rewrite messages
+create or replace function public.read_receipt_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.read_at is distinct from old.read_at then
+    if old.read_at is not null then
+      new.read_at := old.read_at; -- read is write-once
+    elsif auth.uid() <> old.recipient then
+      new.read_at := old.read_at; -- only the recipient stamps it
+    end if;
+  end if;
+  -- the recipient may ONLY touch read_at — everything else snaps back
+  if auth.uid() = old.recipient and auth.uid() <> old.sender then
+    new.body := old.body;
+    new.nonce := old.nonce;
+    new.body_ct := old.body_ct;
+    new.edited_at := old.edited_at;
+    new.sender_pub := old.sender_pub;
+    new.recipient_pub := old.recipient_pub;
+  end if;
+  return new;
+end $$;

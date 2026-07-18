@@ -893,16 +893,10 @@ function AppShell() {
   }, [focus.phase, focus.jam, jam]);
 
   // ---------- E2E messages: keys, unread, realtime notifications ----------
+  // Messages are plaintext + RLS since v0.46 — nobody is forced through key
+  // modals anymore. The modal stays reachable from Profile for legacy-history
+  // backup/restore only.
   const [keyModal, setKeyModal] = useState<'backup' | 'restore' | null>(null);
-  const keyInitRef = useRef(false);
-  useEffect(() => {
-    const me = social.state?.me;
-    if (!signedIn || !me || keyInitRef.current) return;
-    keyInitRef.current = true;
-    e2e.ensureKeys(me.e2e_pub ?? null).then((status) => {
-      if (status === 'restore-needed') setKeyModal('restore');
-    });
-  }, [signedIn, social.state]);
 
   const [unreadMsgs, setUnreadMsgs] = useState<Record<string, number>>({});
   const [chatRefetchKey, setChatRefetchKey] = useState(0);
@@ -941,7 +935,21 @@ function AppShell() {
             else if (row.kind === 'jam') preview = `🎧 ${t('msg.kind.jam')}`;
             else if (row.kind === 'voice') preview = `🎤 ${t('msg.kind.voice')}`;
             else {
-              const txt = await e2e.decryptRow(row, false);
+              // plaintext rows (v0.46+) read directly; E2EE-era rows still
+              // decrypt locally when the legacy key is present
+              const txt =
+                row.body ??
+                (row.body_ct && row.nonce && row.sender_pub && row.recipient_pub
+                  ? await e2e.decryptRow(
+                      {
+                        nonce: row.nonce,
+                        body_ct: row.body_ct,
+                        sender_pub: row.sender_pub,
+                        recipient_pub: row.recipient_pub,
+                      },
+                      false,
+                    )
+                  : null);
               if (txt) {
                 if (row.kind === 'status') {
                   // body = JSON {s: status snippet, t: reply text} — never show raw

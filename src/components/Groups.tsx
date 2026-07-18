@@ -929,6 +929,14 @@ export function GroupView({
             prev.kind === m.kind &&
             new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 5 * 60_000;
           const firstOfGroup = !tight;
+          const next = messages[i + 1];
+          const lastOfGroup =
+            !next ||
+            next.kind === 'system' ||
+            next.sender !== m.sender ||
+            next.kind !== m.kind ||
+            new Date(next.created_at).toDateString() !== new Date(m.created_at).toDateString() ||
+            new Date(next.created_at).getTime() - new Date(m.created_at).getTime() >= 5 * 60_000;
           if (m.kind === 'system') {
             return (
               <div key={m.id}>
@@ -955,107 +963,29 @@ export function GroupView({
                   firstOfGroup ? 'mt-4 animate-msg-in' : 'mt-1'
                 } ${flashId === m.id ? 'flash-msg rounded-2xl' : ''}`}
               >
-                <div className={`relative max-w-[80%] ${m.mine ? 'items-end' : 'items-start'}`}>
-                  {!m.mine && firstOfGroup && (
-                    <div className="mb-0.5 ml-1 text-[10px] font-bold text-text-faint">
-                      @{m.senderName}
-                    </div>
-                  )}
-                  {/* hover toolbar: react / reply / ⋯ */}
-                  <div
-                    data-pop
-                    className={`absolute -top-3 z-10 hidden items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5 shadow-lg group-hover/gmsg:flex ${
-                      m.mine ? 'right-1' : 'left-1'
-                    } ${reactFor === m.id || menuFor === m.id ? '!flex' : ''}`}
-                  >
-                    <button
-                      type="button"
-                      title={t('msg.react')}
-                      onClick={() => {
-                        setMenuFor(null);
-                        setReactFor(reactFor === m.id ? null : m.id);
-                      }}
-                      className="rounded-md p-1 text-text-dim hover:bg-surface-hover hover:text-text"
-                    >
-                      <SmileIcon size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      title={t('msg.reply')}
-                      onClick={() => setReplyTo(m)}
-                      className="rounded-md p-1 text-text-dim hover:bg-surface-hover hover:text-text"
-                    >
-                      <ReplyIcon size={13} />
-                    </button>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReactFor(null);
-                          setMenuFor(menuFor === m.id ? null : m.id);
-                        }}
-                        className="rounded-md p-1 text-text-dim hover:bg-surface-hover hover:text-text"
-                      >
-                        <DotsIcon size={13} />
-                      </button>
-                      {menuFor === m.id && (
-                        <div className="animate-scale-in absolute right-0 top-7 z-20 w-36 rounded-xl border-2 border-border-strong bg-surface p-1 shadow-xl shadow-black/50">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMenuFor(null);
-                              setPin(pinId === m.id ? null : m.id);
-                            }}
-                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-text hover:bg-surface-hover"
-                          >
-                            <PinIcon size={13} /> {pinId === m.id ? t('msg.unpin') : t('msg.pin')}
-                          </button>
-                          {groups.canEditGroupMsg(m) && !stickerMoodOf(m.body) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMenuFor(null);
-                                setEditing(m);
-                                setEditDraft(m.body ?? '');
-                              }}
-                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-text hover:bg-surface-hover"
-                            >
-                              <PencilIcon /> {t('msg.edit')}
-                            </button>
-                          )}
-                          {m.mine && (
-                            <button
-                              type="button"
-                              onClick={() => removeMsg(m.id)}
-                              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold hover:bg-surface-hover ${
-                                confirmDel === m.id ? 'text-danger' : 'text-text'
-                              }`}
-                            >
-                              <TrashIcon />{' '}
-                              {confirmDel === m.id ? t('misc.sure') : t('msg.delete')}
-                            </button>
-                          )}
+                <div
+                  className={`flex max-w-[80%] items-end gap-2.5 ${m.mine ? 'flex-row-reverse' : ''}`}
+                >
+                  {!m.mine && (
+                    <div className="w-7 shrink-0">
+                      {lastOfGroup && (
+                        <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 border-border-strong bg-bg text-[10px] font-extrabold uppercase text-text">
+                          {(() => {
+                            const av = members.find((mm) => mm.user_id === m.sender)?.avatar;
+                            return av ? (
+                              <img src={av} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              m.senderName.slice(0, 2)
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
-                  </div>
-                  {reactFor === m.id && (
-                    <div
-                      data-pop
-                      className={`absolute -top-12 z-20 flex gap-1 rounded-xl border border-border bg-surface p-1.5 shadow-xl ${
-                        m.mine ? 'right-0' : 'left-0'
-                      }`}
-                    >
-                      {GROUP_REACTIONS.map((em) => (
-                        <button
-                          key={em}
-                          type="button"
-                          onClick={() => react(m.id, em)}
-                          className="rounded-lg px-1 text-lg transition-transform"
-                        >
-                          {em}
-                        </button>
-                      ))}
+                  )}
+                  <div className="min-w-0">
+                  {!m.mine && firstOfGroup && (
+                    <div className="mb-0.5 ml-1 text-[10px] font-bold text-text-faint">
+                      @{m.senderName}
                     </div>
                   )}
                   {quoted && (
@@ -1203,6 +1133,104 @@ export function GroupView({
                       ))}
                     </div>
                   )}
+                  </div>
+
+                  {/* hover actions beside the bubble: react · reply · ⋯ */}
+                  <div
+                    data-pop
+                    className={`flex shrink-0 items-center gap-0.5 pb-1 transition-opacity duration-150 ${
+                      reactFor === m.id || menuFor === m.id
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover/gmsg:opacity-100'
+                    }`}
+                  >
+                    <div className="relative">
+                      <button
+                        type="button"
+                        title={t('msg.react')}
+                        onClick={() => {
+                          setMenuFor(null);
+                          setReactFor(reactFor === m.id ? null : m.id);
+                        }}
+                        className="rounded-lg p-1.5 text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
+                      >
+                        <SmileIcon />
+                      </button>
+                      {reactFor === m.id && (
+                        <div className="animate-scale-in absolute bottom-9 left-1/2 z-20 flex -translate-x-1/2 gap-1.5 rounded-full border-2 border-border-strong bg-surface px-2.5 py-1.5 shadow-xl shadow-black/50">
+                          {GROUP_REACTIONS.map((em) => (
+                            <button
+                              key={em}
+                              type="button"
+                              onClick={() => react(m.id, em)}
+                              className="text-xl"
+                            >
+                              {em}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      title={t('msg.reply')}
+                      onClick={() => setReplyTo(m)}
+                      className="rounded-lg p-1.5 text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
+                    >
+                      <ReplyIcon />
+                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReactFor(null);
+                          setMenuFor(menuFor === m.id ? null : m.id);
+                        }}
+                        className="rounded-lg p-1.5 text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
+                      >
+                        <DotsIcon size={14} />
+                      </button>
+                      {menuFor === m.id && (
+                        <div className="animate-scale-in absolute bottom-9 right-0 z-20 w-36 rounded-xl border-2 border-border-strong bg-surface p-1 shadow-xl shadow-black/50">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMenuFor(null);
+                              setPin(pinId === m.id ? null : m.id);
+                            }}
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-text hover:bg-surface-hover"
+                          >
+                            <PinIcon size={13} /> {pinId === m.id ? t('msg.unpin') : t('msg.pin')}
+                          </button>
+                          {groups.canEditGroupMsg(m) && !stickerMoodOf(m.body) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuFor(null);
+                                setEditing(m);
+                                setEditDraft(m.body ?? '');
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-text hover:bg-surface-hover"
+                            >
+                              <PencilIcon /> {t('msg.edit')}
+                            </button>
+                          )}
+                          {m.mine && (
+                            <button
+                              type="button"
+                              onClick={() => removeMsg(m.id)}
+                              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold hover:bg-surface-hover ${
+                                confirmDel === m.id ? 'text-danger' : 'text-text'
+                              }`}
+                            >
+                              <TrashIcon />{' '}
+                              {confirmDel === m.id ? t('misc.sure') : t('msg.delete')}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

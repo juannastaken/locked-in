@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Locked In",
-  "version": "0.45.2",
+  "version": "0.46.0",
   "identifier": "dev.lockedin.app",
   "build": {
     "frontendDist": "../dist",

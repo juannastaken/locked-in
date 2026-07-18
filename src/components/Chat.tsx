@@ -923,12 +923,6 @@ export function ChatView({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="truncate text-sm font-bold text-text">@{friend.username}</span>
-              <span
-                className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[9px] font-bold text-text-faint"
-                title={t('msg.e2e.hint')}
-              >
-                🔒 E2E
-              </span>
             </div>
             <div className={`truncate text-[11px] font-semibold ${statusColor}`}>
               {peerTyping ? <span className="text-accent">{t('msg.typing')}</span> : statusLine}

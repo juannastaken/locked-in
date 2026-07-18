@@ -12,24 +12,21 @@ import { LegalModal } from './Legal';
 import type { LegalDoc } from './Legal';
 
 /**
- * Zero-friction message-key cloud flow, run while the account password is
- * still in memory: fresh device restores the key with it; fresh key gets
- * backed up with it. The passphrase is stretched with Argon2id client-side —
- * the server never stores the password and can't open the backup. A custom
- * backup passphrase (set via Profile) still wins: auto-restore just fails
- * closed and the manual restore modal takes over inside the app.
+ * LEGACY-history heal only. Messages are plaintext + RLS since v0.46 — no
+ * account needs a key anymore. But accounts from the E2EE era still have old
+ * ciphertext rows: if such an account has a published key that isn't on this
+ * device, silently restore it from the cloud backup (Argon2id over the
+ * password, client-side) so the old conversations keep opening. Fails closed;
+ * the manual restore in Profile remains the fallback.
  */
 async function autoKeyFlow(accountPassword: string): Promise<void> {
   try {
     const prof = await social.getMyProfile();
-    const status = await e2e.ensureKeys(prof?.e2e_pub ?? null);
-    if (status === 'ok') {
-      if (!(await e2e.hasCloudBackup())) await e2e.backupKeyToCloud(accountPassword);
-    } else if (status === 'restore-needed') {
-      await e2e.restoreKeyFromCloud(accountPassword);
-    }
+    if (!prof?.e2e_pub) return; // never had E2EE — nothing to restore
+    if (await e2e.loadPrivateKey()) return; // key already on this device
+    await e2e.restoreKeyFromCloud(accountPassword);
   } catch {
-    // offline or race — the in-app modal remains the fallback
+    // offline or custom backup passphrase — Profile restore still exists
   }
 }
 
