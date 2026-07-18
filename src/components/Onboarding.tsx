@@ -316,7 +316,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
                       setAccent(p.color);
                       update('accent_color', p.color);
                     }}
-                    className={`h-12 w-12 rounded-2xl border-4 transition-transform hover:scale-110 ${
+                    className={`h-12 w-12 rounded-2xl border-4 transition-transform ${
                       accent === p.color ? 'border-text' : 'border-transparent'
                     }`}
                     style={{ backgroundColor: p.color }}
@@ -404,7 +404,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
                 <button
                   type="button"
                   onClick={onCreateAccount}
-                  className="rounded-2xl bg-accent px-8 py-4 text-base font-extrabold text-bg transition-transform hover:scale-105"
+                  className="rounded-2xl bg-accent px-8 py-4 text-base font-extrabold text-bg transition-transform"
                 >
                   {t('ob.social.create')}
                 </button>
@@ -441,7 +441,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
           <button
             type="button"
             onClick={step === 'done' ? finish : next}
-            className="rounded-2xl bg-accent px-10 py-3.5 text-base font-extrabold text-bg transition-transform hover:scale-105 active:scale-95"
+            className="rounded-2xl bg-accent px-10 py-3.5 text-base font-extrabold text-bg transition-transform"
           >
             {step === 'done' ? t('ob.finish') : step === 'welcome' ? t('ob.start') : t('ob.next')}
           </button>

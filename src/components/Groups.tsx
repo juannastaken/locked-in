@@ -773,7 +773,7 @@ export function GroupView({
                           key={em}
                           type="button"
                           onClick={() => react(m.id, em)}
-                          className="rounded-lg px-1 text-lg transition-transform hover:scale-125"
+                          className="rounded-lg px-1 text-lg transition-transform"
                         >
                           {em}
                         </button>
@@ -961,7 +961,7 @@ export function GroupView({
                     key={mood}
                     type="button"
                     onClick={() => sendSticker(mood)}
-                    className="rounded-xl p-1.5 transition-transform hover:scale-110 hover:bg-surface-hover"
+                    className="rounded-xl p-1.5 transition-transform hover:bg-surface-hover"
                   >
                     <Mascot mood={mood} size={48} />
                   </button>
@@ -988,7 +988,7 @@ export function GroupView({
                     key={em}
                     type="button"
                     onClick={() => setDraft((d) => d + em)}
-                    className="rounded-lg p-1 text-xl transition-transform hover:scale-125 hover:bg-surface-hover"
+                    className="rounded-lg p-1 text-xl transition-transform hover:bg-surface-hover"
                   >
                     {em}
                   </button>
@@ -1037,7 +1037,7 @@ export function GroupView({
           <button
             type="submit"
             disabled={!draft.trim() && !pendingImg}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-bg transition-all hover:scale-105 active:scale-90 disabled:opacity-40"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-bg transition-all disabled:opacity-40"
           >
             <SendIcon size={17} />
           </button>

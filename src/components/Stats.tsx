@@ -314,7 +314,7 @@ export function Stats({ settings, onError, refreshKey }: StatsProps) {
                       <div
                         key={cell.date}
                         title={`${new Date(cell.date + 'T00:00:00').toLocaleDateString(dateLocale())} · ${cell.hours.toFixed(1)}h`}
-                        className={`h-[13px] w-[13px] rounded-[3px] transition-transform hover:scale-125 ${
+                        className={`h-[13px] w-[13px] rounded-[3px] transition-transform ${
                           cell.date === today ? 'ring-1 ring-text-dim' : ''
                         }`}
                         style={{ backgroundColor: heatColor(cell.hours) }}

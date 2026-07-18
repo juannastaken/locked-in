@@ -102,7 +102,7 @@ export function JamRoom({ members, sharedSec, pomo, onCheer }: JamRoomProps) {
                     type="button"
                     title={t('jamroom.cheer')}
                     onClick={() => cheer(m)}
-                    className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-bg text-warn opacity-0 transition-opacity hover:scale-110 group-hover/jm:opacity-100"
+                    className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-bg text-warn opacity-0 transition-opacity group-hover/jm:opacity-100"
                   >
                     <FlameIcon size={11} />
                   </button>

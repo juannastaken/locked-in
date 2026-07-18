@@ -600,7 +600,7 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
                   type="button"
                   title={t(preset.nameKey)}
                   onClick={() => update('accent_color', preset.color)}
-                  className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
+                  className={`h-7 w-7 rounded-full transition-transform ${
                     settings.accent_color === preset.color
                       ? 'ring-2 ring-text ring-offset-2 ring-offset-surface'
                       : ''

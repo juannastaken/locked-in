@@ -40,7 +40,7 @@ export function ConfirmModal({
               onConfirm();
               onClose();
             }}
-            className={`flex-1 rounded-xl py-3 text-sm font-extrabold transition-transform hover:scale-[1.02] active:scale-95 ${
+            className={`flex-1 rounded-xl py-3 text-sm font-extrabold transition-transform ${
               danger ? 'bg-danger text-white' : 'bg-accent text-bg'
             }`}
           >

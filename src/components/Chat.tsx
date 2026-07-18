@@ -163,7 +163,7 @@ export function VoicePlayer({ src, mine }: { src: string; mine: boolean }) {
       <button
         type="button"
         onClick={toggle}
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform hover:scale-105 ${
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform ${
           mine ? 'bg-bg/20' : 'bg-accent text-bg'
         }`}
       >
@@ -496,7 +496,7 @@ function JamCard({
           onClick={onJoin}
           className={`mt-3 w-full rounded-xl py-2.5 text-[13px] font-extrabold transition-transform ${
             joinable
-              ? 'bg-accent text-bg hover:scale-[1.02] active:scale-95'
+              ? 'bg-accent text-bg'
               : 'cursor-default border border-border text-text-faint'
           }`}
         >
@@ -1302,7 +1302,7 @@ export function ChatView({
                             key={e}
                             type="button"
                             onClick={() => react(m.id, e)}
-                            className="text-xl transition-transform hover:scale-125"
+                            className="text-xl transition-transform"
                           >
                             {e}
                           </button>
@@ -1384,7 +1384,7 @@ export function ChatView({
                     key={r.emoji}
                     type="button"
                     onClick={() => react(m.id, r.emoji)}
-                    className={`animate-pop rounded-full border-2 px-2 py-0.5 text-[14px] transition-transform hover:scale-110 ${
+                    className={`animate-pop rounded-full border-2 px-2 py-0.5 text-[14px] transition-transform ${
                       r.mine
                         ? 'border-accent bg-accent-dim'
                         : 'border-border bg-surface hover:border-border-strong'
@@ -1601,7 +1601,7 @@ export function ChatView({
                   key={m}
                   type="button"
                   onClick={() => sendSticker(m)}
-                  className="flex items-center justify-center rounded-lg border border-border bg-bg py-2.5 transition-transform hover:scale-110 hover:border-accent"
+                  className="flex items-center justify-center rounded-lg border border-border bg-bg py-2.5 transition-transform hover:border-accent"
                 >
                   <Mascot mood={m} size={34} effects={false} />
                 </button>
@@ -1625,7 +1625,7 @@ export function ChatView({
                     setDraft((d) => d + e);
                     inputRef.current?.focus();
                   }}
-                  className="rounded-lg p-1 text-lg transition-transform hover:scale-125 hover:bg-surface-hover"
+                  className="rounded-lg p-1 text-lg transition-transform hover:bg-surface-hover"
                 >
                   {e}
                 </button>
@@ -1699,7 +1699,7 @@ export function ChatView({
           type="submit"
           disabled={!draft.trim() && !pendingImg}
           title={t('msg.send')}
-          className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-bg transition-all duration-150 hover:scale-105 hover:brightness-110 active:scale-90 disabled:scale-100 disabled:opacity-40"
+          className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-bg transition-all duration-150 hover:brightness-110 disabled:scale-100 disabled:opacity-40"
           style={theme ? { backgroundColor: theme } : undefined}
         >
           <SendIcon size={17} />

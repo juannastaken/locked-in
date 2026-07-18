@@ -468,7 +468,7 @@ function FriendProfile({
                   type="button"
                   title={getLang() === 'en' ? b.labelEn : b.labelPt}
                   onClick={() => setBadgeInfo(b)}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-bg text-base transition-transform hover:scale-110"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-bg text-base transition-transform"
                 >
                   {b.icon}
                 </button>

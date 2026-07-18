@@ -159,7 +159,7 @@ export function Titlebar({
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
             title={me ? `@${me.username}` : t('menu.account')}
-            className="transition-transform hover:scale-105"
+            className="transition-transform"
           >
             {avatarCircle('h-9 w-9', 18)}
           </button>
