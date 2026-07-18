@@ -5,6 +5,7 @@ import type { UseSettings } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
 import * as cloud from '../lib/cloud';
 import * as db from '../lib/db';
+import * as e2e from '../lib/e2e';
 import { dateLocale, t } from '../lib/i18n';
 import { todayKey } from '../lib/time';
 import { warmReload } from '../lib/reload';
@@ -188,6 +189,17 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
   async function doLogout() {
     setLogoutBusy(true);
     try {
+      // a local message key with NO cloud backup dies with the wipe and takes
+      // every old DM with it — refuse until the user backs it up (Profile).
+      // Network hiccups fall through: the snapshot upload below aborts anyway.
+      try {
+        if ((await e2e.loadPrivateKey()) && !(await e2e.hasCloudBackup())) {
+          pushToast(t('acc.logout.nokeybackup'), 'error');
+          return;
+        }
+      } catch {
+        /* offline — logoutAndReset's own sync guard will abort */
+      }
       const r = await cloud.logoutAndReset();
       if (r.kind === 'canvas-too-big') {
         pushToast(t('acc.logout.canvasbig'), 'error');
