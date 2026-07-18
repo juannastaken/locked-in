@@ -575,35 +575,47 @@ function AppShell() {
         // pre-download failed — downloadAndInstall below redoes it
       }
     }
-    try {
-      if (downloadedRef.current === update.version) {
-        setUpdating({ version: update.version, pct: 100 });
-        await update.install();
-      } else {
-        let total = 0;
-        let received = 0;
-        await update.downloadAndInstall((e) => {
-          if (e.event === 'Started') {
-            total = e.data.contentLength ?? 0;
-          } else if (e.event === 'Progress') {
-            received += e.data.chunkLength;
-            if (total > 0) {
-              setUpdating({ version: update.version, pct: Math.min(99, (received / total) * 100) });
+    // transient GitHub/CDN failures ("error sending request") are common in
+    // the minutes right after a release is published — retry with a short
+    // backoff before bothering the user with an error toast
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 2500));
+      try {
+        if (downloadedRef.current === update.version) {
+          setUpdating({ version: update.version, pct: 100 });
+          await update.install();
+        } else {
+          let total = 0;
+          let received = 0;
+          await update.downloadAndInstall((e) => {
+            if (e.event === 'Started') {
+              total = e.data.contentLength ?? 0;
+            } else if (e.event === 'Progress') {
+              received += e.data.chunkLength;
+              if (total > 0) {
+                setUpdating({ version: update.version, pct: Math.min(99, (received / total) * 100) });
+              }
+            } else if (e.event === 'Finished') {
+              setUpdating({ version: update.version, pct: 100 });
             }
-          } else if (e.event === 'Finished') {
-            setUpdating({ version: update.version, pct: 100 });
-          }
-        });
+          });
+        }
+        lastErr = null;
+        break;
+        // Do NOT call relaunch() here: the NSIS installer (installMode
+        // "passive") already restarts the app once it finishes. A second
+        // restart raced the first and left WebView2 dead → the black screen
+        // that only a manual reopen fixed. The progress screen stays at 100%
+        // until the installer takes over and relaunches cleanly.
+      } catch (err) {
+        lastErr = err;
       }
-      // Do NOT call relaunch() here: the NSIS installer (installMode
-      // "passive") already restarts the app once it finishes. A second
-      // restart raced the first and left WebView2 dead → the black screen
-      // that only a manual reopen fixed. The progress screen stays at 100%
-      // until the installer takes over and relaunches cleanly.
-    } catch (err) {
+    }
+    if (lastErr !== null) {
       installingRef.current = false;
       setUpdating(null);
-      pushToast(t('up.error', String(err)), 'error');
+      pushToast(t('up.error', String(lastErr)), 'error');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pushToast]);
