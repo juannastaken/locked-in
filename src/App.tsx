@@ -103,6 +103,10 @@ function SubTabs<T extends string>({
 
 function AppShell() {
   const { pushToast } = useToast();
+  // after a stale token gets refreshed, refetch everything IMMEDIATELY —
+  // swallowing the 401 and waiting for the next poll made the whole app
+  // look frozen for up to a minute after boot/unfreeze
+  const healRetryRef = useRef<() => void>(() => {});
   // raw Supabase/network errors are cryptic — map the common ones to something
   // a human understands before they hit a toast
   const onError = useCallback(
@@ -111,7 +115,11 @@ function AppShell() {
       let friendly = message;
       if (m.includes('jwt') || m.includes('expired') || m.includes('not signed in')) {
         // WebView2 froze the refresh timer — heal silently, don't alarm the user
-        import('./lib/cloud').then((c) => c.ensureFreshSession());
+        import('./lib/cloud').then((c) =>
+          c.ensureFreshSession().then((r) => {
+            if (r.healed) healRetryRef.current();
+          }),
+        );
         return;
       }
       if (
@@ -190,7 +198,12 @@ function AppShell() {
   const [offline, setOffline] = useState(() => !navigator.onLine);
   useEffect(() => {
     const heal = () => {
-      if (navigator.onLine) import('./lib/cloud').then((c) => c.ensureFreshSession());
+      if (navigator.onLine)
+        import('./lib/cloud').then((c) =>
+          c.ensureFreshSession().then((r) => {
+            if (r.healed) healRetryRef.current();
+          }),
+        );
     };
     const on = () => {
       setOffline(false);
@@ -229,7 +242,7 @@ function AppShell() {
   useEffect(() => {
     let unsub: (() => void) | undefined;
     import('./lib/cloud')
-      .then((cloud) => {
+      .then(async (cloud) => {
         // a session can die outside our own logout flow (password changed on
         // another device, account deleted) — mirror that into the UI so social
         // features gate instead of silently erroring forever
@@ -238,6 +251,10 @@ function AppShell() {
           if (event === 'SIGNED_IN') setSignedIn(true);
         });
         unsub = () => data.subscription.unsubscribe();
+        // heal a token that expired while the app was closed BEFORE flipping
+        // signedIn — otherwise every initial fetch 401s and the whole app
+        // sits empty until the next poll cycle ("everything loads slow")
+        await cloud.ensureFreshSession();
         return cloud.currentUser();
       })
       .then((u) => setSignedIn(!!u))
@@ -909,6 +926,14 @@ function AppShell() {
   const refreshUnread = useCallback(() => {
     chatLib.fetchUnreadCounts().then(setUnreadMsgs).catch(() => {});
   }, []);
+
+  // token was stale and just got refreshed → refetch the world right away
+  healRetryRef.current = () => {
+    social.refresh();
+    groups.refresh();
+    refreshUnread();
+    setChatRefetchKey((k) => k + 1);
+  };
 
   useEffect(() => {
     if (!signedIn) return;

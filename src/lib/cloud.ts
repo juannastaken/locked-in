@@ -40,17 +40,26 @@ export async function currentUser(): Promise<{ id: string; email: string } | nul
  * queries briefly 401 with "JWT expired" — this is NOT a real logout. Call this
  * on window focus / regaining connectivity to heal it silently.
  */
-let refreshing: Promise<boolean> | null = null;
-export async function ensureFreshSession(): Promise<boolean> {
+export interface FreshResult {
+  ok: boolean;
+  /** the token was stale and got refreshed — callers should refetch NOW
+   *  instead of waiting for the next poll cycle */
+  healed: boolean;
+}
+let refreshing: Promise<FreshResult> | null = null;
+export async function ensureFreshSession(): Promise<FreshResult> {
   if (refreshing) return refreshing;
   refreshing = (async () => {
     try {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) return false;
+      if (!data.session) return { ok: false, healed: false };
+      // still comfortably valid → no network roundtrip
+      const expiresAt = (data.session.expires_at ?? 0) * 1000;
+      if (expiresAt - Date.now() > 60_000) return { ok: true, healed: false };
       const { error } = await supabase.auth.refreshSession();
-      return !error;
+      return { ok: !error, healed: !error };
     } catch {
-      return false;
+      return { ok: false, healed: false };
     } finally {
       refreshing = null;
     }
