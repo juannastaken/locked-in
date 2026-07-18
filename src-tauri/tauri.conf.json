@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Locked In",
-  "version": "0.44.3",
+  "version": "0.44.4",
   "identifier": "dev.lockedin.app",
   "build": {
     "frontendDist": "../dist",
@@ -82,7 +82,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://popvdufwbupjnrrablgr.supabase.co wss://popvdufwbupjnrrablgr.supabase.co",
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://popvdufwbupjnrrablgr.supabase.co wss://popvdufwbupjnrrablgr.supabase.co",
       "assetProtocol": {
         "enable": true,
         "scope": ["$APPCONFIG/refboard/*"]
