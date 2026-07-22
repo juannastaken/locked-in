@@ -272,7 +272,7 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-6 px-4 pb-10 pt-6 sm:px-6 xl:max-w-4xl">
+      <div className="cascade mx-auto max-w-3xl space-y-6 px-4 pb-10 pt-6 sm:px-6 xl:max-w-4xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button

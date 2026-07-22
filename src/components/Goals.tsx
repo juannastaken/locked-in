@@ -83,7 +83,7 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-4 px-4 pb-10 pt-6 sm:px-6 xl:max-w-3xl">
+      <div className="cascade mx-auto max-w-2xl space-y-4 px-4 pb-10 pt-6 sm:px-6 xl:max-w-3xl">
         <div className="flex items-end justify-between">
           <div>
             <h1 className="text-lg font-extrabold tracking-tight text-text">{t('goals.title')}</h1>

@@ -210,7 +210,7 @@ export function Stats({ settings, onError, refreshKey }: StatsProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-8 px-4 pb-10 pt-6 sm:px-6 xl:max-w-4xl">
+      <div className="cascade mx-auto max-w-3xl space-y-8 px-4 pb-10 pt-6 sm:px-6 xl:max-w-4xl">
         {(!insightLoaded || insight) && (
           <div className="flex min-h-[58px] items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
             {insight ? (

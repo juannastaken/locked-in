@@ -572,6 +572,51 @@ input[type='number'] {
   box-shadow: 0 0 18px 1px color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
+/* ---------- page-entrance cascade ----------
+   Barely-there: 5px rise + fade, expo-out, 30ms overlap between TOP-LEVEL
+   sections only. Heavy overlap makes it read as one smooth wave instead of
+   elements popping in sequence (the "AI look"). Runs once per page mount —
+   data refreshes re-render without remounting, so nothing re-animates. */
+@keyframes cascade-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.cascade > * {
+  animation: cascade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.cascade > *:nth-child(2) {
+  animation-delay: 30ms;
+}
+.cascade > *:nth-child(3) {
+  animation-delay: 60ms;
+}
+.cascade > *:nth-child(4) {
+  animation-delay: 90ms;
+}
+.cascade > *:nth-child(5) {
+  animation-delay: 120ms;
+}
+.cascade > *:nth-child(6) {
+  animation-delay: 150ms;
+}
+.cascade > *:nth-child(7) {
+  animation-delay: 180ms;
+}
+.cascade > *:nth-child(n + 8) {
+  animation-delay: 210ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cascade > * {
+    animation: none;
+  }
+}
+
 /* skeleton loading block */
 @keyframes skeleton-pulse {
   0%,

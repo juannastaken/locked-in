@@ -146,7 +146,7 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
   }
 
   return (
-    <div className="scrollbar-none mx-auto h-full max-w-3xl overflow-y-auto p-6">
+    <div className="scrollbar-none mx-auto h-full max-w-3xl overflow-y-auto p-6"><div className="cascade">
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-extrabold tracking-tight text-text">{t('rank.title')}</h1>
@@ -315,6 +315,7 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

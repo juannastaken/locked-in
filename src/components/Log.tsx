@@ -256,7 +256,7 @@ export function Log({ onError, refreshKey }: LogProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-7 px-4 pb-10 pt-6 sm:px-6 xl:max-w-4xl">
+      <div className="cascade mx-auto max-w-3xl space-y-7 px-4 pb-10 pt-6 sm:px-6 xl:max-w-4xl">
         {groups.map((group) => (
           <section key={group.date}>
             <div className="sticky top-0 z-10 -mx-2 bg-bg/90 px-2 py-2.5">

@@ -115,7 +115,7 @@ export function CheckinPage({ settings, onError }: CheckinProps) {
       {/* page-level scroller like Habits — same scrollbar gutter, so the
           centered column lands at the SAME x as the Habits tab */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-2xl px-4 pt-6 sm:px-6 xl:max-w-3xl">
+      <div className="cascade mx-auto w-full max-w-2xl px-4 pt-6 sm:px-6 xl:max-w-3xl">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-text">

@@ -250,7 +250,7 @@ export function HabitsPage({ onError }: { onError: (m: string) => void }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-5 px-4 pb-10 pt-6 sm:px-6 xl:max-w-3xl">
+      <div className="cascade mx-auto max-w-2xl space-y-5 px-4 pb-10 pt-6 sm:px-6 xl:max-w-3xl">
         <div className="flex items-end justify-between">
           <div>
             <h1 className="text-lg font-semibold tracking-tight text-text">{t('hab.title')}</h1>

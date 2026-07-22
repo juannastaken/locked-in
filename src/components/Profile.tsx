@@ -174,7 +174,7 @@ export function ProfilePage({
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-5 px-4 pb-10 pt-8 sm:px-6 xl:max-w-3xl">
+      <div className="cascade mx-auto max-w-2xl space-y-5 px-4 pb-10 pt-8 sm:px-6 xl:max-w-3xl">
         {/* identity header */}
         <div className="flex items-center gap-5">
           <button
