@@ -318,7 +318,7 @@ export function HabitsPage({ onError }: { onError: (m: string) => void }) {
                           done
                             ? 'border-accent bg-accent-dim text-accent'
                             : future
-                              ? 'cursor-default border-transparent text-text-faint/30'
+                              ? 'cursor-default border-border/40 text-text-faint/60'
                               : 'border-border text-text-faint hover:border-border-strong hover:text-text'
                         } ${isToday && !done ? 'border-dashed border-text-dim' : ''}`}
                       >

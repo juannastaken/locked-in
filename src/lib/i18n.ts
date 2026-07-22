@@ -635,8 +635,8 @@ const dict: Record<string, { pt: string; en: string }> = {
   'home.clock.stack': { pt: 'Blocos', en: 'Stacked' },
   'home.clock.minimal': { pt: 'Modo minimalista', en: 'Minimal mode' },
   'home.clock.minimal.hint': {
-    pt: 'só o timer — tarefa, botões e mascote aparecem ao passar o mouse',
-    en: 'timer only — task, buttons and pet show on hover',
+    pt: 'só o timer — mexe o mouse pra mostrar o resto por alguns segundos',
+    en: 'timer only — move the mouse to show everything for a few seconds',
   },
   'grp.typing.one': { pt: '@{0} está digitando…', en: '@{0} is typing…' },
   'grp.typing.two': { pt: '@{0} e @{1} estão digitando…', en: '@{0} and @{1} are typing…' },
@@ -893,8 +893,8 @@ const dict: Record<string, { pt: string; en: string }> = {
   'ci.clear': { pt: 'Limpar', en: 'Clear' },
   'ci.clear.confirm': { pt: 'apagar tudo?', en: 'delete all?' },
   'ci.nostreak': {
-    pt: 'sem streak ainda — registra a próxima hora 😉',
-    en: 'no streak yet — log the next hour 😉',
+    pt: 'sem streak ainda — registra a próxima hora',
+    en: 'no streak yet — log the next hour',
   },
   'ci.streakon': { pt: '{0} seguidas 🔥', en: '{0} in a row 🔥' },
 

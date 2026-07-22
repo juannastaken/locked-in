@@ -5,7 +5,6 @@ import { t } from '../lib/i18n';
 import { warmReload } from '../lib/reload';
 import { formatDurationShort } from '../lib/time';
 import { Mascot } from './Mascot';
-import { PersonIcon } from './Titlebar';
 
 type Mode = 'week' | 'total';
 
@@ -21,18 +20,30 @@ interface Entry {
   bestSession: number;
 }
 
-function Avatar({ src, size, live }: { src: string | null; size: string; live: boolean }) {
+function Avatar({
+  src,
+  name,
+  size,
+  live,
+}: {
+  src: string | null;
+  name: string;
+  size: string;
+  live: boolean;
+}) {
   return (
     <div className="relative shrink-0">
       <div
-        className={`flex ${size} items-center justify-center overflow-hidden rounded-full border-2 bg-surface text-text-dim ${
+        className={`flex ${size} items-center justify-center overflow-hidden rounded-full border-2 bg-surface text-[11px] font-extrabold uppercase text-text-dim ${
           live ? 'border-accent' : 'border-border-strong'
         }`}
       >
         {src ? (
           <img src={src} alt="" className="h-full w-full object-cover" />
         ) : (
-          <PersonIcon size={18} />
+          // initials, like everywhere else in the app — the generic person
+          // icon made the podium look empty
+          name.slice(0, 2)
         )}
       </div>
       {live && (
@@ -171,7 +182,7 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
                 first ? 'pb-8' : 'pb-4'
               } ${e.isMe ? 'border-accent/60' : ''}`}
             >
-              <Avatar src={e.avatar} size={first ? 'h-16 w-16' : 'h-12 w-12'} live={e.live} />
+              <Avatar src={e.avatar} name={e.username} size={first ? 'h-16 w-16' : 'h-12 w-12'} live={e.live} />
               <div className="text-xl leading-none">{medals[place]}</div>
               <div
                 className={`max-w-24 truncate text-[13px] font-extrabold ${
@@ -216,7 +227,7 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
             <span className="w-6 shrink-0 text-center font-mono text-[12px] font-extrabold text-text-faint">
               {i + 1}
             </span>
-            <Avatar src={e.avatar} size="h-8 w-8" live={e.live} />
+            <Avatar src={e.avatar} name={e.username} size="h-8 w-8" live={e.live} />
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-baseline justify-between gap-2">
                 <span
