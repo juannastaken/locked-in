@@ -826,7 +826,7 @@ fn insta_snooze(app: tauri::AppHandle, state: tauri::State<'_, Mutex<InstaState>
 // restart at any time, so every cycle (new message or 15s retry tick) it
 // lazily (re)connects and re-applies the latest presence.
 
-const DISCORD_APP_ID: &str = "0000000000000000000"; // Discord Developer Portal application id
+const DISCORD_APP_ID: &str = "1529876072533856368"; // Discord Developer Portal application id
 
 #[derive(Clone)]
 struct PresenceData {
