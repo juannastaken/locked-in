@@ -164,11 +164,17 @@ export function Titlebar({
     };
   }, [tab]);
 
-  // font load / locale change can shift label widths after first paint
+  // font load / window resize can shift label widths — snap silently to the
+  // CURRENT tab. Mount-only (tab read via ref): re-running this on tab change
+  // would fire fonts.ready immediately and kill the glide mid-tween.
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   useEffect(() => {
-    const onResize = () => {
+    const snap = () => {
       const ind = indRef.current;
-      const btn = navRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
+      const btn = navRef.current?.querySelector<HTMLElement>(
+        `[data-tab="${tabRef.current}"]`,
+      );
       if (!ind || !btn) return;
       ind.style.transition = 'none';
       ind.style.left = `${btn.offsetLeft}px`;
@@ -177,10 +183,10 @@ export function Titlebar({
       ind.offsetWidth;
       ind.style.transition = IND_TWEEN;
     };
-    window.addEventListener('resize', onResize);
-    document.fonts?.ready.then(onResize).catch(() => {});
-    return () => window.removeEventListener('resize', onResize);
-  }, [tab]);
+    window.addEventListener('resize', snap);
+    document.fonts?.ready.then(snap).catch(() => {});
+    return () => window.removeEventListener('resize', snap);
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
