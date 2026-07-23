@@ -910,7 +910,7 @@ export function ChatView({
       }}
     >
       {/* header */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+      <div className="flex shrink-0 items-center justify-between gap-2 bg-white/[0.03] px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
           <button
             type="button"
@@ -984,7 +984,7 @@ export function ChatView({
           const pm = byId.get(pinId);
           if (!pm) return null;
           return (
-            <div className="flex shrink-0 items-center gap-2 border-b border-border bg-surface/70 px-4 py-1.5">
+            <div className="flex shrink-0 items-center gap-2 bg-surface/70 px-4 py-1.5">
               <PinIcon size={13} className="shrink-0 text-accent" />
               <button
                 type="button"
@@ -1533,7 +1533,7 @@ export function ChatView({
           e.preventDefault();
           send();
         }}
-        className="flex shrink-0 items-center gap-2.5 border-t border-border px-4 py-3.5"
+        className="flex shrink-0 items-center gap-2.5 bg-white/[0.03] px-4 py-3.5"
       >
         {/* clip menu: emoji / image / jam */}
         <div className="relative" data-pop>

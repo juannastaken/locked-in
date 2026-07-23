@@ -629,8 +629,8 @@ function ChatDetailsPanel({
     /* malformed records — zeros */
   }
   return (
-    <aside className="scrollbar-none hidden w-[290px] shrink-0 flex-col gap-4 overflow-y-auto py-4 pr-4 xl:flex">
-      <div className="chunk flex flex-col items-center gap-1.5 p-6 text-center">
+    <aside className="scrollbar-none my-4 mr-4 hidden w-[290px] shrink-0 flex-col gap-4 overflow-y-auto rounded-3xl bg-surface p-4 xl:flex">
+      <div className="flex flex-col items-center gap-1.5 rounded-2xl bg-bg/60 p-6 text-center">
         <Avatar name={friend.username} status={status} photo={friend.avatar} size="h-20 w-20" />
         <div className="mt-2 w-full truncate text-base font-extrabold text-text">
           @{friend.username}
@@ -640,7 +640,7 @@ function ChatDetailsPanel({
         </div>
       </div>
 
-      <div className="chunk p-5">
+      <div className="rounded-2xl bg-bg/60 p-5">
         <div className="text-[11px] font-extrabold uppercase tracking-wide text-text-faint">
           {t('fr.profile.weeklabel')}
         </div>
@@ -1058,7 +1058,7 @@ export function FriendsPage({
   return (
     <div className="flex h-full min-h-0">
       {/* LEFT: conversations column (reference layout: me → search → chats) */}
-      <aside className="scrollbar-none flex w-[400px] shrink-0 flex-col gap-4 overflow-y-auto p-4">
+      <aside className="scrollbar-none m-4 mr-0 flex w-[400px] shrink-0 flex-col gap-4 overflow-y-auto rounded-3xl bg-surface p-4">
         {/* me */}
         <div className="flex flex-col items-center gap-1.5 pt-3 text-center">
           <Avatar
@@ -1111,7 +1111,7 @@ export function FriendsPage({
             }}
             placeholder={t('fr.search')}
             maxLength={21}
-            className="w-full rounded-full border border-border bg-surface py-2.5 pl-9 pr-4 text-[13px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:border-accent focus:outline-none"
+            className="w-full rounded-full bg-bg/60 py-2.5 pl-9 pr-4 text-[13px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none focus:ring-1 focus:ring-accent/40"
           />
         </form>
         {addMsg && (
@@ -1121,7 +1121,7 @@ export function FriendsPage({
         )}
 
         {state.incoming.length > 0 && (
-          <div className="chunk space-y-2 p-3">
+          <div className="space-y-2 rounded-2xl bg-bg/60 p-3">
             <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
               {t('fr.inbox')} <span className="text-accent">({state.incoming.length})</span>
             </div>
@@ -1150,7 +1150,7 @@ export function FriendsPage({
         )}
 
         {state.outgoing.length > 0 && (
-          <div className="chunk space-y-1.5 p-3">
+          <div className="space-y-1.5 rounded-2xl bg-bg/60 p-3">
             <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
               {t('fr.outgoing')}
             </div>
@@ -1331,7 +1331,7 @@ export function FriendsPage({
           const jams = [...groupJams, ...friendJams];
           if (jams.length === 0) return null;
           return (
-            <div className="space-y-1.5 rounded-2xl border-2 border-accent/50 bg-accent-dim/30 p-2.5">
+            <div className="space-y-1.5 rounded-2xl bg-accent-dim/40 p-2.5">
               <div className="flex items-center gap-1.5 px-0.5">
                 <HeadphonesIcon size={13} className="text-accent" />
                 <span className="text-[10px] font-extrabold uppercase tracking-wide text-accent">
@@ -1560,8 +1560,8 @@ export function FriendsPage({
       )}
 
       {/* RIGHT: chat / profile / placeholder */}
-      <main className="min-h-0 min-w-0 flex-1 py-4 pr-4">
-        <div className="h-full overflow-hidden rounded-3xl border border-border">
+      <main className="min-h-0 min-w-0 flex-1 p-4">
+        <div className="h-full overflow-hidden rounded-3xl bg-black/25">
         {chattingFriend ? (
           (() => {
             const presRow = soc.presence.get(chattingFriend.userId);
