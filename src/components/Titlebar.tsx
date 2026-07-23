@@ -291,7 +291,7 @@ export function Titlebar({
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
             title={me ? `@${me.username}` : t('menu.account')}
-            className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-1 hover:bg-surface-hover sm:pl-3"
+            className="flex items-center gap-2.5 py-1 pl-1 pr-1 sm:pl-3"
           >
             {me && (
               <span className="hidden min-w-0 flex-col items-end leading-tight sm:flex">
