@@ -62,6 +62,9 @@ export function TasksPage({ onError, onFocusTask }: TasksProps) {
   const [dueDay, setDueDay] = useState<Date | null>(null);
   const [dueHour, setDueHour] = useState(18);
   const [dueMinute, setDueMinute] = useState(0);
+  // typed overrides: any minute ("34"), any date ("15/08")
+  const [minText, setMinText] = useState('');
+  const [dayText, setDayText] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<TaskItem | null>(null);
   // just-completed tasks linger in place briefly before moving to the done section
@@ -134,6 +137,8 @@ export function TasksPage({ onError, onFocusTask }: TasksProps) {
       setDueDay(null);
       setDueHour(18);
       setDueMinute(0);
+      setMinText('');
+      setDayText('');
       setDueOpen(false);
       reload();
       inputRef.current?.focus();
@@ -377,14 +382,17 @@ export function TasksPage({ onError, onFocusTask }: TasksProps) {
               <p className="mt-4 text-xs font-extrabold uppercase tracking-wide text-text-faint">
                 {t('tasks.due.day')}
               </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {dayChips.map(({ date, label }) => {
                   const active = dueDay?.getTime() === date.getTime();
                   return (
                     <button
                       key={date.getTime()}
                       type="button"
-                      onClick={() => setDueDay(active ? null : date)}
+                      onClick={() => {
+                        setDueDay(active ? null : date);
+                        setDayText('');
+                      }}
                       className={`no-press rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
                         active ? 'bg-accent text-bg' : 'bg-bg/60 text-text-dim hover:text-text'
                       }`}
@@ -393,6 +401,32 @@ export function TasksPage({ onError, onFocusTask }: TasksProps) {
                     </button>
                   );
                 })}
+                <input
+                  value={dayText}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^\d/]/g, '').slice(0, 5);
+                    setDayText(v);
+                    const m = v.match(/^(\d{1,2})\/(\d{1,2})$/);
+                    if (m) {
+                      const dayN = Number(m[1]);
+                      const monN = Number(m[2]);
+                      if (dayN >= 1 && dayN <= 31 && monN >= 1 && monN <= 12) {
+                        const d = new Date();
+                        d.setHours(0, 0, 0, 0);
+                        d.setMonth(monN - 1, dayN);
+                        // a past date means next year — deadlines point forward
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (d.getTime() < today.getTime()) d.setFullYear(d.getFullYear() + 1);
+                        if (d.getDate() === dayN) setDueDay(d);
+                      }
+                    }
+                  }}
+                  placeholder="dd/mm"
+                  className={`w-[4.5rem] rounded-full px-3 py-1.5 text-center text-xs font-bold tabular-nums outline-none transition-colors placeholder:text-text-faint ${
+                    dayText && dueDay ? 'bg-accent/10 text-accent' : 'bg-bg/60 text-text'
+                  }`}
+                />
               </div>
 
               <p className="mt-4 text-xs font-extrabold uppercase tracking-wide text-text-faint">
@@ -421,17 +455,18 @@ export function TasksPage({ onError, onFocusTask }: TasksProps) {
               <p className="mt-4 text-xs font-extrabold uppercase tracking-wide text-text-faint">
                 {t('tasks.due.min')}
               </p>
-              <div className="mt-2 grid grid-cols-4 gap-1.5">
+              <div className="mt-2 grid grid-cols-5 gap-1.5">
                 {MINUTES.map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => {
                       setDueMinute(m);
+                      setMinText('');
                       if (!dueDay) setDueDay(dayChips[0].date);
                     }}
                     className={`no-press rounded-lg py-1.5 text-xs font-bold tabular-nums transition-colors ${
-                      dueMinute === m && dueDay
+                      dueMinute === m && !minText && dueDay
                         ? 'bg-accent text-bg'
                         : 'bg-bg/60 text-text-dim hover:text-text'
                     }`}
@@ -439,6 +474,24 @@ export function TasksPage({ onError, onFocusTask }: TasksProps) {
                     :{String(m).padStart(2, '0')}
                   </button>
                 ))}
+                <input
+                  value={minText}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 2);
+                    setMinText(v);
+                    if (v !== '') {
+                      const n = Number(v);
+                      if (n <= 59) {
+                        setDueMinute(n);
+                        if (!dueDay) setDueDay(dayChips[0].date);
+                      }
+                    }
+                  }}
+                  placeholder=":mm"
+                  className={`rounded-lg py-1.5 text-center text-xs font-bold tabular-nums outline-none transition-colors placeholder:text-text-faint ${
+                    minText ? 'bg-accent/10 text-accent' : 'bg-bg/60 text-text'
+                  }`}
+                />
               </div>
 
               <div className="mt-5 flex gap-2">
