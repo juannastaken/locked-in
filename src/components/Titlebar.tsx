@@ -74,6 +74,12 @@ export function PersonIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+/* the pill's TweenPosition — must be re-applied explicitly after any 'none',
+   because clearing an inline transition kills it permanently (React won't
+   re-diff an unchanged style prop). */
+const IND_TWEEN =
+  'left 300ms cubic-bezier(0.25, 0.9, 0.3, 1), width 300ms cubic-bezier(0.25, 0.9, 0.3, 1)';
+
 function WinButton({
   onClick,
   danger,
@@ -141,18 +147,21 @@ export function Titlebar({
       place();
       // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       ind.offsetWidth; // flush so the jump isn't animated
-      ind.style.transition = '';
+      ind.style.transition = IND_TWEEN;
       indReady.current = true;
       return;
     }
-    let raf = 0;
-    const t0 = performance.now();
-    const step = (now: number) => {
-      place();
-      if (now - t0 < 500) raf = requestAnimationFrame(step);
+    // glide via the CSS tween; re-aim a couple of times while the label
+    // expansion shifts the target's final position, then land exactly.
+    // (re-aiming every frame would restart the tween constantly = crawl.)
+    ind.style.transition = IND_TWEEN;
+    place();
+    const t1 = window.setTimeout(place, 160);
+    const t2 = window.setTimeout(place, 330);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
     };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
   }, [tab]);
 
   // font load / locale change can shift label widths after first paint
@@ -166,7 +175,7 @@ export function Titlebar({
       ind.style.width = `${btn.offsetWidth}px`;
       // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       ind.offsetWidth;
-      ind.style.transition = '';
+      ind.style.transition = IND_TWEEN;
     };
     window.addEventListener('resize', onResize);
     document.fonts?.ready.then(onResize).catch(() => {});
@@ -234,12 +243,7 @@ export function Titlebar({
             ref={indRef}
             aria-hidden
             className="pointer-events-none absolute top-1.5 h-11 rounded-full bg-accent"
-            style={{
-              left: 0,
-              width: 0,
-              opacity: 0,
-              transition: 'left 300ms cubic-bezier(0.3, 0.9, 0.35, 1)',
-            }}
+            style={{ left: 0, width: 0, opacity: 0, transition: IND_TWEEN }}
           />
           {tabs.map((tabDef) => {
             const active = tab === tabDef.id;
