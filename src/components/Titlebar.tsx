@@ -99,7 +99,7 @@ function WinButton({
       type="button"
       onClick={onClick}
       title={title}
-      className={`flex h-full w-12 items-center justify-center text-text-dim transition-colors ${
+      className={`flex h-11 w-11 items-center justify-center rounded-xl text-text-dim transition-colors ${
         danger ? 'hover:bg-danger hover:text-white' : 'hover:bg-surface-hover hover:text-text'
       }`}
     >
@@ -243,7 +243,7 @@ export function Titlebar({
       <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center justify-center">
         <nav
           ref={navRef}
-          className="nav-pill relative flex w-[420px] max-w-full shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-border bg-surface p-1.5"
+          className="nav-pill relative flex shrink-0 items-center gap-1 overflow-hidden rounded-full border border-border bg-surface p-1.5"
         >
           {/* sliding accent indicator (behind the buttons) */}
           <span
@@ -399,7 +399,7 @@ export function Titlebar({
         </div>
 
         {/* window controls */}
-        <div className="ml-1 flex items-stretch border-l border-border">
+        <div className="ml-1 flex items-center gap-0.5 pr-1">
           <WinButton title={t('win.min')} onClick={() => win().minimize()}>
             <svg width="12" height="12" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4">
               <line x1="1" y1="5.5" x2="10" y2="5.5" />
