@@ -1632,6 +1632,7 @@ export function FriendsPage({
               }
               onLeaveJam={onLeaveGroupJam}
               railEl={groupRail}
+              onChanged={groupsHook.refresh}
             />
           </div>
         ) : (

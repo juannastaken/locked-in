@@ -207,6 +207,8 @@ interface GroupViewProps {
   onLeaveJam: () => void;
   /** third-column rail element — the management panel portals into it */
   railEl?: HTMLElement | null;
+  /** immediate re-fetch after a mutation — realtime alone lags ~5s */
+  onChanged?: () => void;
   meInJam: boolean;
   /** groupmates typing in THIS group right now (userId → last keystroke ts) */
   typing?: Map<string, number>;
@@ -226,6 +228,7 @@ export function GroupView({
   meInJam,
   typing,
   railEl,
+  onChanged,
 }: GroupViewProps) {
   const { group, members, meAdmin } = summary;
   const [messages, setMessages] = useState<GroupMessage[] | null>(null);
@@ -574,6 +577,7 @@ export function GroupView({
     setEditingGoal(false);
     const err = await groups.setWeekGoal(group.id, hours);
     if (err) onError(err);
+    else onChanged?.();
   }
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -595,6 +599,7 @@ export function GroupView({
       ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
       const err = await groups.setGroupAvatar(group.id, canvas.toDataURL('image/jpeg', 0.8));
       if (err) onError(err);
+      else onChanged?.();
     };
     img.onerror = () => URL.revokeObjectURL(url);
     img.src = url;
@@ -625,26 +630,31 @@ export function GroupView({
     const err = await groups.renameGroup(group.id, nameDraft);
     setRenaming(false);
     if (err && err !== 'empty') onError(err);
+    else onChanged?.();
   }
 
   async function kick(userId: string) {
     const err = await groups.removeMember(group.id, userId);
     if (err) onError(err);
+    else onChanged?.();
   }
 
   async function promote(userId: string) {
     const err = await groups.promoteMember(group.id, userId);
     if (err) onError(err);
+    else onChanged?.();
   }
 
   async function demote(userId: string) {
     const err = await groups.demoteMember(group.id, userId);
     if (err) onError(err);
+    else onChanged?.();
   }
 
   async function add(userId: string) {
     const err = await groups.addMember(group.id, userId);
     if (err) onError(err);
+    else onChanged?.();
     setShowAdd(false);
   }
 
