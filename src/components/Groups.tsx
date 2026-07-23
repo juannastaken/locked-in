@@ -1577,8 +1577,30 @@ export function GroupView({
       {/* group management — lives in the right-hand rail (portal) */}
       {railEl &&
         createPortal(
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between rounded-2xl bg-bg/60 p-3">
+          <div className="flex flex-col gap-4">
+            {/* identity — one calm card: photo IS the change button, name IS
+                the rename button (admins), invite as a small chip */}
+            <div className="flex flex-col items-center gap-2 rounded-2xl bg-bg/60 p-6 text-center">
+              <button
+                type="button"
+                disabled={!meAdmin}
+                onClick={() => avatarInputRef.current?.click()}
+                title={meAdmin ? t('grp.photo.set') : undefined}
+                className="group/gph relative disabled:cursor-default"
+              >
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-border-strong bg-bg text-xl font-extrabold uppercase text-text-dim">
+                  {group.avatar_b64 ? (
+                    <img src={group.avatar_b64} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    cleanProfanity(group.name).slice(0, 2)
+                  )}
+                </div>
+                {meAdmin && (
+                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-lg opacity-0 transition-opacity group-hover/gph:opacity-100">
+                    ✎
+                  </span>
+                )}
+              </button>
               {renaming ? (
                 <input
                   autoFocus
@@ -1586,7 +1608,7 @@ export function GroupView({
                   onChange={(e) => setNameDraft(e.target.value.slice(0, 40))}
                   onKeyDown={(e) => e.key === 'Enter' && doRename()}
                   onBlur={doRename}
-                  className="chunk-input min-w-0 flex-1 px-2 py-1 text-sm font-bold text-text"
+                  className="w-full rounded-xl bg-bg px-3 py-1.5 text-center text-base font-extrabold text-text focus:outline-none focus:ring-1 focus:ring-accent/40"
                 />
               ) : (
                 <button
@@ -1596,42 +1618,23 @@ export function GroupView({
                     setNameDraft(group.name);
                     setRenaming(true);
                   }}
-                  className="min-w-0 truncate text-left text-sm font-extrabold text-text disabled:cursor-default"
                   title={meAdmin ? t('grp.rename') : undefined}
+                  className="mt-1 w-full truncate text-base font-extrabold text-text disabled:cursor-default"
                 >
-                  {group.name}
+                  {cleanProfanity(group.name)}
                   {meAdmin && <span className="ml-1.5 text-[11px] text-text-faint">✎</span>}
                 </button>
               )}
-            </div>
-
-            {/* group identity: photo (admins upload) + invite link */}
-            <div className="flex items-center gap-3 rounded-2xl bg-bg/60 p-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-border-strong bg-bg text-base font-extrabold uppercase text-text-dim">
-                {group.avatar_b64 ? (
-                  <img src={group.avatar_b64} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  cleanProfanity(group.name).slice(0, 2)
-                )}
+              <div className="text-xs font-semibold text-text-faint">
+                {t('grp.members', String(members.length))}
               </div>
-              <div className="min-w-0 flex-1 space-y-1.5">
-                {meAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => avatarInputRef.current?.click()}
-                    className="block w-full truncate rounded-lg border border-border px-2.5 py-1.5 text-left text-[11px] font-bold text-text-dim hover:border-accent hover:text-text"
-                  >
-                    {t('grp.photo.set')}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={copyInvite}
-                  className="block w-full truncate rounded-lg border border-border px-2.5 py-1.5 text-left text-[11px] font-bold text-accent hover:border-accent"
-                >
-                  {inviteCopied ? t('grp.invite.copied') : t('grp.invite.copy')}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={copyInvite}
+                className="no-press mt-1 rounded-full bg-accent-dim px-3.5 py-1.5 text-[11px] font-bold text-accent transition-colors hover:bg-accent/20"
+              >
+                {inviteCopied ? t('grp.invite.copied') : t('grp.invite.copy')}
+              </button>
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -1645,23 +1648,35 @@ export function GroupView({
               />
             </div>
 
-            <div className="space-y-1.5 rounded-2xl bg-bg/60 p-3">
-              <div className="px-1 py-1 text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
-                {t('grp.members', String(members.length))}
-              </div>
-
-              {members.map((m) => {
-                const isOwner = m.user_id === group.owner;
-                const canManage = meAdmin && m.user_id !== myUserId && !isOwner;
-                return (
-                  <div
-                    key={m.user_id}
-                    className="rounded-xl border border-border bg-bg/40 px-3 py-2.5"
+            {/* members — flat rows, admin actions only on hover */}
+            <div className="rounded-2xl bg-bg/60 p-3">
+              <div className="mb-1.5 flex items-center justify-between px-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
+                  {t('grp.memberlist')}
+                </span>
+                {meAdmin && canAddMore && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdd(true)}
+                    title={t('grp.add')}
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-sm font-bold text-accent transition-colors hover:bg-accent-dim"
                   >
-                    <div className="flex items-center gap-2.5">
+                    +
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1">
+                {members.map((m) => {
+                  const isOwner = m.user_id === group.owner;
+                  const canManage = meAdmin && m.user_id !== myUserId && !isOwner;
+                  return (
+                    <div
+                      key={m.user_id}
+                      className="group/mrow flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-white/[0.04]"
+                    >
                       <MiniAvatar name={m.username} photo={m.avatar} live={isLive(m.user_id)} />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-bold text-text">
+                        <div className="truncate text-[13px] font-bold text-text">
                           {m.user_id === myUserId ? t('fr.me') : `@${m.username}`}
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px] font-bold">
@@ -1672,63 +1687,49 @@ export function GroupView({
                           ) : (
                             <span className="text-text-faint">{t('grp.member')}</span>
                           )}
-                          {m.in_jam && (
-                            <HeadphonesIcon size={10} className="text-accent" />
-                          )}
+                          {m.in_jam && <HeadphonesIcon size={10} className="text-accent" />}
                         </div>
                       </div>
-                    </div>
-                    {canManage && (
-                      <div className="mt-2 flex gap-1.5">
-                        {m.is_admin ? (
+                      {canManage && (
+                        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/mrow:opacity-100">
                           <button
                             type="button"
+                            title={m.is_admin ? t('grp.demote') : t('grp.promote')}
                             onClick={() =>
-                              setConfirmDemote({ userId: m.user_id, username: m.username })
+                              m.is_admin
+                                ? setConfirmDemote({ userId: m.user_id, username: m.username })
+                                : promote(m.user_id)
                             }
-                            className="chunk-btn flex-1 py-1.5 text-[11px] font-bold text-sky-400"
+                            className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-white/5 ${
+                              m.is_admin ? 'text-sky-400' : 'text-text-faint hover:text-sky-400'
+                            }`}
                           >
-                            {t('grp.demote')}
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M12 3 4.5 6v5c0 4.6 3.2 8.6 7.5 10 4.3-1.4 7.5-5.4 7.5-10V6z" />
+                            </svg>
                           </button>
-                        ) : (
                           <button
                             type="button"
-                            onClick={() => promote(m.user_id)}
-                            className="chunk-btn flex-1 py-1.5 text-[11px] font-bold text-sky-400"
+                            title={t('grp.kick')}
+                            onClick={() =>
+                              setConfirmKick({ userId: m.user_id, username: m.username })
+                            }
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-text-faint transition-colors hover:bg-danger/10 hover:text-danger"
                           >
-                            {t('grp.promote')}
+                            ✕
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setConfirmKick({ userId: m.user_id, username: m.username })
-                          }
-                          className="chunk-btn flex-1 py-1.5 text-[11px] font-bold text-danger"
-                        >
-                          {t('grp.kick')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {meAdmin && canAddMore && (
-                <button
-                  type="button"
-                  onClick={() => setShowAdd(true)}
-                  className="chunk-btn chunk-btn-accent w-full py-2.5 text-[13px]"
-                >
-                  + {t('grp.add')}
-                </button>
-              )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <button
               type="button"
               onClick={() => setConfirmLeave(true)}
-              className="chunk-btn w-full py-2.5 text-[13px] font-bold text-danger"
+              className="no-press rounded-full py-2 text-[13px] font-bold text-danger/80 transition-colors hover:bg-danger/10 hover:text-danger"
             >
               {group.owner === myUserId ? t('grp.delete') : t('grp.leave')}
             </button>
