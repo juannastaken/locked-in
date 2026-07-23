@@ -588,3 +588,51 @@ export function subscribeGroupMessages(
     supabase.removeChannel(chan).catch(() => {});
   };
 }
+
+/** Latest message per group, WhatsApp-row style (RLS scopes to my groups). */
+export interface GroupLastMessage {
+  kind: GroupMessageKind;
+  text: string | null;
+  created_at: string;
+  mine: boolean;
+  senderName: string;
+}
+
+export async function fetchGroupLastMessages(): Promise<Map<number, GroupLastMessage>> {
+  const out = new Map<number, GroupLastMessage>();
+  const user = await currentUser();
+  if (!user) return out;
+  const { data } = await supabase
+    .from('group_messages')
+    .select('group_id, sender, kind, body, created_at')
+    .order('created_at', { ascending: false })
+    .limit(120);
+  const rows = (data ?? []) as {
+    group_id: number;
+    sender: string;
+    kind: GroupMessageKind;
+    body: string | null;
+    created_at: string;
+  }[];
+  const tops = new Map<number, (typeof rows)[number]>();
+  for (const r of rows) if (!tops.has(r.group_id)) tops.set(r.group_id, r);
+  const senderIds = [...new Set([...tops.values()].map((r) => r.sender))];
+  const names = new Map<string, string>();
+  if (senderIds.length > 0) {
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('user_id, username')
+      .in('user_id', senderIds);
+    for (const p of (profs ?? []) as { user_id: string; username: string }[])
+      names.set(p.user_id, p.username);
+  }
+  for (const [gid, r] of tops)
+    out.set(gid, {
+      kind: r.kind,
+      text: r.kind === 'text' ? r.body : null,
+      created_at: r.created_at,
+      mine: r.sender === user.id,
+      senderName: names.get(r.sender) ?? '',
+    });
+  return out;
+}

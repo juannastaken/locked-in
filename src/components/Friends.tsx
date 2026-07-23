@@ -13,6 +13,7 @@ import type { SocialHook } from '../hooks/useSocial';
 import type { GroupsHook } from '../hooks/useGroups';
 import { ChatView } from './Chat';
 import * as chatLib from '../lib/chat';
+import type * as groupsLib from '../lib/groups';
 import { ConfirmModal } from './Confirm';
 import { CreateGroupModal, GroupView } from './Groups';
 import { Mascot } from './Mascot';
@@ -271,7 +272,7 @@ function Avatar({
   return (
     <div className="relative">
       <div
-        className={`flex ${size} items-center justify-center overflow-hidden rounded-xl border-2 border-border-strong bg-bg text-sm font-extrabold uppercase text-text`}
+        className={`flex ${size} items-center justify-center overflow-hidden rounded-full border border-border-strong bg-bg text-sm font-extrabold uppercase text-text`}
       >
         {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : name.slice(0, 2)}
       </div>
@@ -717,22 +718,28 @@ export function FriendsPage({
   const [addName, setAddName] = useState('');
   // WhatsApp-style rows: last decrypted message per conversation
   const [lastMsgs, setLastMsgs] = useState<Map<string, chatLib.LastMessage>>(() => new Map());
+  const [groupLastMsgs, setGroupLastMsgs] = useState<Map<number, groupsLib.GroupLastMessage>>(
+    () => new Map(),
+  );
   useEffect(() => {
     const load = () => {
       chatLib
         .fetchLastMessages()
         .then(setLastMsgs)
         .catch(() => {});
+      import('../lib/groups')
+        .then((gl) => gl.fetchGroupLastMessages())
+        .then(setGroupLastMsgs)
+        .catch(() => {});
     };
     load();
     const iv = window.setInterval(load, 45_000);
     return () => window.clearInterval(iv);
-  }, [chatRefetchKey]);
+  }, [chatRefetchKey, groupsHook.tick]);
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null); // friend userId
   const [chatting, setChatting] = useState<string | null>(null); // friend userId
-  const [allFriendsOpen, setAllFriendsOpen] = useState(false);
   const [jamDetail, setJamDetail] = useState<{
     task: string;
     names: string[];
@@ -923,10 +930,7 @@ export function FriendsPage({
         key={f.friendshipId}
         role="button"
         tabIndex={0}
-        onClick={() => {
-          setAllFriendsOpen(false);
-          openChat(f);
-        }}
+        onClick={() => openChat(f)}
         onContextMenu={(e) => {
           e.preventDefault();
           setCtxMenu({
@@ -983,43 +987,132 @@ export function FriendsPage({
       </div>
     );
   };
-  return (
-    <div className="flex h-full min-h-0">
-      {/* LEFT: friends column */}
-      <aside className="scrollbar-none flex w-[400px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-border p-4">
-        <div className="flex items-start justify-between gap-2 px-1">
-          <div className="min-w-0">
-            <h1 className="text-base font-extrabold tracking-tight text-text">{t('fr.title')}</h1>
-            <p className="truncate text-[11px] text-text-faint">
-              {t('fr.you')} <span className="font-bold text-accent">@{me.username}</span>
-            </p>
+  const groupRow = (g: (typeof groupsHook.list)[number]) => {
+    const jamOn =
+      !!g.group.jam_started_at &&
+      g.members.some(
+        (m) =>
+          m.in_jam && (m.user_id === me.user_id || social.isLive(soc.presence.get(m.user_id))),
+      );
+    const glm = groupLastMsgs.get(g.group.id);
+    const preview = glm
+      ? `${glm.mine ? t('msg.you') : glm.senderName ? `${glm.senderName}:` : ''} ${
+          glm.kind === 'text'
+            ? glm.text
+              ? cleanProfanity(glm.text)
+              : '🔒'
+            : glm.kind === 'image'
+              ? t('msg.kind.image')
+              : glm.kind === 'voice'
+                ? t('msg.kind.voice')
+                : t('msg.kind.jam')
+        }`.trim()
+      : t('grp.members', String(g.members.length));
+    return (
+      <button
+        type="button"
+        onClick={() => openGroup(g.group.id)}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl px-2 py-2 text-left ${
+          groupOpen === g.group.id ? 'bg-surface-hover' : 'hover:bg-surface-hover'
+        }`}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          {g.group.avatar_b64 ? (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-strong">
+              <img src={g.group.avatar_b64} alt="" className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className="flex w-10 shrink-0 -space-x-3 pl-0.5">
+              {g.members.slice(0, 2).map((m) => (
+                <div
+                  key={m.user_id}
+                  className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-bg bg-surface text-[9px] font-extrabold uppercase text-text-dim"
+                >
+                  {m.avatar ? (
+                    <img src={m.avatar} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    m.username.slice(0, 2)
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-sm font-bold text-text">
+                {cleanProfanity(g.group.name)}
+              </span>
+              {glm && (
+                <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-text-faint">
+                  {rowTime(glm.created_at)}
+                </span>
+              )}
+            </div>
+            <div className="truncate text-[11px] font-medium text-text-dim">{preview}</div>
           </div>
         </div>
+        {jamOn && <HeadphonesIcon size={14} className="shrink-0 text-accent" />}
+      </button>
+    );
+  };
+  return (
+    <div className="flex h-full min-h-0">
+      {/* LEFT: conversations column (reference layout: me → search → chats) */}
+      <aside className="scrollbar-none flex w-[400px] shrink-0 flex-col gap-4 overflow-y-auto p-4">
+        {/* me */}
+        <div className="flex flex-col items-center gap-1.5 pt-3 text-center">
+          <Avatar
+            name={me.username}
+            status={myFocus.focusing ? 'focusing' : 'online'}
+            photo={me.avatar_b64}
+            size="h-16 w-16"
+          />
+          <div className="mt-1 max-w-full truncate text-base font-extrabold text-text">
+            @{me.username}
+          </div>
+          <span
+            className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+              myFocus.focusing
+                ? 'bg-accent-dim text-accent'
+                : 'bg-surface-hover text-text-dim'
+            }`}
+          >
+            {myFocus.focusing ? t('home.lockedin').toUpperCase() : t('fr.online')}
+          </span>
+        </div>
 
+        {/* search / add */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             addFriend();
           }}
-          className="flex gap-1.5"
+          className="relative"
         >
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-faint"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            aria-hidden
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.2-3.2" />
+          </svg>
           <input
             value={addName}
             onChange={(e) => {
               setAddName(e.target.value);
               setAddMsg(null);
             }}
-            placeholder={t('fr.add.placeholder')}
+            placeholder={t('fr.search')}
             maxLength={21}
-            className="chunk-input min-w-0 flex-1 px-3 py-2 text-[13px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint"
+            className="w-full rounded-full border border-border bg-surface py-2.5 pl-9 pr-4 text-[13px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:border-accent focus:outline-none"
           />
-          <button
-            type="submit"
-            disabled={busy || !addName.trim()}
-            className="chunk-btn chunk-btn-accent px-3 py-2 text-xs"
-          >
-            +
-          </button>
         </form>
         {addMsg && (
           <div className={`px-1 text-[11px] font-bold ${addMsg.ok ? 'text-accent' : 'text-danger'}`}>
@@ -1076,25 +1169,77 @@ export function FriendsPage({
           </div>
         )}
 
-        {/* friends list — live people on top, capped so the column never
-            scroll-spirals; the full list lives in a modal */}
+        {/* unified conversations — DMs and groups merged, newest first */}
         <div className="space-y-0.5">
+          <div className="flex items-center justify-between px-1 pb-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
+              {t('fr.convos')}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setJoinLinkOpen(true)}
+                className="text-[11px] font-bold text-text-dim hover:text-text hover:underline"
+              >
+                {t('grp.join.link')}
+              </button>
+              {state.friends.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCreatingGroup(true)}
+                  className="text-[11px] font-bold text-accent hover:underline"
+                >
+                  + {t('grp.new')}
+                </button>
+              )}
+            </div>
+          </div>
           {state.friends.length === 0 && (
             <div className="flex flex-col items-center gap-2 py-8 text-center">
               <Mascot mood="think" size={52} />
               <span className="text-sm font-semibold text-text-faint">{t('fr.empty')}</span>
             </div>
           )}
-          {sortedFriends.slice(0, 7).map(friendRow)}
-          {sortedFriends.length > 7 && (
-            <button
-              type="button"
-              onClick={() => setAllFriendsOpen(true)}
-              className="w-full rounded-xl py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-text-faint hover:bg-surface-hover hover:text-text"
-            >
-              {t('fr.seeall', String(sortedFriends.length))}
-            </button>
-          )}
+          {(() => {
+            const q = addName.trim().replace(/^@/, '').toLowerCase();
+            const dms = sortedFriends
+              .filter((f) => !q || f.username.toLowerCase().includes(q))
+              .map((f) => ({
+                key: `f-${f.friendshipId}`,
+                ts: lastMsgs.get(f.userId)
+                  ? new Date(lastMsgs.get(f.userId)!.created_at).getTime()
+                  : 0,
+                node: friendRow(f),
+              }));
+            const grps = groupsHook.list
+              .filter((g) => !q || g.group.name.toLowerCase().includes(q))
+              .map((g) => ({
+                key: `g-${g.group.id}`,
+                ts: groupLastMsgs.get(g.group.id)
+                  ? new Date(groupLastMsgs.get(g.group.id)!.created_at).getTime()
+                  : 0,
+                node: groupRow(g),
+              }));
+            const all = [...dms, ...grps].sort((a, b) => b.ts - a.ts);
+            return (
+              <>
+                {all.map((c) => (
+                  <div key={c.key}>{c.node}</div>
+                ))}
+                {q &&
+                  !state.friends.some((f) => f.username.toLowerCase() === q) && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={addFriend}
+                      className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left text-[13px] font-bold text-accent hover:bg-surface-hover"
+                    >
+                      + {t('fr.addaction', addName.trim().replace(/^@/, ''))}
+                    </button>
+                  )}
+              </>
+            );
+          })()}
         </div>
 
         {/* active jams — group jams + friends currently jamming */}
@@ -1228,120 +1373,8 @@ export function FriendsPage({
           );
         })()}
 
-        {/* groups */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wide text-text-dim">
-              {t('grp.title')} ({groupsHook.list.length})
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setJoinLinkOpen(true)}
-                className="text-[11px] font-bold text-text-dim hover:text-text hover:underline"
-              >
-                {t('grp.join.link')}
-              </button>
-              {state.friends.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setCreatingGroup(true)}
-                  className="text-[11px] font-bold text-accent hover:underline"
-                >
-                  + {t('grp.new')}
-                </button>
-              )}
-            </div>
-          </div>
-          {groupsHook.list.map((g) => {
-            // headphones only when the jam is genuinely live (someone focusing),
-            // not just because a stale jam_started_at lingers
-            const jamOn =
-              !!g.group.jam_started_at &&
-              g.members.some(
-                (m) =>
-                  m.in_jam &&
-                  (m.user_id === me.user_id || social.isLive(soc.presence.get(m.user_id))),
-              );
-            return (
-              <button
-                key={g.group.id}
-                type="button"
-                onClick={() => openGroup(g.group.id)}
-                className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left ${
-                  groupOpen === g.group.id ? 'bg-surface-hover' : 'hover:bg-surface-hover'
-                }`}
-              >
-                {g.group.avatar_b64 ? (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-border-strong">
-                    <img src={g.group.avatar_b64} alt="" className="h-full w-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="flex -space-x-2">
-                    {g.members.slice(0, 3).map((m) => (
-                      <div
-                        key={m.user_id}
-                        className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 border-bg bg-surface text-[9px] font-extrabold uppercase text-text-dim"
-                      >
-                        {m.avatar ? (
-                          <img src={m.avatar} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          m.username.slice(0, 2)
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-bold text-text">
-                    {cleanProfanity(g.group.name)}
-                  </div>
-                  <div className="truncate text-[10px] font-semibold text-text-faint">
-                    {t('grp.members', String(g.members.length))}
-                  </div>
-                </div>
-                {jamOn && <HeadphonesIcon size={14} className="shrink-0 text-accent" />}
-              </button>
-            );
-          })}
-          {groupsHook.list.length === 0 && state.friends.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setCreatingGroup(true)}
-              className="chunk-btn chunk-btn-accent flex w-full items-center justify-center gap-2 py-3 text-[13px]"
-            >
-              + {t('grp.create.cta')}
-            </button>
-          )}
-        </div>
 
       </aside>
-
-      {/* full friends list modal */}
-      {allFriendsOpen && (
-        <div
-          className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6"
-          onMouseDown={(e) => e.target === e.currentTarget && setAllFriendsOpen(false)}
-        >
-          <div className="chunk animate-scale-in flex max-h-[80vh] w-full max-w-md flex-col p-4">
-            <div className="mb-2 flex items-center justify-between px-1">
-              <h2 className="text-base font-extrabold text-text">
-                {t('fr.title')} ({sortedFriends.length})
-              </h2>
-              <button
-                type="button"
-                onClick={() => setAllFriendsOpen(false)}
-                className="rounded-lg px-2 py-1 text-sm font-bold text-text-faint hover:text-text"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1">
-              {sortedFriends.map(friendRow)}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* right-click menu on a friend — Discord-style. Portaled to <body>:
           a transformed ancestor (tab-switch animation) turns position:fixed
@@ -1527,7 +1560,8 @@ export function FriendsPage({
       )}
 
       {/* RIGHT: chat / profile / placeholder */}
-      <main className="min-h-0 min-w-0 flex-1">
+      <main className="min-h-0 min-w-0 flex-1 py-4 pr-4">
+        <div className="h-full overflow-hidden rounded-3xl border border-border">
         {chattingFriend ? (
           (() => {
             const presRow = soc.presence.get(chattingFriend.userId);
@@ -1602,6 +1636,7 @@ export function FriendsPage({
             <p className="max-w-xs text-sm font-semibold text-text-faint">{t('fr.select')}</p>
           </div>
         )}
+        </div>
       </main>
 
       {/* third column: details rail for the open DM (wide windows only) */}

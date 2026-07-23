@@ -26,6 +26,9 @@ const dict: Record<string, { pt: string; en: string }> = {
 
   // friends
   'fr.title': { pt: 'Amigos', en: 'Friends' },
+  'fr.search': { pt: 'Buscar ou adicionar…', en: 'Search or add…' },
+  'fr.convos': { pt: 'Conversas', en: 'Chats' },
+  'fr.addaction': { pt: 'Adicionar @{0}', en: 'Add @{0}' },
   'fr.you': { pt: 'você é', en: "you're" },
   'fr.guest.title': { pt: 'Amigos precisam de conta', en: 'Friends need an account' },
   'fr.guest.body': {
