@@ -262,7 +262,7 @@ function Avatar({
   name,
   status,
   photo,
-  size = 'h-10 w-10',
+  size = 'h-12 w-12',
 }: {
   name: string;
   status: social.FriendStatus;
@@ -629,7 +629,7 @@ function ChatDetailsPanel({
     /* malformed records — zeros */
   }
   return (
-    <aside className="scrollbar-none my-4 mr-4 hidden w-[290px] shrink-0 flex-col gap-4 overflow-y-auto rounded-3xl bg-surface p-4 xl:flex">
+    <aside className="cascade scrollbar-none my-4 mr-4 hidden w-[290px] shrink-0 flex-col gap-4 overflow-y-auto rounded-3xl bg-surface p-4 xl:flex">
       <div className="flex flex-col items-center gap-1.5 rounded-2xl bg-bg/60 p-6 text-center">
         <Avatar name={friend.username} status={status} photo={friend.avatar} size="h-20 w-20" />
         <div className="mt-2 w-full truncate text-base font-extrabold text-text">
@@ -940,7 +940,7 @@ export function FriendsPage({
           });
         }}
         onKeyDown={(e) => e.key === 'Enter' && openChat(f)}
-        className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-2 py-2 ${
+        className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-2xl px-2.5 py-2.5 ${
           active ? 'bg-surface-hover' : 'hover:bg-surface-hover'
         }`}
       >
@@ -948,7 +948,7 @@ export function FriendsPage({
           <Avatar name={f.username} status={status} photo={f.avatar} />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-sm font-bold text-text">@{f.username}</span>
+              <span className="truncate text-[15px] font-bold text-text">@{f.username}</span>
               {lm && (
                 <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-text-faint">
                   {rowTime(lm.created_at)}
@@ -956,11 +956,11 @@ export function FriendsPage({
               )}
             </div>
             {isTyping ? (
-              <div className="truncate text-[11px] font-semibold italic text-accent">
+              <div className="truncate text-xs font-semibold italic text-accent">
                 {t('msg.typing')}
               </div>
             ) : lm ? (
-              <div className="flex items-center gap-1 text-[11px] font-medium text-text-dim">
+              <div className="flex items-center gap-1 text-xs font-medium text-text-dim">
                 {lm.mine &&
                   (lm.read_at ? (
                     <DoubleCheckIcon size={13} className="shrink-0 text-accent" />
@@ -973,7 +973,7 @@ export function FriendsPage({
                 </span>
               </div>
             ) : (
-              <div className={`truncate text-[11px] font-medium ${statusText(status)}`}>
+              <div className={`truncate text-xs font-medium ${statusText(status)}`}>
                 {statusLineFor(status, row, f.statusText, f.username)}
               </div>
             )}
@@ -1012,13 +1012,13 @@ export function FriendsPage({
       <button
         type="button"
         onClick={() => openGroup(g.group.id)}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl px-2 py-2 text-left ${
+        className={`flex w-full items-center justify-between gap-2 rounded-2xl px-2.5 py-2.5 text-left ${
           groupOpen === g.group.id ? 'bg-surface-hover' : 'hover:bg-surface-hover'
         }`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {g.group.avatar_b64 ? (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-strong">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-strong">
               <img src={g.group.avatar_b64} alt="" className="h-full w-full object-cover" />
             </div>
           ) : (
@@ -1039,7 +1039,7 @@ export function FriendsPage({
           )}
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-sm font-bold text-text">
+              <span className="truncate text-[15px] font-bold text-text">
                 {cleanProfanity(g.group.name)}
               </span>
               {glm && (
@@ -1048,7 +1048,7 @@ export function FriendsPage({
                 </span>
               )}
             </div>
-            <div className="truncate text-[11px] font-medium text-text-dim">{preview}</div>
+            <div className="truncate text-xs font-medium text-text-dim">{preview}</div>
           </div>
         </div>
         {jamOn && <HeadphonesIcon size={14} className="shrink-0 text-accent" />}
@@ -1058,7 +1058,7 @@ export function FriendsPage({
   return (
     <div className="flex h-full min-h-0">
       {/* LEFT: conversations column (reference layout: me → search → chats) */}
-      <aside className="scrollbar-none m-4 mr-0 flex w-[400px] shrink-0 flex-col gap-4 overflow-y-auto rounded-3xl bg-surface p-4">
+      <aside className="cascade scrollbar-none m-4 mr-0 flex w-[400px] shrink-0 flex-col gap-4 overflow-y-auto rounded-3xl bg-surface p-4">
         {/* me */}
         <div className="flex flex-col items-center gap-1.5 pt-3 text-center">
           <Avatar
@@ -1560,7 +1560,7 @@ export function FriendsPage({
       )}
 
       {/* RIGHT: chat / profile / placeholder */}
-      <main className="min-h-0 min-w-0 flex-1 p-4">
+      <main className="animate-fade-in min-h-0 min-w-0 flex-1 p-4">
         <div className="h-full overflow-hidden rounded-3xl bg-black/25">
         {chattingFriend ? (
           (() => {

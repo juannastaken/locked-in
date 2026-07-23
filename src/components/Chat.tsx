@@ -1158,7 +1158,7 @@ export function ChatView({
                       }
                       return (
                         <div
-                          className={`bubble-shadow relative rounded-2xl px-4 py-2.5 text-[15px] font-medium leading-relaxed ${
+                          className={`bubble-shadow relative rounded-2xl px-4 py-3 text-base font-medium leading-relaxed ${
                             m.mine
                               ? 'rounded-br-md bg-white/[0.08] text-text'
                               : 'rounded-bl-md bg-surface text-text'
@@ -1212,7 +1212,7 @@ export function ChatView({
                     </div>
                   ) : (
                     <div
-                      className={`bubble-shadow relative rounded-2xl px-4 py-2.5 text-[15px] font-medium leading-relaxed ${
+                      className={`bubble-shadow relative rounded-2xl px-4 py-3 text-base font-medium leading-relaxed ${
                         m.mine
                           ? `${theme ? 'text-bg' : 'bg-white/[0.08] text-text'} ${firstOfGroup ? '' : 'rounded-tr-md'} rounded-br-md`
                           : `bg-surface text-text ${firstOfGroup ? '' : 'rounded-tl-md'} rounded-bl-md`
@@ -1671,7 +1671,7 @@ export function ChatView({
           placeholder={t('msg.placeholder')}
           maxLength={chat.MESSAGE_MAX_CHARS}
           autoFocus
-          className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[15px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none"
         />
         {recording ? (
           <button

@@ -1088,7 +1088,7 @@ export function GroupView({
                     </div>
                   ) : (
                     <div
-                      className={`bubble-shadow rounded-2xl px-4 py-2.5 text-[15px] font-medium leading-relaxed ${
+                      className={`bubble-shadow rounded-2xl px-4 py-3 text-base font-medium leading-relaxed ${
                         m.mine
                           ? `rounded-br-md ${theme ? 'text-bg' : 'bg-white/[0.08] text-text'} ${firstOfGroup ? '' : 'rounded-tr-md'}`
                           : `rounded-bl-md bg-surface text-text ${firstOfGroup ? '' : 'rounded-tl-md'}`
@@ -1453,7 +1453,7 @@ export function GroupView({
             }}
             placeholder={t('msg.placeholder.group')}
             maxLength={2000}
-            className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[15px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none"
           />
           {recording ? (
             <button
