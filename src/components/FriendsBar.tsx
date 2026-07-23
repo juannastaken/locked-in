@@ -82,11 +82,7 @@ export function FriendsBar({
     // expanded (64) — no more instant jumps when collapsing or changing tabs
     <aside
       className={`flex shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-out ${
-        hidden
-          ? 'w-0 border-l-0'
-          : collapsed
-            ? 'w-7 border-l border-border'
-            : 'w-64 border-l border-border'
+        hidden ? 'w-0' : collapsed ? 'w-7' : 'w-64'
       }`}
     >
       {collapsed ? (

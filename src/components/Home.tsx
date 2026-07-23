@@ -144,7 +144,7 @@ export function Home({
         ? 'text-accent'
         : 'text-text';
     return (
-      <div className="group/focus relative isolate flex h-full flex-col items-center justify-center gap-6 px-6">
+      <div className="group/focus cascade relative isolate flex h-full flex-col items-center justify-center gap-6 px-6">
         {/* ambient accent glow, centered behind the running session */}
         <div
           aria-hidden
@@ -543,7 +543,7 @@ export function Home({
             'radial-gradient(circle 63vh at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 72%)',
         }}
       />
-    <div className="flex min-h-full flex-col items-center justify-center px-6 py-5">
+    <div className="cascade flex min-h-full flex-col items-center justify-center px-6 py-5">
       <div className="mb-2 text-sm text-text-dim">
         {greeting}
         {name ? `, ${name}` : ''}

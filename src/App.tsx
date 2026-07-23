@@ -17,8 +17,6 @@ import { consumeWarmReload, warmReload } from './lib/reload';
 const warmBoot = consumeWarmReload();
 import { HabitsPage } from './components/Habits';
 import { Home } from './components/Home';
-import { Log } from './components/Log';
-import { Stats } from './components/Stats';
 import { CommandPalette } from './components/CommandPalette';
 import type { Command } from './components/CommandPalette';
 import { ProfilePage } from './components/Profile';
@@ -156,7 +154,6 @@ function AppShell() {
   });
   const [tab, setTab] = useState<Tab>('home');
   const [routineSub, setRoutineSub] = useState<'checkin' | 'habits'>('checkin');
-  const [analyticsSub, setAnalyticsSub] = useState<'week' | 'stats' | 'log'>('week');
   const [refreshKey, setRefreshKey] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -2167,22 +2164,6 @@ function AppShell() {
                   setRoutineSub('habits');
                 },
               },
-              {
-                id: 'stats',
-                label: t('tab.stats'),
-                run: () => {
-                  setTab('analytics');
-                  setAnalyticsSub('stats');
-                },
-              },
-              {
-                id: 'log',
-                label: t('tab.log'),
-                run: () => {
-                  setTab('analytics');
-                  setAnalyticsSub('log');
-                },
-              },
             ] satisfies Command[]
           }
         />
@@ -2227,30 +2208,11 @@ function AppShell() {
           </div>
         )}
         {tab === 'analytics' && (
-          <div className="flex h-full min-h-0 flex-col">
-            <SubTabs
-              value={analyticsSub}
-              onChange={setAnalyticsSub}
-              options={[
-                { id: 'week', labelKey: 'tab.week' },
-                { id: 'stats', labelKey: 'tab.stats' },
-                { id: 'log', labelKey: 'tab.log' },
-              ]}
-            />
-            <div className="min-h-0 flex-1">
-              {analyticsSub === 'week' && (
-                <Week
-                  onError={onError}
-                  refreshKey={refreshKey}
-                  dailyGoalHours={settingsHook.settings?.daily_goal_hours ?? 4}
-                />
-              )}
-              {analyticsSub === 'stats' && (
-                <Stats settings={settingsHook.settings} onError={onError} refreshKey={refreshKey} />
-              )}
-              {analyticsSub === 'log' && <Log onError={onError} refreshKey={refreshKey} />}
-            </div>
-          </div>
+          <Week
+            onError={onError}
+            refreshKey={refreshKey}
+            dailyGoalHours={settingsHook.settings?.daily_goal_hours ?? 4}
+          />
         )}
         {tab === 'goals' && <GoalsPage onError={onError} refreshKey={refreshKey} />}
         {tab === 'profile' && (

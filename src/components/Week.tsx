@@ -16,11 +16,27 @@ interface WeekProps {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HEATMAP_WEEKS = 53; // full GitHub-style year
 
 function addDays(key: string, n: number): string {
   const d = new Date(key + 'T00:00:00');
   d.setDate(d.getDate() + n);
   return localDayKey(d);
+}
+
+function isoDateNDaysAgo(n: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - n);
+  return localDayKey(d);
+}
+
+function heatColor(hours: number): string {
+  if (hours <= 0) return 'var(--color-surface-2)';
+  if (hours < 1) return 'rgba(212, 255, 63, 0.22)';
+  if (hours < 2) return 'rgba(212, 255, 63, 0.42)';
+  if (hours < 4) return 'rgba(212, 255, 63, 0.68)';
+  return 'var(--color-accent)';
 }
 
 export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
@@ -32,6 +48,8 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [breaks, setBreaks] = useState<Break[]>([]);
   const [historyTotals, setHistoryTotals] = useState<Map<string, number>>(new Map());
+  // click a day row → its blocks expand below the chart
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   const today = todayKey();
   const currentWeekStart = weekStartOf(today);
@@ -65,7 +83,8 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
         toIso: new Date(rangeEndExclusive + 'T00:00:00').toISOString(),
       }),
       db.listBreaksSince(new Date(rangeStart + 'T00:00:00').toISOString()),
-      db.getDailyTotals(new Date(Date.now() - 70 * DAY_MS).toISOString()),
+      // one year of daily totals: feeds the weekday averages AND the heatmap
+      db.getDailyTotals(new Date(Date.now() - HEATMAP_WEEKS * 7 * DAY_MS).toISOString()),
     ])
       .then(([s, b, totals]) => {
         setSessions(s);
@@ -164,7 +183,6 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
 
   const goalSec = dailyGoalHours * 3600;
   const daysGoalMet = weekDays.filter((d) => daySec(d) >= goalSec).length;
-  const pastOrToday = weekDays.filter((d) => d <= today).length;
   let bestDayKey: string | null = null;
   let bestDaySec = 0;
   for (const d of weekDays) {
@@ -321,8 +339,18 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
             </button>
           </div>
           <div className="text-right">
-            <div className="font-mono text-2xl font-medium tabular-nums text-accent">
-              {formatDurationShort(weekTotal)}
+            <div className="flex items-baseline justify-end gap-2.5">
+              {weekAvgRating !== null && (
+                <span
+                  className="font-mono text-sm font-medium tabular-nums text-text-dim"
+                  title={t('week.avgfocus')}
+                >
+                  ★{weekAvgRating.toFixed(1)}
+                </span>
+              )}
+              <span className="font-mono text-2xl font-medium tabular-nums text-accent">
+                {formatDurationShort(weekTotal)}
+              </span>
             </div>
             {/* always render this line (empty when there's nothing to compare)
                 so the header height is identical in Week and Month — otherwise
@@ -339,41 +367,6 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
                 ? t('week.vsavg', `${vsAvgPct >= 0 ? '+' : ''}${vsAvgPct}`)
                 : ' '}
             </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-border bg-surface p-4">
-            <div
-              className={`font-mono text-xl font-medium tabular-nums ${daysGoalMet > 0 ? 'text-accent' : 'text-text'}`}
-            >
-              {daysGoalMet}
-              <span className="text-xs text-text-faint">/{pastOrToday}</span>
-            </div>
-            <div className="mt-0.5 text-[11px] text-text-dim">
-              {t('week.goaldays', String(dailyGoalHours))}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface p-4">
-            <div className="font-mono text-xl font-medium tabular-nums text-text">
-              {bestDayKey
-                ? mode === 'week'
-                  ? WEEKDAY_NAMES[weekDays.indexOf(bestDayKey)]
-                  : t('month.day', String(parseInt(bestDayKey.slice(8, 10), 10)))
-                : '—'}
-              {bestDayKey && (
-                <span className="ml-1.5 text-xs text-text-faint">
-                  {formatDurationShort(bestDaySec)}
-                </span>
-              )}
-            </div>
-            <div className="mt-0.5 text-[11px] text-text-dim">{t('week.bestday')}</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-surface p-4">
-            <div className="font-mono text-xl font-medium tabular-nums text-text">
-              {weekAvgRating !== null ? `★${weekAvgRating.toFixed(1)}` : '—'}
-            </div>
-            <div className="mt-0.5 text-[11px] text-text-dim">{t('week.avgfocus')}</div>
           </div>
         </div>
 
@@ -456,8 +449,21 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
             dayStart.setHours(windowStartHour, 0, 0, 0);
             const dayEnd = new Date(day + 'T00:00:00');
             dayEnd.setHours(24, 0, 0, 0);
+            const expanded = expandedDay === day;
             return (
-              <div key={day} className={`flex items-center gap-3 ${isFuture ? 'opacity-35' : ''}`}>
+              <div
+                key={day}
+                role="button"
+                tabIndex={0}
+                onClick={() => !isFuture && setExpandedDay(expanded ? null : day)}
+                onKeyDown={(e) =>
+                  e.key === 'Enter' && !isFuture && setExpandedDay(expanded ? null : day)
+                }
+                title={undefined}
+                className={`-mx-1.5 flex cursor-pointer items-center gap-3 rounded-lg px-1.5 py-px transition-colors ${
+                  isFuture ? 'cursor-default opacity-35' : expanded ? 'bg-surface-hover' : 'hover:bg-surface-hover/60'
+                }`}
+              >
                 <div className="w-9 shrink-0 text-right">
                   <div
                     className={`text-xs ${day === today ? 'font-semibold text-accent' : 'text-text-dim'}`}
@@ -508,6 +514,67 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
         )}
         </div>
 
+        {/* clicked day → its blocks, right under the chart */}
+        {expandedDay && mode === 'week' && (
+          <section className="animate-fade-up">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="text-xs font-medium uppercase tracking-[0.12em] text-text-faint">
+                {new Date(expandedDay + 'T00:00:00').toLocaleDateString(dateLocale(), {
+                  weekday: 'long',
+                  day: '2-digit',
+                  month: '2-digit',
+                })}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setExpandedDay(null)}
+                className="text-xs font-semibold text-text-faint hover:text-text"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="cascade space-y-1.5">
+              {sessions
+                .filter((s) => dateKey(s.started_at) === expandedDay)
+                .map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3"
+                  >
+                    <span className="w-24 shrink-0 font-mono text-xs tabular-nums text-text-faint">
+                      {new Date(s.started_at).toLocaleTimeString(dateLocale(), {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      {s.ended_at &&
+                        ` – ${new Date(s.ended_at).toLocaleTimeString(dateLocale(), {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}`}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-text">
+                      {s.task}
+                      {s.project && (
+                        <span className="ml-1.5 font-medium text-text-faint">· {s.project}</span>
+                      )}
+                    </span>
+                    {s.focus_rating != null && (
+                      <span className="shrink-0 text-xs text-text-dim">★{s.focus_rating}</span>
+                    )}
+                    <span className="w-14 shrink-0 text-right font-mono text-xs font-semibold tabular-nums text-text">
+                      {s.duration_sec ? formatDurationShort(s.duration_sec) : '—'}
+                    </span>
+                  </div>
+                ))}
+              {sessions.filter((s) => dateKey(s.started_at) === expandedDay).length === 0 && (
+                <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-center text-xs text-text-faint">
+                  {t('ov.none')}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {topApps.length > 0 && (
           <section>
             <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.12em] text-text-faint">
@@ -534,6 +601,80 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
             </div>
           </section>
         )}
+
+        {/* GitHub-style year heatmap (merged in from the old Stats tab) */}
+        <section>
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.12em] text-text-faint">
+            {t('stats.6months')}
+          </h2>
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            {(() => {
+              const wd = WEEKDAY_NAMES;
+              const WEEKDAY_LABELS = ['', wd[0], '', wd[2], '', wd[4], ''];
+              const totalDays = HEATMAP_WEEKS * 7;
+              const days: { date: string; hours: number }[] = [];
+              for (let i = totalDays - 1; i >= 0; i--) {
+                const key = isoDateNDaysAgo(i);
+                days.push({ date: key, hours: (historyTotals.get(key) ?? 0) / 3600 });
+              }
+              const padStart = new Date(days[0].date + 'T00:00:00').getDay();
+              const cells: ({ date: string; hours: number } | null)[] = [
+                ...Array.from({ length: padStart }, () => null),
+                ...days,
+              ];
+              while (cells.length % 7 !== 0) cells.push(null);
+              const weekCols: (typeof cells)[] = [];
+              for (let i = 0; i < cells.length; i += 7) {
+                weekCols.push(cells.slice(i, i + 7));
+              }
+              return (
+                <>
+                  <div className="flex gap-[3px] overflow-x-auto pb-1">
+                    <div className="mr-1 flex shrink-0 flex-col gap-[3px]">
+                      {WEEKDAY_LABELS.map((label, i) => (
+                        <span
+                          key={i}
+                          className="flex h-[13px] w-6 items-center text-[9px] leading-none text-text-faint"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                    {weekCols.map((week, wi) => (
+                      <div key={wi} className="flex shrink-0 flex-col gap-[3px]">
+                        {week.map((cell, di) =>
+                          cell ? (
+                            <div
+                              key={cell.date}
+                              title={`${new Date(cell.date + 'T00:00:00').toLocaleDateString(dateLocale())} · ${cell.hours.toFixed(1)}h`}
+                              className={`h-[13px] w-[13px] rounded-[3px] ${
+                                cell.date === today ? 'ring-1 ring-text-dim' : ''
+                              }`}
+                              style={{ backgroundColor: heatColor(cell.hours) }}
+                            />
+                          ) : (
+                            <div key={`pad-${wi}-${di}`} className="h-[13px] w-[13px]" />
+                          ),
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex items-center justify-end gap-1.5 text-[10px] text-text-faint">
+                    <span>{t('stats.less')}</span>
+                    {[0, 0.5, 1.5, 3, 5].map((h) => (
+                      <span
+                        key={h}
+                        className="h-[10px] w-[10px] rounded-[2px]"
+                        style={{ backgroundColor: heatColor(h) }}
+                      />
+                    ))}
+                    <span>{t('stats.more')}</span>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </section>
       </div>
     </div>
   );
