@@ -147,7 +147,7 @@ function JamDetailModal({
 
   const meIn = detail.names.some((n) => n.toLowerCase() === myUsername.toLowerCase());
 
-  return (
+  return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
@@ -204,7 +204,8 @@ function JamDetailModal({
           {t('misc.close')}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1464,7 +1465,8 @@ export function FriendsPage({
       )}
 
       {/* join group by invite link/code */}
-      {joinLinkOpen && (
+      {joinLinkOpen &&
+        createPortal(
         <div
           className="animate-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6"
           onMouseDown={(e) => e.target === e.currentTarget && setJoinLinkOpen(false)}
@@ -1496,7 +1498,8 @@ export function FriendsPage({
               {t('misc.cancel')}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {confirmUnfriend && (
@@ -1704,7 +1707,7 @@ function ReportModal({
 }) {
   const [reason, setReason] = useState<string>('spam');
   const [detail, setDetail] = useState('');
-  return (
+  return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-[80] flex items-center justify-center bg-black/80 px-6"
       onMouseDown={(e) => e.target === e.currentTarget && onCancel()}
@@ -1752,6 +1755,7 @@ function ReportModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

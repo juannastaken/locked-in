@@ -1,4 +1,5 @@
 import { getLang } from '../lib/i18n';
+import { createPortal } from 'react-dom';
 
 // Legal texts (ToS + Privacy), PT + EN, drafted for Brazilian law (CDC +
 // LGPD) with GDPR touchpoints. Solid and launch-ready, but have a licensed
@@ -371,7 +372,7 @@ export function legalText(doc: LegalDoc): string {
 }
 
 export function LegalModal({ doc, onClose }: { doc: LegalDoc; onClose: () => void }) {
-  return (
+  return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-[80] flex items-center justify-center bg-black/80 px-6"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
@@ -393,6 +394,7 @@ export function LegalModal({ doc, onClose }: { doc: LegalDoc; onClose: () => voi
           {legalText(doc)}
         </pre>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,4 +1,5 @@
 import type { Badge } from '../lib/badges';
+import { createPortal } from 'react-dom';
 import { getLang, t } from '../lib/i18n';
 
 interface BadgeModalProps {
@@ -10,7 +11,7 @@ interface BadgeModalProps {
 /** Click-a-badge info popup: what it is and how to earn it. */
 export function BadgeModal({ badge, unlocked, onClose }: BadgeModalProps) {
   const label = getLang() === 'en' ? badge.labelEn : badge.labelPt;
-  return (
+  return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-black/75 px-6"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
@@ -42,6 +43,7 @@ export function BadgeModal({ badge, unlocked, onClose }: BadgeModalProps) {
           {t('misc.close')}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

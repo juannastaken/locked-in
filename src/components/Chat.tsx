@@ -1461,7 +1461,8 @@ export function ChatView({
         </button>
       )}
 
-      {micAsk && (
+      {micAsk &&
+        createPortal(
         <div
           className="animate-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-6"
           onMouseDown={(e) => e.target === e.currentTarget && setMicAsk(false)}
@@ -1493,7 +1494,8 @@ export function ChatView({
               {t('misc.cancel')}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {viewImg && (

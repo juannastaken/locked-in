@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { UseSettings } from '../hooks/useSettings';
@@ -729,7 +730,8 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
 
       {legal && <LegalModal doc={legal} onClose={() => setLegal(null)} />}
 
-      {logoutOpen && (
+      {logoutOpen &&
+        createPortal(
         <div
           className="animate-fade-in fixed inset-0 z-[80] flex items-center justify-center bg-black/80 px-6"
           onMouseDown={(e) => e.target === e.currentTarget && setLogoutOpen(false)}
@@ -757,10 +759,12 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {deleteOpen && (
+      {deleteOpen &&
+        createPortal(
         <div
           className="animate-fade-in fixed inset-0 z-[80] flex items-center justify-center bg-black/80 px-6"
           onMouseDown={(e) => e.target === e.currentTarget && setDeleteOpen(false)}
@@ -797,7 +801,8 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
