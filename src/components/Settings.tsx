@@ -277,7 +277,7 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="cascade mx-auto max-w-lg space-y-7 px-6 pb-10 pt-6">
+      <div className="cascade mx-auto max-w-2xl space-y-7 px-6 pb-10 pt-8 xl:max-w-3xl">
         <Section title={t('acc.section')}>
           {account ? (
             <>

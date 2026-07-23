@@ -49,6 +49,12 @@ const NAV_ICONS: Record<string, ReactNode> = {
       <path d="M17 4v5a5 5 0 0 1-10 0V4z" />
     </svg>
   ),
+  settings: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  ),
 };
 
 interface TitlebarProps {
@@ -220,25 +226,6 @@ export function Titlebar({
       data-tauri-drag-region
       className="relative flex h-[72px] shrink-0 select-none items-stretch gap-2 pl-2"
     >
-      {/* left: settings gear only */}
-      <div data-tauri-drag-region className="flex items-center">
-        <button
-          type="button"
-          onClick={() => onTab('settings')}
-          title={t('tab.settings')}
-          className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
-            tab === 'settings'
-              ? 'bg-surface-hover text-text'
-              : 'text-text-dim hover:bg-surface-hover hover:text-text'
-          }`}
-        >
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-        </button>
-      </div>
-
       {/* center: floating pill nav — absolutely centered on the WINDOW so it
           lines up with the page sub-tabs below, regardless of how wide the
           gear/profile clusters are */}
@@ -258,7 +245,7 @@ export function Titlebar({
             className="pointer-events-none absolute top-1.5 h-11 rounded-full bg-accent"
             style={{ left: 0, width: ACTIVE_W, opacity: 0, transition: IND_TWEEN }}
           />
-          {tabs.map((tabDef) => {
+          {[...tabs, { id: 'settings', labelKey: 'tab.settings' }].map((tabDef) => {
             const active = tab === tabDef.id;
             const pending = tabDef.id === 'friends' ? (social.state?.incoming.length ?? 0) : 0;
             return (
