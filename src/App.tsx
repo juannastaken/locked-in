@@ -1297,7 +1297,10 @@ function AppShell() {
     const startedAt = new Date(Number(epoch) * 1000).toISOString();
     jam.send(uid, uname, 'request', task, startedAt).then((err) => {
       if (err === 'pending') pushToast(t('jam.pending', uname), 'info');
-      else if (err) onError(err);
+      // RLS refuses inserts between non-friends — friendly message, not a raw 42501
+      else if (err && /security|policy|42501/i.test(err)) {
+        pushToast(t('jam.needfriend', uname), 'error');
+      } else if (err) onError(err);
       else pushToast(t('jam.sent.toast', uname), 'info');
     });
   };

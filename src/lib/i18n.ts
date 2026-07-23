@@ -1163,6 +1163,10 @@ const dict: Record<string, { pt: string; en: string }> = {
   },
   'dp.idle': { pt: 'Ocioso', en: 'Idle' },
   'dp.today': { pt: '{0} de foco hoje', en: '{0} focused today' },
+  'jam.needfriend': {
+    pt: 'Adiciona @{0} no Locked In primeiro — JAM é só entre amigos.',
+    en: 'Add @{0} on Locked In first — JAMs are friends-only.',
+  },
   'dp.focusing': { pt: 'Focando', en: 'Focusing' },
   'dp.paused': { pt: 'Pausado', en: 'Paused' },
   'dp.break': { pt: 'Em pausa', en: 'On a break' },

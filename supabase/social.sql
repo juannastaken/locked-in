@@ -187,9 +187,20 @@ create policy jam_select on public.jam_invites
   for select to authenticated using (auth.uid() in (from_user, to_user));
 
 drop policy if exists jam_insert on public.jam_invites;
+-- friendship required: the Discord join secret hands out user ids, so without
+-- this check any authenticated stranger could spam jam requests at a host
 create policy jam_insert on public.jam_invites
   for insert to authenticated
-  with check (auth.uid() = from_user and status = 'pending');
+  with check (
+    auth.uid() = from_user
+    and status = 'pending'
+    and exists (
+      select 1 from public.friendships f
+      where f.status = 'accepted'
+        and ((f.requester = from_user and f.addressee = to_user)
+          or (f.requester = to_user and f.addressee = from_user))
+    )
+  );
 
 -- only the receiver answers, and only pending rows
 drop policy if exists jam_answer on public.jam_invites;
