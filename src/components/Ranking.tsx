@@ -205,29 +205,27 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
           </div>
         </div>
 
-        <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-          {/* LEFT: podium + positions 4–10 */}
-          <div className="flex flex-col gap-5">
-            <div className="flex items-end justify-center gap-3">
+        {/* podium: full-width, centered over everything */}
+        <div className="mt-6 flex items-end justify-center gap-4">
               {podiumOrder.map((e) => {
                 const place = ranking.indexOf(e);
                 const first = place === 0;
                 return (
                   <div
                     key={e.userId}
-                    className={`chunk flex w-36 flex-col items-center gap-1.5 px-3 pt-4 ${
-                      first ? 'h-[196px]' : 'h-[176px]'
+                    className={`chunk flex w-44 flex-col items-center gap-2 px-3 pt-5 ${
+                      first ? 'h-[224px]' : 'h-[198px]'
                     } ${e.isMe ? 'border-accent/60' : ''}`}
                   >
                     <Avatar
                       src={e.avatar}
                       name={e.username}
-                      size={first ? 'h-16 w-16' : 'h-12 w-12'}
+                      size={first ? 'h-20 w-20' : 'h-14 w-14'}
                       live={e.live}
                     />
-                    <div className="text-xl leading-none">{medals[place]}</div>
+                    <div className="text-2xl leading-none">{medals[place]}</div>
                     <div
-                      className={`w-full truncate text-center text-[13px] font-extrabold ${
+                      className={`w-full truncate text-center text-sm font-extrabold ${
                         e.isMe ? 'text-accent' : 'text-text'
                       }`}
                     >
@@ -235,25 +233,29 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
                     </div>
                     <AnimatedDuration
                       sec={secOf(e)}
-                      className="font-mono text-[12px] font-bold tabular-nums text-text-dim"
+                      className="font-mono text-[13px] font-bold tabular-nums text-text-dim"
                     />
                   </div>
                 );
               })}
-            </div>
+        </div>
+
+        <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+          {/* LEFT: positions 4–10 */}
+          <div className="flex flex-col gap-5">
 
             {rest.length > 0 && (
-            <div className="chunk space-y-2.5 p-4">
+            <div className="chunk space-y-3.5 p-5">
               {rest.map((e, i) => (
                 <div key={e.userId} className="flex items-center gap-3">
-                  <span className="w-6 shrink-0 text-center font-mono text-[12px] font-extrabold text-text-faint">
+                  <span className="w-7 shrink-0 text-center font-mono text-[13px] font-extrabold text-text-faint">
                     {i + 4}
                   </span>
-                  <Avatar src={e.avatar} name={e.username} size="h-8 w-8" live={e.live} />
+                  <Avatar src={e.avatar} name={e.username} size="h-10 w-10" live={e.live} />
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-baseline justify-between gap-2">
                       <span
-                        className={`truncate text-[13px] font-extrabold ${
+                        className={`truncate text-sm font-extrabold ${
                           e.isMe ? 'text-accent' : 'text-text'
                         }`}
                       >
@@ -261,10 +263,10 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
                       </span>
                       <AnimatedDuration
                         sec={secOf(e)}
-                        className="shrink-0 font-mono text-[12px] font-bold tabular-nums text-text-dim"
+                        className="shrink-0 font-mono text-[13px] font-bold tabular-nums text-text-dim"
                       />
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
+                    <div className="h-2 overflow-hidden rounded-full bg-surface-hover">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
                           e.isMe ? 'bg-accent' : 'bg-border-strong'
@@ -280,15 +282,15 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
           </div>
 
           {/* RIGHT: my position + squad stats */}
-          <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-4">
             {mine && (
-              <div className="chunk flex items-center gap-4 p-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-dim font-mono text-lg font-extrabold text-accent">
+              <div className="chunk flex items-center gap-4 p-5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-dim font-mono text-xl font-extrabold text-accent">
                   #{myIdx + 1}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[13px] font-extrabold text-text">{t('rank.you')}</div>
-                  <div className="truncate text-[12px] text-text-faint">
+                  <div className="text-sm font-extrabold text-text">{t('rank.you')}</div>
+                  <div className="truncate text-[13px] text-text-faint">
                     {myIdx === 0
                       ? t('rank.leader')
                       : t(
@@ -301,35 +303,35 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
               </div>
             )}
 
-            <div className="chunk p-4">
-              <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-faint">
+            <div className="chunk p-5">
+              <div className="text-[11px] font-extrabold uppercase tracking-wide text-text-faint">
                 {t('rank.sum')}
               </div>
               <AnimatedDuration
                 sec={sum}
-                className="mt-1 block font-mono text-xl font-extrabold tabular-nums text-text"
+                className="mt-1.5 block font-mono text-2xl font-extrabold tabular-nums text-text"
               />
             </div>
-            <div className="chunk p-4">
-              <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-faint">
+            <div className="chunk p-5">
+              <div className="text-[11px] font-extrabold uppercase tracking-wide text-text-faint">
                 {t('rank.avg')}
               </div>
               <AnimatedDuration
                 sec={avg}
-                className="mt-1 block font-mono text-xl font-extrabold tabular-nums text-text"
+                className="mt-1.5 block font-mono text-2xl font-extrabold tabular-nums text-text"
               />
             </div>
-            <div className="chunk p-4">
-              <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-faint">
+            <div className="chunk p-5">
+              <div className="text-[11px] font-extrabold uppercase tracking-wide text-text-faint">
                 {t('rank.bestday')}
               </div>
               {bestDayHolder && bestDayHolder.bestDay > 0 ? (
                 <>
-                  <div className="mt-1 font-mono text-xl font-extrabold tabular-nums text-text">
+                  <div className="mt-1.5 font-mono text-2xl font-extrabold tabular-nums text-text">
                     {formatDurationShort(bestDayHolder.bestDay)}
                   </div>
                   <div
-                    className={`truncate text-[11px] font-bold ${
+                    className={`truncate text-[12px] font-bold ${
                       bestDayHolder.isMe ? 'text-accent' : 'text-text-dim'
                     }`}
                   >
@@ -337,20 +339,20 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
                   </div>
                 </>
               ) : (
-                <div className="mt-1 text-xl font-extrabold text-text-faint">—</div>
+                <div className="mt-1.5 text-2xl font-extrabold text-text-faint">—</div>
               )}
             </div>
-            <div className="chunk p-4">
-              <div className="text-[10px] font-extrabold uppercase tracking-wide text-text-faint">
+            <div className="chunk p-5">
+              <div className="text-[11px] font-extrabold uppercase tracking-wide text-text-faint">
                 {t('rank.bestsession')}
               </div>
               {bestSessionHolder && bestSessionHolder.bestSession > 0 ? (
                 <>
-                  <div className="mt-1 font-mono text-xl font-extrabold tabular-nums text-text">
+                  <div className="mt-1.5 font-mono text-2xl font-extrabold tabular-nums text-text">
                     {formatDurationShort(bestSessionHolder.bestSession)}
                   </div>
                   <div
-                    className={`truncate text-[11px] font-bold ${
+                    className={`truncate text-[12px] font-bold ${
                       bestSessionHolder.isMe ? 'text-accent' : 'text-text-dim'
                     }`}
                   >
@@ -358,7 +360,7 @@ export function RankingPage({ soc, signedIn }: { soc: SocialHook; signedIn: bool
                   </div>
                 </>
               ) : (
-                <div className="mt-1 text-xl font-extrabold text-text-faint">—</div>
+                <div className="mt-1.5 text-2xl font-extrabold text-text-faint">—</div>
               )}
             </div>
           </div>
