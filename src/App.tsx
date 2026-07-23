@@ -768,35 +768,6 @@ function AppShell() {
     if (focus.error) onError(focus.error);
   }, [focus.error, onError]);
 
-  // discord rich presence mirrors the focus state (project + elapsed timer)
-  useEffect(() => {
-    const enabled = settingsHook.settings?.discord_presence_enabled ?? true;
-    if (!enabled) {
-      invoke('discord_presence', { details: '', state: '', startEpoch: null, clear: true }).catch(
-        () => {},
-      );
-      return;
-    }
-    const sess = focus.activeSession;
-    let details = '';
-    let state = t('dp.idle');
-    let startEpoch: number | null = null;
-    if (sess && (focus.phase === 'focusing' || focus.phase === 'paused')) {
-      details = sess.task || t('dp.focusing');
-      state = focus.phase === 'paused' ? t('dp.paused') : sess.project || t('dp.focusing');
-      if (focus.phase === 'focusing') {
-        startEpoch = Math.floor(new Date(sess.started_at).getTime() / 1000);
-      }
-    } else if (focus.phase === 'break') {
-      state = t('dp.break');
-    }
-    invoke('discord_presence', { details, state, startEpoch, clear: false }).catch(() => {});
-  }, [
-    focus.phase,
-    focus.activeSession,
-    settingsHook.settings?.discord_presence_enabled,
-    settingsHook.settings?.language,
-  ]);
 
   const prevPhase = useRef(focus.phase);
   useEffect(() => {
@@ -822,6 +793,61 @@ function AppShell() {
     todaySec +
     (focus.phase === 'focusing' || focus.phase === 'paused' ? focus.todayElapsedSec : 0);
   const goalProgress = Math.min(1, liveTodaySec / goalSec);
+
+  // discord rich presence: app name / project line / elapsed timer.
+  // JAM sessions surface the real party size (max 5); idle shows today's total.
+  useEffect(() => {
+    const enabled = settingsHook.settings?.discord_presence_enabled ?? true;
+    if (!enabled) {
+      invoke('discord_presence', {
+        details: '',
+        state: '',
+        startEpoch: null,
+        partyCount: null,
+        partyMax: null,
+        clear: true,
+      }).catch(() => {});
+      return;
+    }
+    const sess = focus.activeSession;
+    let details = '';
+    let state = '';
+    let startEpoch: number | null = null;
+    let partyCount: number | null = null;
+    let partyMax: number | null = null;
+    if (sess && (focus.phase === 'focusing' || focus.phase === 'paused')) {
+      details = sess.project || sess.task || '';
+      if (focus.phase === 'paused') state = t('dp.paused');
+      if (focus.jam) {
+        partyCount = focus.jam.members.length;
+        partyMax = 5;
+      }
+      if (focus.phase === 'focusing') {
+        startEpoch = Math.floor(new Date(sess.started_at).getTime() / 1000);
+      }
+    } else if (focus.phase === 'break') {
+      state = t('dp.break');
+    } else {
+      // todaySec (db total) instead of the live ticking value — while idle they
+      // match, and it keeps this effect from re-firing every second
+      state = todaySec > 0 ? t('dp.today', formatDurationShort(todaySec)) : t('dp.idle');
+    }
+    invoke('discord_presence', {
+      details,
+      state,
+      startEpoch,
+      partyCount,
+      partyMax,
+      clear: false,
+    }).catch(() => {});
+  }, [
+    focus.phase,
+    focus.activeSession,
+    focus.jam,
+    todaySec,
+    settingsHook.settings?.discord_presence_enabled,
+    settingsHook.settings?.language,
+  ]);
 
   // apply accent color everywhere in the main window
   const accentColor = settingsHook.settings?.accent_color ?? '#d4ff3f';

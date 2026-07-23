@@ -1162,6 +1162,7 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: 'Shows your project and focus time on your Discord status.',
   },
   'dp.idle': { pt: 'Ocioso', en: 'Idle' },
+  'dp.today': { pt: '{0} de foco hoje', en: '{0} focused today' },
   'dp.focusing': { pt: 'Focando', en: 'Focusing' },
   'dp.paused': { pt: 'Pausado', en: 'Paused' },
   'dp.break': { pt: 'Em pausa', en: 'On a break' },

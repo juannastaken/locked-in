@@ -833,6 +833,8 @@ struct PresenceData {
   details: String,
   state: String,
   start_epoch: Option<i64>,
+  party_count: Option<i32>,
+  party_max: Option<i32>,
   clear: bool,
 }
 
@@ -888,6 +890,9 @@ fn start_presence_thread() {
           if let Some(ts) = p.start_epoch {
             act = act.timestamps(activity::Timestamps::new().start(ts));
           }
+          if let (Some(n), Some(max)) = (p.party_count, p.party_max) {
+            act = act.party(activity::Party::new().id("jam").size([n, max]));
+          }
           c.set_activity(act).is_ok()
         };
         if ok {
@@ -902,9 +907,16 @@ fn start_presence_thread() {
 }
 
 #[tauri::command]
-fn discord_presence(details: String, state: String, start_epoch: Option<i64>, clear: bool) {
+fn discord_presence(
+  details: String,
+  state: String,
+  start_epoch: Option<i64>,
+  party_count: Option<i32>,
+  party_max: Option<i32>,
+  clear: bool,
+) {
   if let Some(tx) = PRESENCE_TX.get() {
-    let _ = tx.send(PresenceData { details, state, start_epoch, clear });
+    let _ = tx.send(PresenceData { details, state, start_epoch, party_count, party_max, clear });
   }
 }
 
