@@ -481,8 +481,19 @@ export function Home({
       : Math.max(0, Math.min(1, focus.breakRemainingSec / focus.activeBreak.plannedSec));
 
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-7">
-        <span className="text-xs font-medium uppercase tracking-[0.15em] text-text-faint">
+      <div className="cascade relative flex h-full flex-col items-center justify-center gap-7 overflow-hidden">
+        {/* same quiet glow as the focus screen — warn-tinted when overrun */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `radial-gradient(circle 63vh at 50% 46%, color-mix(in srgb, ${
+              overdue ? 'var(--color-warn)' : 'var(--color-accent)'
+            } 6.5%, transparent), transparent 72%)`,
+            transition: 'background 600ms ease',
+          }}
+          aria-hidden
+        />
+        <span className="relative text-xs font-extrabold uppercase tracking-[0.15em] text-text-faint">
           {overdue ? t('home.break.over') : t('home.break.label')}
         </span>
 
@@ -513,7 +524,7 @@ export function Home({
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
             <span
-              className={`font-mono text-[clamp(28px,7vw,48px)] font-medium tabular-nums ${
+              className={`font-mono text-[clamp(28px,7vw,48px)] font-medium tabular-nums transition-colors duration-500 ${
                 overdue ? 'text-warn' : 'text-text'
               }`}
             >
@@ -529,12 +540,16 @@ export function Home({
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-2">
-          {overdue && <span className="text-sm text-text-dim">{t('home.break.more')}</span>}
+        <div className="relative flex flex-col items-center gap-2.5">
+          {overdue && (
+            <span className="animate-fade-in text-sm font-medium text-text-dim">
+              {t('home.break.more')}
+            </span>
+          )}
           <button
             type="button"
             onClick={focus.endBreakNow}
-            className="rounded-xl bg-accent px-8 py-3 text-[15px] font-semibold text-bg hover:brightness-110"
+            className="rounded-2xl bg-accent px-8 py-3.5 text-[15px] font-extrabold text-bg"
           >
             {t('home.break.backfocus')}
           </button>

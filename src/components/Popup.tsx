@@ -206,21 +206,21 @@ export function Popup() {
               }
             }}
             placeholder={t('ci.popup.placeholder')}
-            className="mt-2.5 h-16 w-full resize-none rounded-xl border border-accent/50 bg-bg p-2.5 text-[13px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+            className="mt-2.5 h-16 w-full resize-none rounded-xl border border-border bg-bg/60 p-2.5 text-[13px] font-medium text-text placeholder:text-text-faint focus:border-accent/60 focus:outline-none"
           />
 
           <div className="mt-2.5 flex gap-2">
             <button
               type="button"
               onClick={() => answerCheckin(true)}
-              className="rounded-xl border border-border px-4 py-2 text-[13px] text-text-dim hover:bg-surface-hover hover:text-text"
+              className="no-press rounded-xl bg-white/[0.06] px-4 py-2 text-[13px] font-semibold text-text-dim transition-colors hover:bg-white/10 hover:text-text"
             >
               {t('ci.popup.skip')}
             </button>
             <button
               type="button"
               onClick={() => answerCheckin(false)}
-              className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg"
             >
               {t('ci.popup.save')}
             </button>
@@ -305,14 +305,14 @@ export function Popup() {
                 emit('update:install').catch(() => {});
                 hide();
               }}
-              className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg"
             >
               {t('up.get')}
             </button>
             <button
               type="button"
               onClick={() => hide()}
-              className="rounded-xl border border-border px-4 py-2 text-[13px] text-text-dim hover:bg-surface-hover hover:text-text"
+              className="no-press rounded-xl bg-white/[0.06] px-4 py-2 text-[13px] font-semibold text-text-dim transition-colors hover:bg-white/10 hover:text-text"
             >
               {t('up.later')}
             </button>
@@ -332,7 +332,7 @@ export function Popup() {
     return (
       <div className="flex h-screen w-screen items-end justify-end p-2">
         <div
-          className={`w-full rounded-2xl border-2 border-accent bg-surface p-4 shadow-2xl shadow-black/60 ${
+          className={`popup-glow w-full rounded-2xl border border-accent/40 bg-surface p-4 ${
             leaving ? 'animate-popup-out' : 'animate-popup-in'
           }`}
         >
@@ -355,14 +355,14 @@ export function Popup() {
             <button
               type="button"
               onClick={() => answer(true)}
-              className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg"
             >
               {payload.incomingKind === 'invite' ? t('jam.accept') : t('jam.let.in')}
             </button>
             <button
               type="button"
               onClick={() => answer(false)}
-              className="rounded-xl border border-border px-4 py-2 text-[13px] text-text-dim hover:bg-surface-hover hover:text-text"
+              className="no-press rounded-xl bg-white/[0.06] px-4 py-2 text-[13px] font-semibold text-text-dim transition-colors hover:bg-white/10 hover:text-text"
             >
               {t('jam.decline')}
             </button>
@@ -385,7 +385,7 @@ export function Popup() {
     return (
       <div className="flex h-screen w-screen items-end justify-end p-2">
         <div
-          className={`w-full rounded-2xl border border-border bg-surface p-4 shadow-2xl shadow-black/60 ${
+          className={`popup-glow w-full rounded-2xl border border-border bg-surface p-4 ${
             leaving ? 'animate-popup-out' : 'animate-popup-in'
           }`}
         >
@@ -406,7 +406,7 @@ export function Popup() {
                 <img
                   src={payload.avatar}
                   alt=""
-                  className="h-11 w-11 shrink-0 rounded-lg border border-border-strong object-cover"
+                  className="h-11 w-11 shrink-0 rounded-xl border border-border-strong object-cover"
                 />
               ) : (
                 <Mascot mood={asMood(payload.mood)} size={44} />
@@ -451,7 +451,7 @@ export function Popup() {
                 }}
                 placeholder={t('msg.quickreply')}
                 maxLength={500}
-                className="w-full rounded-xl border-2 border-border-strong bg-bg px-3 py-2 text-[13px] font-medium text-text outline-none placeholder:text-text-faint focus:border-accent"
+                className="w-full rounded-xl border border-border bg-bg/60 px-3 py-2 text-[13px] font-medium text-text outline-none placeholder:text-text-faint focus:border-accent/60"
               />
             </form>
           )}
@@ -464,7 +464,7 @@ export function Popup() {
   return (
     <div className="flex h-screen w-screen items-end justify-end p-2">
       <div
-        className={`w-full rounded-2xl border border-warn/40 bg-surface p-4 shadow-2xl shadow-black/60 ${
+        className={`popup-glow w-full rounded-2xl border border-warn/40 bg-surface p-4 ${
           leaving ? 'animate-popup-out' : 'animate-popup-in'
         }`}
       >
@@ -481,14 +481,14 @@ export function Popup() {
           <button
             type="button"
             onClick={() => nudgeAck(5)}
-            className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg hover:brightness-110"
+            className="flex-1 rounded-xl bg-accent py-2 text-[13px] font-semibold text-bg"
           >
             {t('nudge.back')}
           </button>
           <button
             type="button"
             onClick={() => nudgeAck(5)}
-            className="rounded-xl border border-border px-4 py-2 text-[13px] text-text-dim hover:bg-surface-hover hover:text-text"
+            className="no-press rounded-xl bg-white/[0.06] px-4 py-2 text-[13px] font-semibold text-text-dim transition-colors hover:bg-white/10 hover:text-text"
           >
             {t('nudge.5more')}
           </button>

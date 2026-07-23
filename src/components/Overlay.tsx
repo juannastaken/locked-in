@@ -8,6 +8,7 @@ import { formatDurationShort, formatHms } from '../lib/time';
 import type { OverlaySize, OverlayState } from '../types';
 import { Mascot } from './Mascot';
 import type { MascotMood } from './Mascot';
+import logoUrl from '../assets/logo.png';
 
 const INITIAL: OverlayState = {
   phase: 'idle',
@@ -156,8 +157,13 @@ export function Overlay() {
       data-tauri-drag-region
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`relative flex h-screen w-screen cursor-default items-center overflow-hidden rounded-2xl border border-border bg-surface/95 ${sz.pad}`}
-      style={{ opacity: hovered ? 1 : baseOpacity, transition: 'opacity 200ms ease' }}
+      className={`relative flex h-screen w-screen cursor-default items-center overflow-hidden rounded-2xl border border-border bg-surface ${sz.pad}`}
+      style={{
+        opacity: hovered ? 1 : baseOpacity,
+        transition: 'opacity 200ms ease',
+        backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.03), transparent 55%)',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.3), 0 10px 26px -10px rgba(0,0,0,0.4)',
+      }}
     >
       <div data-tauri-drag-region className="shrink-0">
         <Mascot mood={mascotMood} size={sz.mascot} />
@@ -185,7 +191,7 @@ export function Overlay() {
             type="button"
             onClick={() => sendCmd('pause')}
             title={t('ov.pause')}
-            className={`flex shrink-0 items-center justify-center gap-[3px] rounded-lg border border-border text-text-dim hover:border-warn/40 hover:bg-warn-dim hover:text-warn ${sz.btn}`}
+            className={`no-press flex shrink-0 items-center justify-center gap-[3px] rounded-full bg-white/[0.06] text-text-dim transition-colors hover:bg-warn-dim hover:text-warn ${sz.btn}`}
           >
             <span className="block h-2.5 w-[3px] rounded-[1px] bg-current" />
             <span className="block h-2.5 w-[3px] rounded-[1px] bg-current" />
@@ -210,7 +216,7 @@ export function Overlay() {
             type="button"
             onClick={() => sendCmd('resume')}
             title={t('ov.resume')}
-            className={`flex shrink-0 items-center justify-center rounded-lg border border-accent/40 bg-accent-dim text-accent hover:bg-accent hover:text-bg ${sz.btn}`}
+            className={`no-press flex shrink-0 items-center justify-center rounded-full bg-accent-dim text-accent transition-colors hover:bg-accent hover:text-bg ${sz.btn}`}
           >
             <span className="ml-0.5 block h-0 w-0 border-y-[5px] border-l-[8px] border-y-transparent border-l-current" />
           </button>
@@ -236,7 +242,7 @@ export function Overlay() {
             type="button"
             onClick={() => sendCmd('end-break')}
             title={t('ov.back')}
-            className={`flex shrink-0 items-center justify-center rounded-lg border border-border text-text-dim hover:border-accent/40 hover:bg-accent-dim hover:text-accent ${sz.btn}`}
+            className={`no-press flex shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-text-dim transition-colors hover:bg-accent-dim hover:text-accent ${sz.btn}`}
           >
             <span className="ml-0.5 block h-0 w-0 border-y-[5px] border-l-[8px] border-y-transparent border-l-current" />
           </button>
@@ -246,14 +252,15 @@ export function Overlay() {
       {s.phase === 'idle' && (
         <>
           <div data-tauri-drag-region className="min-w-0 flex-1">
-            <div
+            <img
               data-tauri-drag-region
-              className={`font-semibold leading-tight text-text ${
-                s.cfg.size === 'lg' ? 'text-base' : 'text-[13px]'
+              src={logoUrl}
+              alt="Locked In"
+              draggable={false}
+              className={`pointer-events-none w-auto select-none ${
+                s.cfg.size === 'lg' ? 'h-5' : s.cfg.size === 'md' ? 'h-4' : 'h-3'
               }`}
-            >
-              Locked In
-            </div>
+            />
             <div data-tauri-drag-region className={`leading-tight text-text-dim ${sz.sub}`}>
               {s.todaySec > 0 ? t('ov.today', formatDurationShort(s.todaySec)) : t('ov.none')}
             </div>
@@ -262,7 +269,7 @@ export function Overlay() {
             type="button"
             onClick={() => sendCmd('open-main')}
             title={t('ov.open')}
-            className={`flex shrink-0 items-center justify-center rounded-lg border border-border text-sm text-text-dim hover:border-border-strong hover:bg-surface-hover hover:text-text ${sz.btn}`}
+            className={`no-press flex shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-sm text-text-dim transition-colors hover:bg-white/10 hover:text-text ${sz.btn}`}
           >
             ↗
           </button>
@@ -271,10 +278,13 @@ export function Overlay() {
 
       {s.cfg.showGoal && (
         <div
-          className="absolute bottom-0 left-0 h-[3px] rounded-full bg-accent"
+          className="absolute bottom-0 left-0 h-[3px] rounded-full"
           style={{
             width: `${Math.min(1, s.goalProgress) * 100}%`,
             transition: 'width 600ms cubic-bezier(0.16,1,0.3,1)',
+            background:
+              'linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 55%, transparent), var(--color-accent))',
+            boxShadow: '0 0 10px color-mix(in srgb, var(--color-accent) 45%, transparent)',
           }}
         />
       )}

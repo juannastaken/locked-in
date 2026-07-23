@@ -169,6 +169,9 @@ export function ProfilePage({
   const avgPerActiveDay = an && an.activeDays > 0 ? an.totalSec / an.activeDays : 0;
   const maxProj = recentProjects[0]?.total_sec || 1;
   const animatedTotal = useCountUp(an?.totalSec ?? 0, 1100);
+  const animatedSessions = useCountUp(an?.sessionCount ?? 0, 900);
+  const animatedAvg = useCountUp(Math.round(avgPerActiveDay), 1100);
+  const animatedBest = useCountUp(an?.bestDaySec ?? 0, 1100);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -305,7 +308,7 @@ export function ProfilePage({
                     type="button"
                     title={getLang() === 'en' ? b.labelEn : b.labelPt}
                     onClick={() => setBadgeInfo(b)}
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl bg-bg text-base transition-transform ${
+                    className={`no-press flex h-10 w-10 items-center justify-center rounded-xl bg-bg/60 text-lg transition-all duration-300 ${
                       unlocked ? '' : 'opacity-30 grayscale'
                     }`}
                   >
@@ -315,22 +318,35 @@ export function ProfilePage({
               })}
             </div>
             {nextBadge(an.totalSec) && (
-              <div className="mt-2 text-[11px] font-medium text-text-faint">
-                {t(
-                  'badges.next',
-                  nextBadge(an.totalSec)!.icon,
-                  getLang() === 'en'
-                    ? nextBadge(an.totalSec)!.labelEn
-                    : nextBadge(an.totalSec)!.labelPt,
-                )}
+              <div className="mt-3">
+                <div className="h-1.5 overflow-hidden rounded-full bg-bg/60">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-700 ease-out"
+                    style={{
+                      width: `${Math.min(100, (an.totalSec / 3600 / nextBadge(an.totalSec)!.hours) * 100)}%`,
+                      background:
+                        'linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 55%, transparent), var(--color-accent))',
+                      boxShadow: '0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent)',
+                    }}
+                  />
+                </div>
+                <div className="mt-1.5 text-[11px] font-medium text-text-faint">
+                  {t(
+                    'badges.next',
+                    nextBadge(an.totalSec)!.icon,
+                    getLang() === 'en'
+                      ? nextBadge(an.totalSec)!.labelEn
+                      : nextBadge(an.totalSec)!.labelPt,
+                  )}
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {/* big focus number */}
-        <div className="chunk p-5">
-          <div className="font-mono text-[44px] font-bold leading-none tabular-nums text-accent">
+        {/* focus hero — big number + the three lifetime stats in one card */}
+        <div className="chunk p-6">
+          <div className="font-mono text-[48px] font-bold leading-none tabular-nums text-accent">
             {an ? (
               formatDurationShort(animatedTotal)
             ) : (
@@ -340,32 +356,30 @@ export function ProfilePage({
           <div className="mt-1.5 text-xs font-bold uppercase tracking-wide text-text-faint">
             {t('profile.hours')}
           </div>
-        </div>
-
-        {/* analytics */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="chunk px-3 py-4 text-center">
-            <div className="font-mono text-xl font-bold tabular-nums text-text">
-              {an ? an.sessionCount : <span className="skeleton h-6 w-10">.</span>}
+          <div className="mt-5 grid grid-cols-3 gap-4 border-t border-white/5 pt-4">
+            <div>
+              <div className="font-mono text-xl font-bold tabular-nums text-text">
+                {an ? animatedSessions : <span className="skeleton h-6 w-10">.</span>}
+              </div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
+                {t('profile.sessions')}
+              </div>
             </div>
-            <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
-              {t('profile.sessions')}
+            <div>
+              <div className="font-mono text-xl font-bold tabular-nums text-text">
+                {an ? formatDurationShort(animatedAvg) : <span className="skeleton h-6 w-12">.</span>}
+              </div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
+                {t('profile.avgday')}
+              </div>
             </div>
-          </div>
-          <div className="chunk px-3 py-4 text-center">
-            <div className="font-mono text-xl font-bold tabular-nums text-text">
-              {an ? formatDurationShort(avgPerActiveDay) : <span className="skeleton h-6 w-12">.</span>}
-            </div>
-            <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
-              {t('profile.avgday')}
-            </div>
-          </div>
-          <div className="chunk px-3 py-4 text-center">
-            <div className="font-mono text-xl font-bold tabular-nums text-text">
-              {an ? formatDurationShort(an.bestDaySec) : <span className="skeleton h-6 w-12">.</span>}
-            </div>
-            <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
-              {t('profile.bestday')}
+            <div>
+              <div className="font-mono text-xl font-bold tabular-nums text-text">
+                {an ? formatDurationShort(animatedBest) : <span className="skeleton h-6 w-12">.</span>}
+              </div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-text-faint">
+                {t('profile.bestday')}
+              </div>
             </div>
           </div>
         </div>
@@ -391,10 +405,14 @@ export function ProfilePage({
           {recentProjects.map((p) => (
             <div key={p.project} className="flex items-center gap-2.5">
               <span className="w-36 truncate text-sm font-bold text-text">{p.project}</span>
-              <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-[3px] border border-border-strong bg-bg">
+              <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-bg/60">
                 <div
-                  className="h-full bg-accent"
-                  style={{ width: `${(p.total_sec / maxProj) * 100}%` }}
+                  className="h-full rounded-full transition-[width] duration-700 ease-out"
+                  style={{
+                    width: `${(p.total_sec / maxProj) * 100}%`,
+                    background:
+                      'linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 55%, transparent), var(--color-accent))',
+                  }}
                 />
               </div>
               <span className="w-14 shrink-0 text-right font-mono text-xs font-bold tabular-nums text-text-dim">

@@ -1156,6 +1156,28 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: 'Opens the welcome walkthrough again.',
   },
   'set.retour.btn': { pt: 'Rever', en: 'Replay' },
+  'bl.title': { pt: 'O doomscroll de hoje acabou', en: "Today's doomscroll is over" },
+  'bl.body.a': { pt: 'Você usou', en: 'You used' },
+  'bl.body.b': { pt: 'dos', en: 'of your' },
+  'bl.body.c': {
+    pt: 'liberados de rede social. A regra é sua.',
+    en: 'social media budget. Your rule, your call.',
+  },
+  'bl.earn': { pt: 'Como ganhar mais', en: 'How to earn more' },
+  'bl.earn.a': { pt: 'Foca mais', en: 'Focus' },
+  'bl.earn.b': { pt: 'e desbloqueia', en: 'more and unlock' },
+  'bl.close': { pt: 'Fechar a aba pra mim', en: 'Close the tab for me' },
+  'bl.closing': { pt: 'Fechando…', en: 'Closing…' },
+  'bl.focus': { pt: 'Bora focar', en: "Let's focus" },
+  'bl.snooze': { pt: 'Me dá 20 segundos ({0} hoje)', en: 'Give me 20 seconds ({0} left today)' },
+  'bl.snooze.out': {
+    pt: 'As dispensas de hoje acabaram — fecha a rede social ou vai focar.',
+    en: 'Out of snoozes for today — close the app or go focus.',
+  },
+  'bl.hint': {
+    pt: 'Essa tela some sozinha quando você sair da rede social (Alt+Tab também funciona).',
+    en: 'This screen goes away on its own once you leave the app (Alt+Tab works too).',
+  },
   'ob.name.title': { pt: 'Como te chamamos?', en: 'What should we call you?' },
   'ob.name.sub': {
     pt: 'Aparece no seu perfil e no card da semana.',
