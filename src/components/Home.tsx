@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { parsePomo } from '../hooks/useFocusSession';
 import type { UseFocusSession } from '../hooks/useFocusSession';
@@ -12,8 +12,6 @@ import { formatDurationShort, formatHms, todayKey } from '../lib/time';
 import type { Session, Settings } from '../types';
 import type { UseSettings } from '../hooks/useSettings';
 import { HabitChips } from './Habits';
-import { Mascot } from './Mascot';
-import type { MascotMood } from './Mascot';
 
 interface HomeProps {
   focus: UseFocusSession;
@@ -71,23 +69,6 @@ export function Home({
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
-
-  // minimal mode: video-player reveal — UI shows while the mouse moves and
-  // fades 2s after it stops (plain :hover never hides, a parked cursor
-  // anywhere in the window counts as hovering)
-  const [minimalUi, setMinimalUi] = useState(false);
-  const minimalHideRef = useRef<number | null>(null);
-  const pokeMinimalUi = useCallback(() => {
-    setMinimalUi(true);
-    if (minimalHideRef.current) window.clearTimeout(minimalHideRef.current);
-    minimalHideRef.current = window.setTimeout(() => setMinimalUi(false), 2000);
-  }, []);
-  useEffect(
-    () => () => {
-      if (minimalHideRef.current) window.clearTimeout(minimalHideRef.current);
-    },
-    [],
-  );
 
   useEffect(() => {
     // projects ARE the goals — a project exists by creating it in Goals, so
@@ -154,22 +135,8 @@ export function Home({
   // ---------- focusing / paused ----------
   if ((focus.phase === 'focusing' || focus.phase === 'paused') && focus.activeSession) {
     const paused = focus.phase === 'paused';
-    const sessionMin = focus.elapsedSec / 60;
-    const mascotMood: MascotMood = paused
-      ? 'sleep'
-      : sessionMin >= 90
-        ? 'hyped'
-        : sessionMin >= 30
-          ? 'happy'
-          : 'focus';
-    const minimal = settings?.focus_minimal === true;
     const styleDef =
       CLOCK_STYLES.find((s) => s.id === (settings?.clock_style || 'classic')) ?? CLOCK_STYLES[0];
-    // minimal mode: only the timer stays visible — everything else fades back
-    // in while the mouse is moving and disappears 2s after it stops
-    const ghost = minimal
-      ? `transition-opacity duration-200 ${minimalUi ? 'opacity-100' : 'pointer-events-none opacity-0'}`
-      : '';
     const timerSize = 'text-[clamp(52px,11vw,96px)]';
     const timerColor = paused
       ? 'text-text-faint'
@@ -177,18 +144,14 @@ export function Home({
         ? 'text-accent'
         : 'text-text';
     return (
-      <div
-        className="group/focus relative isolate flex h-full flex-col items-center justify-center gap-6 px-6"
-        onMouseMove={minimal ? pokeMinimalUi : undefined}
-        onMouseLeave={minimal ? () => setMinimalUi(false) : undefined}
-      >
+      <div className="group/focus relative isolate flex h-full flex-col items-center justify-center gap-6 px-6">
         {/* ambient accent glow, centered behind the running session */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 -z-10"
           style={{
             background:
-              'radial-gradient(circle 42vh at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 72%)',
+              'radial-gradient(circle 63vh at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 72%)',
           }}
         />
         {/* clock customizer — quiet corner button, revealed on hover */}
@@ -198,13 +161,7 @@ export function Home({
             title={t('home.clock.customize')}
             onClick={() => setClockOpen((o) => !o)}
             className={`flex h-8 w-8 items-center justify-center rounded-lg text-text-faint transition-opacity hover:bg-surface-hover hover:text-text ${
-              clockOpen
-                ? 'opacity-100'
-                : minimal
-                  ? minimalUi
-                    ? 'opacity-100'
-                    : 'pointer-events-none opacity-0'
-                  : 'opacity-0 group-hover/focus:opacity-100'
+              clockOpen ? 'opacity-100' : 'opacity-0 group-hover/focus:opacity-100'
             }`}
           >
             <PaletteIcon size={15} />
@@ -233,29 +190,6 @@ export function Home({
                   </span>
                 </button>
               ))}
-              <div className="mt-1 border-t border-border pt-1">
-                <button
-                  type="button"
-                  onClick={() => updateSetting('focus_minimal', !minimal)}
-                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 hover:bg-surface-hover"
-                >
-                  <span className="text-xs font-semibold text-text">{t('home.clock.minimal')}</span>
-                  <span
-                    className={`relative h-4 w-7 rounded-full transition-colors ${
-                      minimal ? 'bg-accent' : 'bg-border-strong'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-bg transition-transform ${
-                        minimal ? 'translate-x-3.5' : 'translate-x-0.5'
-                      }`}
-                    />
-                  </span>
-                </button>
-                <div className="px-2.5 pb-1 text-[10px] leading-snug text-text-faint">
-                  {t('home.clock.minimal.hint')}
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -287,19 +221,7 @@ export function Home({
           </div>
         )}
 
-        <div className={ghost}>
-          <Mascot mood={mascotMood} size={72} />
-        </div>
-
-        <div className={`flex flex-col items-center gap-2.5 ${ghost}`}>
-          <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-text-faint">
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                paused ? 'bg-warn' : 'animate-pulse-dot bg-accent'
-              }`}
-            />
-            {paused ? t('home.paused') : t('home.lockedin')}
-          </span>
+        <div className="flex flex-col items-center gap-2.5">
           <h1 className="max-w-lg text-center text-xl font-medium leading-snug text-text">
             {focus.activeSession.task}
           </h1>
@@ -332,7 +254,7 @@ export function Home({
 
         {/* the living jam room — everyone in the session, rings + 🔥 */}
         {jamRoom && jamRoom.length >= 2 && (
-          <div className={ghost}>
+          <div>
             <JamRoom
               members={jamRoom}
               sharedSec={focus.displayElapsedSec}
@@ -364,21 +286,14 @@ export function Home({
             );
           })()
         ) : (
-          <div
-            className={`${styleDef.cls} ${timerSize} ${timerColor} leading-none tabular-nums`}
-            style={
-              !paused && styleDef.id === 'classic'
-                ? { textShadow: '0 0 40px rgba(212,255,63,0.28), 0 0 110px rgba(212,255,63,0.14)' }
-                : undefined
-            }
-          >
+          <div className={`${styleDef.cls} ${timerSize} ${timerColor} leading-none tabular-nums`}>
             {formatHms(focus.displayElapsedSec)}
           </div>
         )}
 
         {paused && <span className="text-xs text-text-faint">{t('home.paused.hint')}</span>}
 
-        <div className={`flex items-center gap-2.5 ${ghost}`}>
+        <div className="flex items-center gap-2.5">
           {paused ? (
             <button
               type="button"
@@ -416,39 +331,53 @@ export function Home({
   // ---------- rating ----------
   if (focus.phase === 'rating') {
     return (
-      <div className="animate-fade-in flex h-full items-center justify-center bg-black/30 px-6">
-        <div className="animate-scale-in w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl shadow-black/40">
-          <div className="mb-5 flex items-start justify-between">
+      <div
+        className="animate-fade-in flex h-full items-center justify-center px-6"
+        style={{
+          // vignette instead of a flat scrim — no hard rectangle edge behind the card
+          background:
+            'radial-gradient(ellipse 70% 65% at 50% 48%, rgba(0,0,0,0.5), rgba(0,0,0,0.18) 75%, transparent 100%)',
+        }}
+      >
+        <div
+          className="animate-scale-in cascade w-full max-w-md rounded-3xl border border-border bg-surface p-7"
+          style={{
+            boxShadow:
+              '0 1px 2px rgba(0,0,0,0.4), 0 24px 70px -18px rgba(0,0,0,0.6), 0 60px 140px -30px rgba(0,0,0,0.45)',
+          }}
+        >
+          <div className="mb-6 flex items-start justify-between">
             <div>
-              <h2 className="text-base font-semibold text-text">{t('home.rating.title')}</h2>
-              <p className="mt-0.5 text-sm text-text-dim">{t('home.rating.q')}</p>
+              <h2 className="text-lg font-bold tracking-tight text-text">{t('home.rating.title')}</h2>
+              <p className="mt-1 text-sm text-text-dim">{t('home.rating.q')}</p>
             </div>
             <button
               type="button"
               onClick={focus.resumeFromRating}
-              className="text-xs text-text-faint underline-offset-2 hover:text-text-dim hover:underline"
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-text-faint hover:bg-surface-hover hover:text-text"
             >
               {t('home.rating.back')}
             </button>
           </div>
 
-          <div className="mb-1.5 flex gap-1.5">
+          {/* rating — segmented control, one soft container */}
+          <div className="flex rounded-2xl bg-bg p-1">
             {[1, 2, 3, 4, 5].map((n) => (
               <button
                 key={n}
                 type="button"
                 onClick={() => setRating(rating === n ? null : n)}
-                className={`h-12 flex-1 rounded-xl border text-base font-medium ${
+                className={`h-11 flex-1 rounded-xl text-[15px] font-semibold transition-colors duration-200 ${
                   rating === n
-                    ? 'border-accent bg-accent-dim text-accent'
-                    : 'border-border text-text-dim hover:border-border-strong hover:text-text'
+                    ? 'bg-surface-hover text-accent'
+                    : 'text-text-faint hover:text-text-dim'
                 }`}
               >
                 {n}
               </button>
             ))}
           </div>
-          <div className="mb-4 h-4 text-center text-xs text-text-faint">
+          <div className="mb-5 mt-2 h-4 text-center text-xs font-medium text-text-faint">
             {rating ? t(`home.rating.${rating}`) : t('home.rating.optional')}
           </div>
 
@@ -456,23 +385,24 @@ export function Home({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder={t('home.notes.placeholder')}
-            className="mb-5 h-20 w-full resize-none rounded-xl border border-border bg-bg p-3 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+            className="mb-6 h-20 w-full resize-none rounded-2xl bg-bg p-3.5 text-sm text-text placeholder:text-text-faint focus:outline-none focus:ring-1 focus:ring-accent/40"
           />
 
-          <div className="mb-5">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-faint">
+          <div className="mb-6">
+            <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em] text-text-faint">
               {t('home.break.q')}
             </div>
-            <div className="flex gap-1.5">
+            {/* break — same segmented language as the rating row */}
+            <div className="flex rounded-2xl bg-bg p-1">
               {BREAK_OPTIONS.map((opt) => (
                 <button
                   key={opt.sec}
                   type="button"
                   onClick={() => setBreakChoice(opt.sec)}
-                  className={`flex-1 rounded-lg border py-2 text-[13px] ${
+                  className={`h-10 flex-1 rounded-xl text-[13px] font-semibold transition-colors duration-200 ${
                     breakChoice === opt.sec
-                      ? 'border-accent bg-accent-dim text-accent'
-                      : 'border-border text-text-dim hover:border-border-strong hover:text-text'
+                      ? 'bg-surface-hover text-accent'
+                      : 'text-text-faint hover:text-text-dim'
                   }`}
                 >
                   {opt.label}
@@ -481,10 +411,10 @@ export function Home({
               <button
                 type="button"
                 onClick={() => setBreakChoice(null)}
-                className={`flex-1 rounded-lg border py-2 text-[13px] ${
+                className={`h-10 flex-1 rounded-xl text-[13px] font-semibold transition-colors duration-200 ${
                   breakChoice === null
-                    ? 'border-accent bg-accent-dim text-accent'
-                    : 'border-border text-text-dim hover:border-border-strong hover:text-text'
+                    ? 'bg-surface-hover text-accent'
+                    : 'text-text-faint hover:text-text-dim'
                 }`}
               >
                 {t('home.break.none')}
@@ -495,7 +425,7 @@ export function Home({
           <button
             type="button"
             onClick={saveAndReset}
-            className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-bg hover:brightness-110"
+            className="w-full rounded-2xl bg-accent py-3.5 text-sm font-bold text-bg hover:brightness-110"
           >
             {t('home.save')}
           </button>
@@ -596,7 +526,7 @@ export function Home({
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(circle 42vh at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 72%)',
+            'radial-gradient(circle 63vh at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 72%)',
         }}
       />
     <div className="flex min-h-full flex-col items-center justify-center px-6 py-5">
@@ -649,17 +579,17 @@ export function Home({
         </button>
 
         <div className="mt-3 flex h-10 items-center">
-          {lastSession && !task.trim() && (
+          {lastSession && (
             <button
               type="button"
               onClick={() => focus.startSession(lastSession.task, lastSession.project)}
-              className="animate-fade-in flex max-w-md items-center gap-2 px-2 py-1.5 text-[13px] font-medium text-text-dim hover:text-text"
+              className="group flex max-w-md items-center gap-2 px-2 py-1.5 text-[13px] font-medium text-text-faint transition-colors hover:text-text"
               title={t('home.continue.title')}
             >
               <svg
-                className="shrink-0 text-accent"
-                width="13"
-                height="13"
+                className="shrink-0 opacity-70 transition-opacity group-hover:opacity-100 group-hover:text-accent"
+                width="12"
+                height="12"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -671,8 +601,9 @@ export function Home({
                 <path d="M3 12a9 9 0 1 0 3-6.7" />
                 <path d="M3 4v4h4" />
               </svg>
-              <span className="shrink-0">{t('home.continue').replace(/:$/, '')}</span>
-              <span className="truncate font-semibold text-text">{lastSession.task}</span>
+              <span className="truncate font-semibold text-text-dim transition-colors group-hover:text-text">
+                {lastSession.task}
+              </span>
               {lastSession.project && (
                 <span className="shrink-0 text-text-faint">· {lastSession.project}</span>
               )}
