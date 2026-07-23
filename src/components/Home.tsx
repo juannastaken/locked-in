@@ -178,10 +178,19 @@ export function Home({
         : 'text-text';
     return (
       <div
-        className="group/focus relative flex h-full flex-col items-center justify-center gap-6 px-6"
+        className="group/focus relative isolate flex h-full flex-col items-center justify-center gap-6 px-6"
         onMouseMove={minimal ? pokeMinimalUi : undefined}
         onMouseLeave={minimal ? () => setMinimalUi(false) : undefined}
       >
+        {/* ambient accent glow, centered behind the running session */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            background:
+              'radial-gradient(ellipse 52% 44% at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 70%)',
+          }}
+        />
         {/* clock customizer — quiet corner button, revealed on hover */}
         <div className="absolute right-4 top-4 z-20" data-pop>
           <button
@@ -580,7 +589,16 @@ export function Home({
   const name = settings?.user_name?.trim();
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="relative isolate h-full overflow-y-auto">
+      {/* ambient accent glow, centered behind the whole Focus page */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(ellipse 52% 44% at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 70%)',
+        }}
+      />
     <div className="flex min-h-full flex-col items-center justify-center px-6 py-5">
       <div className="mb-2 text-sm text-text-dim">
         {greeting}
@@ -651,14 +669,51 @@ export function Home({
 
       {today && (
         <div className="mt-5 w-full max-w-xl rounded-2xl border border-border bg-surface p-5 xl:max-w-2xl">
-          <div className="mb-3 flex items-baseline justify-between">
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-2xl font-medium tabular-nums text-text">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-[26px] font-bold leading-none tracking-tight tabular-nums text-text">
                 {formatDurationShort(today.total_sec)}
               </span>
-              <span className="text-xs text-text-dim">{t('home.today')}</span>
+              <span className="text-xs font-medium text-text-dim">{t('home.today')}</span>
             </div>
-            <span className="text-xs text-text-dim">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] font-medium text-text-faint">
+                {t('home.goal')} {settings?.daily_goal_hours ?? 4}h
+              </span>
+              <span className="rounded-full bg-accent-dim px-2.5 py-1 text-[11px] font-bold tabular-nums text-accent">
+                {Math.min(100, Math.round(goalProgress * 100))}%
+              </span>
+            </div>
+          </div>
+          <div className="relative h-2.5 w-full rounded-full bg-bg">
+            {/* quarter ticks */}
+            {[25, 50, 75].map((p) => (
+              <span
+                key={p}
+                className="absolute top-1/2 h-1.5 w-px -translate-y-1/2 bg-white/10"
+                style={{ left: `${p}%` }}
+              />
+            ))}
+            <div
+              className="relative h-full min-w-2.5 rounded-full"
+              style={{
+                width: `${Math.min(100, goalProgress * 100)}%`,
+                background:
+                  'linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 55%, transparent), var(--color-accent))',
+                transition: 'width 600ms cubic-bezier(0.16,1,0.3,1)',
+              }}
+            >
+              {/* bright tip */}
+              <span className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_10px_color-mix(in_srgb,var(--color-accent)_60%,transparent)]" />
+            </div>
+          </div>
+          <div className="mt-2.5 flex justify-between text-[11px] font-medium text-text-faint">
+            <span className={goalProgress >= 1 ? 'font-bold text-accent' : ''}>
+              {goalProgress >= 1
+                ? t('home.goalhit')
+                : t('home.goalleft', formatDurationShort(remainingToGoal))}
+            </span>
+            <span>
               {today.block_count === 0
                 ? t('home.noblocks')
                 : `${today.block_count} ${today.block_count === 1 ? t('home.block') : t('home.blocks')}${
@@ -667,20 +722,6 @@ export function Home({
                       : ''
                   }`}
             </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg">
-            <div
-              className="h-full rounded-full bg-accent"
-              style={{ width: `${goalProgress * 100}%`, transition: 'width 600ms cubic-bezier(0.16,1,0.3,1)' }}
-            />
-          </div>
-          <div className="mt-2 flex justify-between text-[11px] text-text-faint">
-            <span>
-              {goalProgress >= 1
-                ? t('home.goalhit')
-                : t('home.goalleft', formatDurationShort(remainingToGoal))}
-            </span>
-            <span>{t('home.goal')} {settings?.daily_goal_hours ?? 4}h</span>
           </div>
         </div>
       )}

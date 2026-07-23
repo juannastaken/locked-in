@@ -225,13 +225,9 @@
 .chunk-btn:hover:not(:disabled) {
   background: var(--color-surface-hover);
   border-color: var(--color-border-strong);
-  transform: translateY(-1px);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    0 12px 28px -8px rgba(0, 0, 0, 0.45);
 }
 .chunk-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
+  transform: scale(0.98);
 }
 .chunk-btn:disabled {
   opacity: 0.45;
@@ -308,14 +304,8 @@ button.bg-accent:not([role='switch']) {
     box-shadow 140ms ease,
     filter 140ms ease;
 }
-button.bg-accent:not([role='switch']):hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    0 12px 28px -8px rgba(0, 0, 0, 0.45);
-}
 button.bg-accent:not([role='switch']):active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
+  transform: scale(0.98);
 }
 
 /* bordered (secondary) buttons — hairline + soft depth + lift */
@@ -330,14 +320,9 @@ button.border.border-border-strong:not([role='switch']) {
     background-color 140ms ease,
     border-color 140ms ease;
 }
-button.border.border-border:not([role='switch']):hover:not(:disabled),
-button.border.border-border-strong:not([role='switch']):hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.4);
-}
 button.border.border-border:not([role='switch']):active:not(:disabled),
 button.border.border-border-strong:not([role='switch']):active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
+  transform: scale(0.98);
 }
 
 /* generous corners everywhere — amplify Tailwind's defaults a notch */

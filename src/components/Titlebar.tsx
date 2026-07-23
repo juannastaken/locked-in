@@ -239,11 +239,14 @@ export function Titlebar({
         </button>
       </div>
 
-      {/* center: floating pill nav — one accent pill glides between tabs */}
-      <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center justify-center">
+      {/* center: floating pill nav — absolutely centered on the WINDOW so it
+          lines up with the page sub-tabs below, regardless of how wide the
+          gear/profile clusters are */}
+      <div data-tauri-drag-region className="min-w-0 flex-1" />
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 flex -translate-x-1/2 items-center">
         <nav
           ref={navRef}
-          className="nav-pill relative flex shrink-0 items-center gap-1 overflow-hidden rounded-full border border-border bg-surface p-1.5"
+          className="nav-pill pointer-events-auto relative flex shrink-0 items-center gap-1 overflow-hidden rounded-full border border-border bg-surface p-1.5"
         >
           {/* sliding accent indicator (behind the buttons) */}
           <span
