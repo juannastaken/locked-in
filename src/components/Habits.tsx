@@ -101,7 +101,7 @@ export function HabitChips({
   }
 
   return (
-    <div className="flex w-full max-w-xl flex-wrap items-center justify-center gap-1.5">
+    <div className="flex w-full max-w-xl flex-wrap items-center justify-center gap-2">
       {habits.map((habit) => {
         const doneToday = logSet.has(`${habit.id}:${today}`);
         const count = weekCount(logSet, habit.id, currentWeek);
@@ -116,25 +116,39 @@ export function HabitChips({
               toggle(habit, yesterday);
             }}
             title={t('hab.chip.title', habit.name, String(count), String(habit.weekly_target))}
-            className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs ${
+            className={`flex items-center gap-2.5 rounded-2xl border py-2 pl-3 pr-4 ${
               doneToday
-                ? 'border-accent bg-accent-dim text-text'
-                : 'border-border bg-surface text-text-dim hover:border-border-strong hover:text-text'
+                ? 'border-accent bg-accent-dim'
+                : 'border-border bg-surface hover:border-border-strong'
             }`}
           >
-            <span className="text-sm leading-none">{habit.emoji}</span>
-            <span>{habit.name}</span>
-            <span className="flex items-center gap-[3px]">
-              {Array.from({ length: habit.weekly_target }, (_, i) => (
-                <span
-                  key={i}
-                  className={`h-[5px] w-[5px] rounded-full ${
-                    i < count ? 'bg-accent' : 'bg-border-strong'
-                  }`}
-                />
-              ))}
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-base leading-none ${
+                doneToday ? 'bg-accent/15' : 'bg-bg'
+              }`}
+            >
+              {habit.emoji}
             </span>
-            {flame >= 2 && <span className="text-[10px] text-accent">🔥{flame}</span>}
+            <span className="flex flex-col items-start gap-1.5">
+              <span
+                className={`text-[13px] font-semibold leading-none ${
+                  doneToday ? 'text-text' : 'text-text-dim'
+                }`}
+              >
+                {habit.name}
+                {flame >= 2 && <span className="ml-1.5 text-[11px] text-accent">🔥{flame}</span>}
+              </span>
+              <span className="flex items-center gap-1">
+                {Array.from({ length: habit.weekly_target }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      i < count ? 'bg-accent' : 'bg-border-strong'
+                    }`}
+                  />
+                ))}
+              </span>
+            </span>
           </button>
         );
       })}
@@ -142,8 +156,8 @@ export function HabitChips({
         type="button"
         onClick={onOpenHabits}
         title={t('hab.manage')}
-        className={`flex items-center justify-center rounded-full border border-dashed border-border text-text-faint hover:border-border-strong hover:text-text ${
-          habits.length === 0 ? 'gap-1.5 px-3.5 py-2 text-xs' : 'h-8 w-8 text-sm'
+        className={`flex items-center justify-center rounded-2xl border border-dashed border-border text-text-faint hover:border-border-strong hover:text-text ${
+          habits.length === 0 ? 'gap-1.5 px-4 py-3 text-[13px] font-semibold' : 'h-[52px] w-11 text-base'
         }`}
       >
         {habits.length === 0 ? <>{t('hab.chips.add')}</> : '+'}

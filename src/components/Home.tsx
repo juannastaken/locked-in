@@ -188,7 +188,7 @@ export function Home({
           className="pointer-events-none absolute inset-0 -z-10"
           style={{
             background:
-              'radial-gradient(ellipse 52% 44% at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 70%)',
+              'radial-gradient(circle 42vh at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 72%)',
           }}
         />
         {/* clock customizer — quiet corner button, revealed on hover */}
@@ -596,7 +596,7 @@ export function Home({
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(ellipse 52% 44% at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 70%)',
+            'radial-gradient(circle 42vh at 50% 46%, color-mix(in srgb, var(--color-accent) 6.5%, transparent), transparent 72%)',
         }}
       />
     <div className="flex min-h-full flex-col items-center justify-center px-6 py-5">
@@ -648,20 +648,31 @@ export function Home({
           LOCK IN
         </button>
 
-        <div className="mt-3 flex h-9 items-center">
+        <div className="mt-4 flex h-14 items-center">
           {lastSession && !task.trim() && (
             <button
               type="button"
               onClick={() => focus.startSession(lastSession.task, lastSession.project)}
-              className="animate-fade-in flex max-w-md items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 text-xs text-text-dim hover:border-border-strong hover:text-text"
+              className="animate-fade-in flex max-w-md items-center gap-3 rounded-2xl border border-border bg-surface py-2 pl-2.5 pr-5 hover:border-border-strong"
               title={t('home.continue.title')}
             >
-              <span className="text-accent">↻</span>
-              <span className="shrink-0">{t('home.continue')}</span>
-              <span className="truncate text-text">{lastSession.task}</span>
-              {lastSession.project && (
-                <span className="shrink-0 text-text-faint">· {lastSession.project}</span>
-              )}
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-dim text-accent">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 12a9 9 0 1 0 3-6.7" />
+                  <path d="M3 4v4h4" />
+                </svg>
+              </span>
+              <span className="min-w-0 text-left">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-faint">
+                  {t('home.continue').replace(/:$/, '')}
+                </span>
+                <span className="block truncate text-[13px] font-semibold text-text">
+                  {lastSession.task}
+                  {lastSession.project && (
+                    <span className="font-medium text-text-faint"> · {lastSession.project}</span>
+                  )}
+                </span>
+              </span>
             </button>
           )}
         </div>
@@ -671,16 +682,16 @@ export function Home({
         <div className="mt-5 w-full max-w-xl rounded-2xl border border-border bg-surface p-5 xl:max-w-2xl">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-baseline gap-2.5">
-              <span className="text-[26px] font-bold leading-none tracking-tight tabular-nums text-text">
+              <span className="text-[28px] font-bold leading-none tracking-tight tabular-nums text-text">
                 {formatDurationShort(today.total_sec)}
               </span>
-              <span className="text-xs font-medium text-text-dim">{t('home.today')}</span>
+              <span className="text-sm font-semibold text-text-dim">{t('home.today')}</span>
             </div>
-            <div className="flex items-center gap-2.5">
-              <span className="text-[11px] font-medium text-text-faint">
+            <div className="flex items-center gap-3">
+              <span className="text-[13px] font-semibold text-text-dim">
                 {t('home.goal')} {settings?.daily_goal_hours ?? 4}h
               </span>
-              <span className="rounded-full bg-accent-dim px-2.5 py-1 text-[11px] font-bold tabular-nums text-accent">
+              <span className="rounded-full bg-accent-dim px-3 py-1.5 text-[13px] font-bold tabular-nums text-accent">
                 {Math.min(100, Math.round(goalProgress * 100))}%
               </span>
             </div>
@@ -707,7 +718,7 @@ export function Home({
               <span className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_10px_color-mix(in_srgb,var(--color-accent)_60%,transparent)]" />
             </div>
           </div>
-          <div className="mt-2.5 flex justify-between text-[11px] font-medium text-text-faint">
+          <div className="mt-3 flex justify-between text-[13px] font-semibold text-text-dim">
             <span className={goalProgress >= 1 ? 'font-bold text-accent' : ''}>
               {goalProgress >= 1
                 ? t('home.goalhit')

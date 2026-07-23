@@ -243,7 +243,10 @@ export function Titlebar({
           lines up with the page sub-tabs below, regardless of how wide the
           gear/profile clusters are */}
       <div data-tauri-drag-region className="min-w-0 flex-1" />
-      <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 flex -translate-x-1/2 items-center">
+      <div
+        className="pointer-events-none absolute inset-y-0 z-10 flex -translate-x-1/2 items-center transition-[left] duration-200 ease-out"
+        style={{ left: 'calc(50% - var(--fbw, 0rem) / 2)' }}
+      >
         <nav
           ref={navRef}
           className="nav-pill pointer-events-auto relative flex shrink-0 items-center gap-1 overflow-hidden rounded-full border border-border bg-surface p-1.5"

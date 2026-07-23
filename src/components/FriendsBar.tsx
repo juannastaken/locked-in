@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { t } from '../lib/i18n';
 import * as social from '../lib/social';
 import type { SocialHook } from '../hooks/useSocial';
@@ -57,6 +57,15 @@ export function FriendsBar({
     () => localStorage.getItem('friends-bar-collapsed') === '1',
   );
   const state = soc.state;
+  const railVisible = !!state?.me && !hidden;
+
+  // expose the rail's current width as a CSS var so the titlebar nav can
+  // center itself on the CONTENT area instead of the whole window
+  useEffect(() => {
+    const w = !railVisible ? '0rem' : collapsed ? '1.75rem' : '16rem';
+    document.documentElement.style.setProperty('--fbw', w);
+  }, [railVisible, collapsed]);
+
   if (!state?.me) return null;
 
   function toggle() {
