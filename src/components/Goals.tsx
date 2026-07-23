@@ -83,11 +83,11 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="cascade mx-auto max-w-2xl space-y-4 px-4 pb-10 pt-6 sm:px-6 xl:max-w-3xl">
+      <div className="cascade mx-auto max-w-3xl space-y-5 px-4 pb-10 pt-8 sm:px-6 xl:max-w-4xl">
         <div className="flex items-end justify-between">
           <div>
-            <h1 className="text-lg font-extrabold tracking-tight text-text">{t('goals.title')}</h1>
-            <p className="mt-0.5 text-xs text-text-faint">{t('goals.sub')}</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-text">{t('goals.title')}</h1>
+            <p className="mt-1 text-[13px] text-text-faint">{t('goals.sub')}</p>
           </div>
           {!adding && (
             <button
@@ -175,8 +175,8 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
         )}
 
         {rows.length === 0 && !adding && (
-          <div className="chunk flex flex-col items-center gap-2 py-12 text-center">
-            <Mascot mood="think" size={56} />
+          <div className="chunk flex flex-col items-center gap-3 py-16 text-center">
+            <Mascot mood="think" size={64} />
             <span className="text-sm font-semibold text-text-faint">{t('goals.empty')}</span>
           </div>
         )}
@@ -210,11 +210,11 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
           }
 
           return (
-            <div key={goal.id} className="chunk group p-4">
+            <div key={goal.id} className="chunk group p-6">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate text-[15px] font-bold text-text">{goal.project}</div>
-                  <div className="mt-0.5 text-[11px] text-text-faint">
+                  <div className="truncate text-lg font-bold tracking-tight text-text">{goal.project}</div>
+                  <div className="mt-1 text-xs text-text-faint">
                     {goal.deadline
                       ? t(
                           'goals.until',
@@ -226,19 +226,22 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
                       : t('goals.notime')}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <div className="text-right">
                     <span
-                      className={`font-mono text-lg font-bold tabular-nums ${done ? 'text-accent' : 'text-text'}`}
+                      className={`text-2xl font-bold tracking-tight tabular-nums ${done ? 'text-accent' : 'text-text'}`}
                     >
                       {formatDurationShort(doneSec)}
                     </span>
-                    <span className="text-xs text-text-faint">/{goal.target_hours}h</span>
+                    <span className="text-sm font-medium text-text-faint"> / {goal.target_hours}h</span>
                   </div>
+                  <span className="rounded-full bg-accent-dim px-3 py-1.5 text-[13px] font-bold tabular-nums text-accent">
+                    {Math.round(frac * 100)}%
+                  </span>
                   <button
                     type="button"
                     onClick={() => remove(goal.id)}
-                    className={`rounded-md px-2 py-0.5 text-[11px] transition-opacity ${
+                    className={`rounded-full px-2.5 py-1 text-xs transition-opacity ${
                       confirmDelete === goal.id
                         ? 'bg-danger/15 font-bold text-danger opacity-100'
                         : 'text-text-faint opacity-0 hover:text-danger group-hover:opacity-100'
@@ -249,14 +252,28 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
                 </div>
               </div>
 
-              <div className="mt-3 h-3 w-full overflow-hidden rounded-[4px] border-2 border-border-strong bg-bg">
+              <div className="relative mt-4 h-2.5 w-full rounded-full bg-bg">
+                {[25, 50, 75].map((pTick) => (
+                  <span
+                    key={pTick}
+                    className="absolute top-1/2 h-1.5 w-px -translate-y-1/2 bg-white/10"
+                    style={{ left: `${pTick}%` }}
+                  />
+                ))}
                 <div
-                  className="h-full rounded-[2px] bg-accent"
-                  style={{ width: `${frac * 100}%`, transition: 'width 600ms cubic-bezier(0.16,1,0.3,1)' }}
-                />
+                  className="relative h-full min-w-2.5 rounded-full"
+                  style={{
+                    width: `${frac * 100}%`,
+                    background:
+                      'linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 55%, transparent), var(--color-accent))',
+                    transition: 'width 600ms cubic-bezier(0.16,1,0.3,1)',
+                  }}
+                >
+                  <span className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_10px_color-mix(in_srgb,var(--color-accent)_60%,transparent)]" />
+                </div>
               </div>
 
-              <div className="mt-2 text-[11px] font-medium text-text-dim">
+              <div className="mt-3 text-[13px] font-semibold text-text-dim">
                 {done ? (
                   <span className="text-accent">{t('goals.done')}</span>
                 ) : paceLine ? (
@@ -266,7 +283,7 @@ export function GoalsPage({ onError, refreshKey }: GoalsProps) {
                 )}
               </div>
               {doneSec === 0 && !done && (
-                <div className="mt-1 text-[11px] font-medium text-warn">
+                <div className="mt-1.5 text-[13px] font-semibold text-warn">
                   {t('goals.zero', goal.project)}
                 </div>
               )}

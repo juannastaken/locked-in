@@ -527,65 +527,82 @@ export function Week({ onError, refreshKey, dailyGoalHours }: WeekProps) {
         )}
         </div>
 
-        {/* clicked day → its blocks, right under the chart */}
-        {expandedDay && mode === 'week' && (
-          <section className="animate-fade-up">
-            <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-xs font-medium uppercase tracking-[0.12em] text-text-faint">
-                {new Date(expandedDay + 'T00:00:00').toLocaleDateString(dateLocale(), {
-                  weekday: 'long',
-                  day: '2-digit',
-                  month: '2-digit',
-                })}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setExpandedDay(null)}
-                className="text-xs font-semibold text-text-faint hover:text-text"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="cascade space-y-1.5">
-              {sessions
-                .filter((s) => dateKey(s.started_at) === expandedDay)
-                .map((s) => (
-                  <div
-                    key={s.id}
-                    className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3"
-                  >
-                    <span className="w-24 shrink-0 font-mono text-xs tabular-nums text-text-faint">
-                      {new Date(s.started_at).toLocaleTimeString(dateLocale(), {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {s.ended_at &&
-                        ` – ${new Date(s.ended_at).toLocaleTimeString(dateLocale(), {
+        {/* clicked day → its blocks in an OVERLAY (never grows the page) */}
+        {expandedDay && (
+          <div
+            className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{
+              background:
+                'radial-gradient(ellipse 55% 52% at 50% 50%, rgba(0,0,0,0.55), rgba(0,0,0,0.25) 80%, rgba(0,0,0,0.15))',
+            }}
+            onMouseDown={(e) => e.target === e.currentTarget && setExpandedDay(null)}
+          >
+            <div
+              className="animate-scale-in w-full max-w-lg rounded-3xl border border-border bg-surface p-6 [border-top-color:rgba(255,255,255,0.13)]"
+              style={{
+                backgroundImage:
+                  'linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.02) 30%, transparent 60%)',
+                boxShadow:
+                  '0 1px 2px rgba(0,0,0,0.4), 0 24px 70px -18px rgba(0,0,0,0.6), 0 60px 140px -30px rgba(0,0,0,0.45)',
+              }}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-bold capitalize tracking-tight text-text">
+                  {new Date(expandedDay + 'T00:00:00').toLocaleDateString(dateLocale(), {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: '2-digit',
+                  })}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setExpandedDay(null)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-text-faint hover:bg-surface-hover hover:text-text"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="cascade scrollbar-none max-h-[55vh] space-y-1.5 overflow-y-auto">
+                {sessions
+                  .filter((s) => dateKey(s.started_at) === expandedDay)
+                  .map((s) => (
+                    <div
+                      key={s.id}
+                      className="flex items-center gap-3 rounded-2xl bg-bg px-4 py-3"
+                    >
+                      <span className="w-24 shrink-0 font-mono text-xs tabular-nums text-text-faint">
+                        {new Date(s.started_at).toLocaleTimeString(dateLocale(), {
                           hour: '2-digit',
                           minute: '2-digit',
-                        })}`}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-text">
-                      {s.task}
-                      {s.project && (
-                        <span className="ml-1.5 font-medium text-text-faint">· {s.project}</span>
+                        })}
+                        {s.ended_at &&
+                          ` – ${new Date(s.ended_at).toLocaleTimeString(dateLocale(), {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}`}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-text">
+                        {s.task}
+                        {s.project && (
+                          <span className="ml-1.5 font-medium text-text-faint">· {s.project}</span>
+                        )}
+                      </span>
+                      {s.focus_rating != null && (
+                        <span className="shrink-0 text-xs text-text-dim">★{s.focus_rating}</span>
                       )}
-                    </span>
-                    {s.focus_rating != null && (
-                      <span className="shrink-0 text-xs text-text-dim">★{s.focus_rating}</span>
-                    )}
-                    <span className="w-14 shrink-0 text-right font-mono text-xs font-semibold tabular-nums text-text">
-                      {s.duration_sec ? formatDurationShort(s.duration_sec) : '—'}
-                    </span>
+                      <span className="w-14 shrink-0 text-right font-mono text-xs font-semibold tabular-nums text-text">
+                        {s.duration_sec ? formatDurationShort(s.duration_sec) : '—'}
+                      </span>
+                    </div>
+                  ))}
+                {sessions.filter((s) => dateKey(s.started_at) === expandedDay).length === 0 && (
+                  <div className="rounded-2xl bg-bg px-4 py-3 text-center text-xs text-text-faint">
+                    {t('ov.none')}
                   </div>
-                ))}
-              {sessions.filter((s) => dateKey(s.started_at) === expandedDay).length === 0 && (
-                <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-center text-xs text-text-faint">
-                  {t('ov.none')}
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </section>
+          </div>
         )}
 
         {topApps.length > 0 && (
