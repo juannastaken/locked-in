@@ -382,21 +382,31 @@ export function Login({ onDone }: LoginProps) {
       </div>
 
       <div className="relative w-full max-w-sm">
-        {/* mascot + wordmark */}
-        <div className="mb-7 flex items-end justify-center gap-3">
-          <div className="animate-mascot-wobble">
-            <Mascot mood="happy" size={72} />
-          </div>
-          <div className="pb-1">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-[3px] bg-accent" />
-              <span className="text-2xl font-extrabold tracking-tight text-text">Locked In</span>
-            </div>
-            <div className="mt-0.5 text-xs font-bold text-text-faint">{t('login.tagline')}</div>
-          </div>
+        {/* ambient accent glow behind the whole card */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-24 -z-10"
+          style={{
+            background:
+              'radial-gradient(circle 340px at 50% 38%, color-mix(in srgb, var(--color-accent) 7%, transparent), transparent 72%)',
+          }}
+        />
+        {/* wordmark — calm and formal: still mascot, clean type */}
+        <div className="cascade mb-8 flex flex-col items-center text-center">
+          <Mascot mood="focus" size={54} effects={false} />
+          <span className="mt-3 text-[26px] font-extrabold tracking-tight text-text">
+            Locked In
+          </span>
+          <span className="mt-1 text-[13px] font-medium text-text-dim">{t('login.tagline')}</span>
         </div>
 
-        <div className="chunk animate-fade-up p-5">
+        <div
+          className="chunk animate-fade-up p-6 [border-top-color:rgba(255,255,255,0.12)]"
+          style={{
+            boxShadow:
+              '0 1px 2px rgba(0,0,0,0.4), 0 24px 70px -18px rgba(0,0,0,0.6), 0 60px 140px -30px rgba(0,0,0,0.45)',
+          }}
+        >
           <div className="mb-3 text-center text-sm font-extrabold uppercase tracking-wide text-text">
             {screen === 'signin'
               ? t('acc.signin')

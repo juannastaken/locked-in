@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as db from '../lib/db';
 import { dateLocale, t, weekdayLetters } from '../lib/i18n';
 import { localDayKey, todayKey } from '../lib/time';
@@ -359,78 +360,96 @@ export function HabitsPage({ onError }: { onError: (m: string) => void }) {
             );
           })}
 
-          {adding ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                saveNew();
-              }}
-              className="animate-scale-in flex flex-col gap-2.5 rounded-2xl border border-accent/40 bg-surface p-4"
-            >
-              <div className="flex items-center gap-2">
-                <input
-                  value={newEmoji}
-                  onChange={(e) => setNewEmoji(e.target.value)}
-                  placeholder="✅"
-                  title={t('hab.emoji.title')}
-                  className="w-12 rounded-lg border border-border bg-bg py-2 text-center text-lg transition-colors focus:border-accent"
-                />
-                <input
-                  autoFocus
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder={t('hab.new.placeholder')}
-                  className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text transition-colors placeholder:text-text-faint focus:border-accent"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-0.5 rounded-lg border border-border bg-bg p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setNewTarget(Math.max(1, newTarget - 1))}
-                    className="h-7 w-7 rounded-md text-text-dim hover:bg-surface-hover hover:text-text"
-                  >
-                    −
-                  </button>
-                  <span className="min-w-16 text-center font-mono text-[13px] tabular-nums text-text">
-                    {newTarget}x<span className="text-text-faint">{t('hab.perweek')}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setNewTarget(Math.min(7, newTarget + 1))}
-                    className="h-7 w-7 rounded-md text-text-dim hover:bg-surface-hover hover:text-text"
-                  >
-                    +
-                  </button>
-                </div>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setAdding(false)}
-                    className="rounded-lg px-3 py-1.5 text-xs text-text-faint hover:text-text"
-                  >
-                    {t('misc.cancel').toLowerCase()}
-                  </button>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border text-text-faint transition-colors hover:border-border-strong hover:text-text"
+          >
+            <span className="text-2xl">+</span>
+            <span className="text-xs">{t('hab.new')}</span>
+          </button>
+
+          {adding &&
+            createPortal(
+              <div
+                className="animate-fade-in fixed inset-0 z-[70] flex items-center justify-center px-6"
+                style={{
+                  background:
+                    'radial-gradient(ellipse 55% 52% at 50% 50%, rgba(0,0,0,0.55), rgba(0,0,0,0.25) 80%, rgba(0,0,0,0.15))',
+                }}
+                onMouseDown={(e) => e.target === e.currentTarget && setAdding(false)}
+              >
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    saveNew();
+                  }}
+                  className="animate-scale-in w-full max-w-sm rounded-3xl border border-border bg-surface p-7 [border-top-color:rgba(255,255,255,0.13)]"
+                  style={{
+                    backgroundImage:
+                      'linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.02) 30%, transparent 60%)',
+                    boxShadow:
+                      '0 1px 2px rgba(0,0,0,0.4), 0 24px 70px -18px rgba(0,0,0,0.6), 0 60px 140px -30px rgba(0,0,0,0.45)',
+                  }}
+                >
+                  <h2 className="text-lg font-bold tracking-tight text-text">{t('hab.new')}</h2>
+                  <p className="mt-1 text-sm text-text-dim">{t('hab.sub')}</p>
+
+                  <div className="mt-5 flex items-center gap-2.5">
+                    <input
+                      value={newEmoji}
+                      onChange={(e) => setNewEmoji(e.target.value)}
+                      placeholder="✅"
+                      title={t('hab.emoji.title')}
+                      className="h-12 w-12 rounded-2xl bg-bg text-center text-xl focus:outline-none focus:ring-1 focus:ring-accent/40"
+                    />
+                    <input
+                      autoFocus
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder={t('hab.new.placeholder')}
+                      className="h-12 min-w-0 flex-1 rounded-2xl bg-bg px-4 text-[15px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none focus:ring-1 focus:ring-accent/40"
+                    />
+                  </div>
+
+                  <div className="mb-2.5 mt-5 text-[11px] font-bold uppercase tracking-[0.1em] text-text-faint">
+                    {newTarget}x{t('hab.perweek')}
+                  </div>
+                  <div className="flex rounded-2xl bg-bg p-1">
+                    {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setNewTarget(n)}
+                        className={`no-press h-10 flex-1 rounded-xl text-[13px] font-semibold transition-colors duration-200 ${
+                          newTarget === n
+                            ? 'bg-surface-hover text-accent'
+                            : 'text-text-faint hover:text-text-dim'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+
                   <button
                     type="submit"
                     disabled={!newName.trim()}
-                    className="rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-bg hover:brightness-110 disabled:opacity-30"
+                    className="mt-6 w-full rounded-2xl bg-accent py-3.5 text-sm font-bold text-bg hover:brightness-110 disabled:opacity-30"
                   >
                     {t('hab.create')}
                   </button>
-                </div>
-              </div>
-            </form>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border text-text-faint transition-colors hover:border-border-strong hover:text-text"
-            >
-              <span className="text-2xl">+</span>
-              <span className="text-xs">{t('hab.new')}</span>
-            </button>
-          )}
+                  <button
+                    type="button"
+                    onClick={() => setAdding(false)}
+                    className="mt-2.5 w-full text-center text-xs font-bold text-text-faint hover:text-text"
+                  >
+                    {t('misc.cancel')}
+                  </button>
+                </form>
+              </div>,
+              document.body,
+            )}
         </div>
       </div>
     </div>
