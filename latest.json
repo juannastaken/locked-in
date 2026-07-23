@@ -1,10 +1,10 @@
 {
-    "version":  "0.49.0",
-    "pub_date":  "2026-07-23T14:14:40Z",
+    "version":  "0.49.1",
+    "pub_date":  "2026-07-23T14:19:17Z",
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSM3hTOHVTbDg2VTExS1RobjFlMnlpd3NjN3RST0RhZDRtSVd1TzNTMDIxM25VYzFqV2gwQjdMb1k4MnVQYytQYVk0RnkvcFltWWFXbCtIVGs3TUg2MzhzYURsV0x1NWdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0ODE2MDc3CWZpbGU6TG9ja2VkIEluXzAuNDkuMF94NjQtc2V0dXAuZXhlCmVaRm5udlNBY1VRdnlILzk4QWVZaUZYSTM3UTB1ZjlFeERNeUx4aEM2RVo1R0tkS3E1bW44UVNJRE92ODVLcXRYSDRMN3lMQmJtWFpqUEphb29ZWkNRPT0K",
-                                             "url":  "https://github.com/JuanArtxz/locked-in/releases/download/v0.49.0/Locked.In_0.49.0_x64-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSM3hTOHVTbDg2VThERnhZRmpqczd3b1plVGl2R0JmNWhOZ0M4Qkx3RldRRG5kQ0Y0Z0FWR1BmMWRhaldkV3ZyZjMrNlp0QzlFRy96cWp5ckdyMkNjUUNqU2lxblhpWGdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg0ODE2MzUzCWZpbGU6TG9ja2VkIEluXzAuNDkuMV94NjQtc2V0dXAuZXhlCmkxaGlNMElDVnZwNUlNTW81MkpaZm4zN2VtaHhzamRKUk9XRFg4bzJHR05xMVpGNW14YVZtZnp6Y1RPV2dOM0pmLzVadEJodit1Y2x6WmxSbytUL0NBPT0K",
+                                             "url":  "https://github.com/JuanArtxz/locked-in/releases/download/v0.49.1/Locked.In_0.49.1_x64-setup.exe"
                                          }
                   }
 }
