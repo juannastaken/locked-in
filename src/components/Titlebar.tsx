@@ -76,9 +76,12 @@ export function PersonIcon({ size = 18 }: { size?: number }) {
 
 /* the pill's TweenPosition — must be re-applied explicitly after any 'none',
    because clearing an inline transition kills it permanently (React won't
-   re-diff an unchanged style prop). */
-const IND_TWEEN =
-  'left 300ms cubic-bezier(0.25, 0.9, 0.3, 1), width 300ms cubic-bezier(0.25, 0.9, 0.3, 1)';
+   re-diff an unchanged style prop). The pill NEVER resizes: every active tab
+   occupies the same fixed slot, so only `left` ever animates. */
+const IND_TWEEN = 'left 300ms cubic-bezier(0.25, 0.9, 0.3, 1)';
+/* fixed width of the active slot (and therefore of the pill) — must fit the
+   longest tab label in both locales ("Analytics") */
+const ACTIVE_W = 116;
 
 function WinButton({
   onClick,
@@ -140,7 +143,6 @@ export function Titlebar({
     ind.style.opacity = '1';
     const place = () => {
       ind.style.left = `${btn.offsetLeft}px`;
-      ind.style.width = `${btn.offsetWidth}px`;
     };
     if (!indReady.current) {
       ind.style.transition = 'none';
@@ -178,7 +180,6 @@ export function Titlebar({
       if (!ind || !btn) return;
       ind.style.transition = 'none';
       ind.style.left = `${btn.offsetLeft}px`;
-      ind.style.width = `${btn.offsetWidth}px`;
       // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       ind.offsetWidth;
       ind.style.transition = IND_TWEEN;
@@ -249,7 +250,7 @@ export function Titlebar({
             ref={indRef}
             aria-hidden
             className="pointer-events-none absolute top-1.5 h-11 rounded-full bg-accent"
-            style={{ left: 0, width: 0, opacity: 0, transition: IND_TWEEN }}
+            style={{ left: 0, width: ACTIVE_W, opacity: 0, transition: IND_TWEEN }}
           />
           {tabs.map((tabDef) => {
             const active = tab === tabDef.id;
@@ -261,8 +262,9 @@ export function Titlebar({
                 data-tab={tabDef.id}
                 onClick={() => onTab(tabDef.id)}
                 title={t(tabDef.labelKey)}
-                className={`nav-tab relative z-10 flex h-11 shrink-0 items-center justify-center rounded-full text-[13px] font-bold transition-colors duration-200 ${
-                  active ? 'px-4 text-bg' : 'w-11 text-text-dim hover:text-text'
+                style={{ width: active ? ACTIVE_W : 44 }}
+                className={`nav-tab relative z-10 flex h-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] font-bold transition-[width,color] duration-300 ${
+                  active ? 'text-bg' : 'text-text-dim hover:text-text'
                 }`}
               >
                 {NAV_ICONS[tabDef.id]}
