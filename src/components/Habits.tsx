@@ -116,39 +116,22 @@ export function HabitChips({
               toggle(habit, yesterday);
             }}
             title={t('hab.chip.title', habit.name, String(count), String(habit.weekly_target))}
-            className={`flex items-center gap-2.5 rounded-2xl border py-2 pl-3 pr-4 ${
-              doneToday
-                ? 'border-accent bg-accent-dim'
-                : 'border-border bg-surface hover:border-border-strong'
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-colors ${
+              doneToday ? 'text-text' : 'text-text-dim hover:bg-surface hover:text-text'
             }`}
           >
-            <span
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-base leading-none ${
-                doneToday ? 'bg-accent/15' : 'bg-bg'
-              }`}
-            >
-              {habit.emoji}
+            <span className="text-[15px] leading-none">{habit.emoji}</span>
+            <span className="text-[13px] font-semibold leading-none">{habit.name}</span>
+            {/* week progress as tiny pixel squares — mascot DNA, not generic dots */}
+            <span className="ml-0.5 flex items-center gap-[3px]">
+              {Array.from({ length: habit.weekly_target }, (_, i) => (
+                <span
+                  key={i}
+                  className={i < count ? 'h-[6px] w-[6px] bg-accent' : 'h-[6px] w-[6px] bg-border-strong'}
+                />
+              ))}
             </span>
-            <span className="flex flex-col items-start gap-1.5">
-              <span
-                className={`text-[13px] font-semibold leading-none ${
-                  doneToday ? 'text-text' : 'text-text-dim'
-                }`}
-              >
-                {habit.name}
-                {flame >= 2 && <span className="ml-1.5 text-[11px] text-accent">🔥{flame}</span>}
-              </span>
-              <span className="flex items-center gap-1">
-                {Array.from({ length: habit.weekly_target }, (_, i) => (
-                  <span
-                    key={i}
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      i < count ? 'bg-accent' : 'bg-border-strong'
-                    }`}
-                  />
-                ))}
-              </span>
-            </span>
+            {flame >= 2 && <span className="text-[11px] font-bold text-accent">🔥{flame}</span>}
           </button>
         );
       })}
@@ -156,8 +139,8 @@ export function HabitChips({
         type="button"
         onClick={onOpenHabits}
         title={t('hab.manage')}
-        className={`flex items-center justify-center rounded-2xl border border-dashed border-border text-text-faint hover:border-border-strong hover:text-text ${
-          habits.length === 0 ? 'gap-1.5 px-4 py-3 text-[13px] font-semibold' : 'h-[52px] w-11 text-base'
+        className={`flex items-center justify-center rounded-xl text-text-faint transition-colors hover:bg-surface hover:text-text ${
+          habits.length === 0 ? 'gap-1.5 px-3 py-2 text-[13px] font-semibold' : 'h-8 w-8 text-base'
         }`}
       >
         {habits.length === 0 ? <>{t('hab.chips.add')}</> : '+'}

@@ -603,21 +603,16 @@ input[type='number'] {
    sections only. Heavy overlap makes it read as one smooth wave instead of
    elements popping in sequence (the "AI look"). Runs once per page mount —
    data refreshes re-render without remounting, so nothing re-animates. */
-/* v2: slower + a subtle focus-blur that resolves as each section lands —
-   the modern "sharpens into place" look (Linear/Arc). Still one soft wave. */
+/* v3 "materialize": fade + a 98.5%→100% settle, no vertical motion, no blur.
+   Sections take their place instead of arriving from somewhere. */
 @keyframes cascade-in {
   from {
     opacity: 0;
-    transform: translateY(7px);
-    filter: blur(6px);
-  }
-  60% {
-    filter: blur(0);
+    transform: scale(0.985);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: blur(0);
   }
 }
 .cascade > * {

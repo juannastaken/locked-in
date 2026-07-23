@@ -648,31 +648,34 @@ export function Home({
           LOCK IN
         </button>
 
-        <div className="mt-4 flex h-14 items-center">
+        <div className="mt-3 flex h-10 items-center">
           {lastSession && !task.trim() && (
             <button
               type="button"
               onClick={() => focus.startSession(lastSession.task, lastSession.project)}
-              className="animate-fade-in flex max-w-md items-center gap-3 rounded-2xl border border-border bg-surface py-2 pl-2.5 pr-5 hover:border-border-strong"
+              className="animate-fade-in flex max-w-md items-center gap-2 px-2 py-1.5 text-[13px] font-medium text-text-dim hover:text-text"
               title={t('home.continue.title')}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-dim text-accent">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 12a9 9 0 1 0 3-6.7" />
-                  <path d="M3 4v4h4" />
-                </svg>
-              </span>
-              <span className="min-w-0 text-left">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.1em] text-text-faint">
-                  {t('home.continue').replace(/:$/, '')}
-                </span>
-                <span className="block truncate text-[13px] font-semibold text-text">
-                  {lastSession.task}
-                  {lastSession.project && (
-                    <span className="font-medium text-text-faint"> · {lastSession.project}</span>
-                  )}
-                </span>
-              </span>
+              <svg
+                className="shrink-0 text-accent"
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M3 12a9 9 0 1 0 3-6.7" />
+                <path d="M3 4v4h4" />
+              </svg>
+              <span className="shrink-0">{t('home.continue').replace(/:$/, '')}</span>
+              <span className="truncate font-semibold text-text">{lastSession.task}</span>
+              {lastSession.project && (
+                <span className="shrink-0 text-text-faint">· {lastSession.project}</span>
+              )}
             </button>
           )}
         </div>
