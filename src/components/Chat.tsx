@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useToast } from '../hooks/useToast';
 import * as chat from '../lib/chat';
@@ -392,7 +393,8 @@ export function ImageViewer({
     }
   }
 
-  return (
+  // portaled: nested fixed overlays lose to sibling panels' stacking contexts
+  return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
@@ -413,7 +415,8 @@ export function ImageViewer({
           {t('misc.close')}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
