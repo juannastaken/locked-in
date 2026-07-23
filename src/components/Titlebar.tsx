@@ -235,13 +235,17 @@ export function Titlebar({
       data-tauri-drag-region
       className="relative flex h-[72px] shrink-0 select-none items-stretch gap-2 pl-2"
     >
-      {/* top-left brand mark */}
-      <div data-tauri-drag-region className="flex shrink-0 items-center pl-4 pt-2">
+      {/* top-left brand mark — shrinks with the window and hides before it can
+          slide under the absolutely-centered nav pill */}
+      <div
+        data-tauri-drag-region
+        className="hidden shrink-0 items-center pl-4 pt-2 min-[1000px]:flex"
+      >
         <img
           src={logoUrl}
           alt="Locked In"
           draggable={false}
-          className="pointer-events-none h-[26px] w-auto select-none"
+          className="pointer-events-none h-4 w-auto select-none min-[1280px]:h-5 min-[1600px]:h-[26px]"
         />
       </div>
 
