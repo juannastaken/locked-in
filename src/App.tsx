@@ -2223,7 +2223,6 @@ function AppShell() {
             signedIn={signedIn}
             onError={onError}
             onOpenFriends={() => setTab('friends')}
-            onOpenBackup={() => setKeyModal('backup')}
             refreshKey={refreshKey}
           />
         )}

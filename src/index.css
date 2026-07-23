@@ -563,6 +563,11 @@ input[type='number'] {
 
 /* responsive UI scale: the whole interface (rem-based) grows with the window,
    so maximized/fullscreen actually looks bigger instead of tiny-and-centered */
+html {
+  /* the responsive rem scale below tweens instead of snapping — the friends
+     rail (and everything else) glides when the window crosses a breakpoint */
+  transition: font-size 250ms ease;
+}
 @media (min-width: 1360px) {
   html {
     font-size: 17px;

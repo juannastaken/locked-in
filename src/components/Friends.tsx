@@ -953,7 +953,7 @@ export function FriendsPage({
             <div className="flex items-baseline justify-between gap-2">
               <span className="truncate text-[15px] font-bold text-text">@{f.username}</span>
               {lm && (
-                <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-text-faint">
+                <span className="-mt-0.5 shrink-0 self-start font-mono text-[11px] font-bold tabular-nums text-text-dim">
                   {rowTime(lm.created_at)}
                 </span>
               )}
@@ -1046,7 +1046,7 @@ export function FriendsPage({
                 {cleanProfanity(g.group.name)}
               </span>
               {glm && (
-                <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-text-faint">
+                <span className="-mt-0.5 shrink-0 self-start font-mono text-[11px] font-bold tabular-nums text-text-dim">
                   {rowTime(glm.created_at)}
                 </span>
               )}
@@ -1225,7 +1225,7 @@ export function FriendsPage({
               }));
             const all = [...dms, ...grps].sort((a, b) => b.ts - a.ts);
             return (
-              <div key={q} className={q ? 'cascade-fast' : ''}>
+              <div key={q} className={q ? 'cascade-fast' : 'cascade'}>
                 {all.map((c) => (
                   <div key={c.key}>{c.node}</div>
                 ))}

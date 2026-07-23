@@ -231,7 +231,7 @@ export function Titlebar({
           gear/profile clusters are */}
       <div data-tauri-drag-region className="min-w-0 flex-1" />
       <div
-        className="pointer-events-none absolute inset-y-0 z-10 flex -translate-x-1/2 items-center transition-[left] duration-200 ease-out"
+        className="pointer-events-none absolute inset-y-0 z-10 flex -translate-x-1/2 items-center pt-2 transition-[left] duration-200 ease-out"
         style={{ left: 'calc(50% - var(--fbw, 0rem) / 2)' }}
       >
         <nav
