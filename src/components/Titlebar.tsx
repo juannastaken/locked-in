@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { t } from '../lib/i18n';
+import logoUrl from '../assets/logo.png';
 import { warmReload } from '../lib/reload';
 import type { SocialHook } from '../hooks/useSocial';
 
@@ -234,6 +235,16 @@ export function Titlebar({
       data-tauri-drag-region
       className="relative flex h-[72px] shrink-0 select-none items-stretch gap-2 pl-2"
     >
+      {/* top-left brand mark */}
+      <div data-tauri-drag-region className="flex shrink-0 items-center pl-4 pt-2">
+        <img
+          src={logoUrl}
+          alt="Locked In"
+          draggable={false}
+          className="pointer-events-none h-[26px] w-auto select-none"
+        />
+      </div>
+
       {/* center: floating pill nav — absolutely centered on the WINDOW so it
           lines up with the page sub-tabs below, regardless of how wide the
           gear/profile clusters are */}
