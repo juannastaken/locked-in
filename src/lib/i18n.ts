@@ -1182,8 +1182,9 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: 'Only the active window title is read — nothing leaves your computer.',
   },
   'ob.load.1': { pt: 'Preparando tudo pra você…', en: 'Getting everything ready…' },
-  'ob.load.2': { pt: 'Salvando suas preferências…', en: 'Saving your preferences…' },
-  'ob.load.3': { pt: 'Quase lá…', en: 'Almost there…' },
+  'ob.load.2': { pt: 'Ajustando seu ritmo…', en: 'Tuning your rhythm…' },
+  'ob.load.3': { pt: 'Tudo pronto.', en: 'All set.' },
+  'ob.load.ready.named': { pt: 'Tudo pronto, {0}.', en: 'All set, {0}.' },
   'ob.tour.title': { pt: 'O mapa do app', en: 'The lay of the land' },
   'ob.tour.sub': {
     pt: 'Sete abas, cada uma com um trabalho.',

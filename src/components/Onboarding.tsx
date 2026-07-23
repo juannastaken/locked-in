@@ -155,17 +155,17 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
     onDone();
   };
 
-  // final screen: circular progress fills over ~2.6s, then the app opens
+  // final screen: ~7s cinematic — lock closes, clock spins, check draws
   useEffect(() => {
     if (step !== 'loading') return;
     const t0 = performance.now();
-    const dur = 2600;
+    const dur = 6800;
     let raf = 0;
     const tick = (now: number) => {
       const p = Math.min(1, (now - t0) / dur);
-      setLoadPct(1 - Math.pow(1 - p, 3));
+      setLoadPct(p);
       if (p < 1) raf = requestAnimationFrame(tick);
-      else window.setTimeout(finish, 300);
+      else window.setTimeout(finish, 400);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
@@ -192,7 +192,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
   }
 
   const chip = (active: boolean) =>
-    `no-press rounded-full px-4 py-2.5 text-sm font-bold transition-colors duration-300 ${
+    `no-press chip-quiet rounded-full px-4 py-2.5 text-sm ${
       active ? 'bg-accent text-bg' : 'bg-surface text-text-dim hover:text-text'
     }`;
 
@@ -222,8 +222,19 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
     </button>
   );
 
+  const loadPhase = loadPct < 0.34 ? 0 : loadPct < 0.7 ? 1 : 2;
   const loadMsg =
-    loadPct < 0.4 ? t('ob.load.1') : loadPct < 0.8 ? t('ob.load.2') : t('ob.load.3');
+    loadPhase === 0
+      ? t('ob.load.1')
+      : loadPhase === 1
+        ? t('ob.load.2')
+        : firstName
+          ? t('ob.load.ready.named', firstName)
+          : t('ob.load.3');
+  const loadIcon = (phase: number) =>
+    `absolute inset-0 flex items-center justify-center transition-all duration-500 ease-out ${
+      loadPhase === phase ? 'scale-100 opacity-100' : 'scale-75 opacity-0'
+    }`;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-bg">
@@ -274,13 +285,14 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
               <p className="mx-auto max-w-md text-base font-medium leading-relaxed text-text-dim">
                 {t('ob.welcome.sub')}
               </p>
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {(['tab.home', 'tab.tasks', 'tab.friends', 'tab.ranking'] as const).map((k) => (
+              {/* teaser of the real nav — the tour step brings it to life */}
+              <div className="cascade-fast flex items-center gap-1.5">
+                {TOUR_TABS.map((id) => (
                   <span
-                    key={k}
-                    className="rounded-full bg-surface px-3.5 py-1.5 text-xs font-bold text-text-dim"
+                    key={id}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border bg-surface text-text-dim"
                   >
-                    {t(k)}
+                    {NAV_ICONS[id]}
                   </span>
                 ))}
               </div>
@@ -306,7 +318,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
                   placeholder={t('ob.name.ph')}
                   maxLength={40}
                   autoFocus
-                  className="w-full rounded-full bg-surface px-6 py-4 text-center text-lg font-extrabold text-text outline-none transition-colors placeholder:font-semibold placeholder:text-text-faint"
+                  className="w-full rounded-full border bg-surface px-6 py-4 text-center text-lg font-extrabold text-text outline-none transition-colors placeholder:font-semibold placeholder:text-text-faint"
                 />
               </form>
             </>
@@ -324,7 +336,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
                     key={role.id}
                     type="button"
                     onClick={() => toggleRole(role.id)}
-                    className={`no-press rounded-2xl px-5 py-3 text-[15px] font-extrabold transition-colors duration-300 ${
+                    className={`no-press chip-quiet rounded-2xl px-5 py-3 text-[15px] ${
                       roles.has(role.id)
                         ? 'bg-accent text-bg'
                         : 'bg-surface text-text-dim hover:text-text'
@@ -350,7 +362,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
                   <button
                     key={h}
                     type="button"
-                    className={`no-press rounded-2xl px-6 py-3.5 text-base font-extrabold tabular-nums transition-colors duration-300 ${
+                    className={`no-press chip-quiet rounded-2xl px-6 py-3.5 text-base tabular-nums ${
                       goal === h ? 'bg-accent text-bg' : 'bg-surface text-text-dim hover:text-text'
                     }`}
                     onClick={() => {
@@ -427,7 +439,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
                     ))}
                   </div>
                   <form
-                    className="mx-auto mt-3 flex w-full max-w-xs items-center gap-1 rounded-full bg-surface py-1.5 pl-4 pr-1.5"
+                    className="mx-auto mt-3 flex w-full max-w-xs items-center gap-1 rounded-full border bg-surface py-1.5 pl-4 pr-1.5"
                     onSubmit={(e) => {
                       e.preventDefault();
                       const name = customApp.trim().toLowerCase();
@@ -531,8 +543,9 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
                 <h2 className="text-2xl font-extrabold text-text">{t('ob.tour.title')}</h2>
                 <p className="mt-2 text-sm font-medium text-text-dim">{t('ob.tour.sub')}</p>
               </div>
-              {/* the real nav pill, miniature — tap around, label slides open */}
-              <div className="flex items-center gap-1 rounded-full border bg-surface p-1.5">
+              {/* the real nav pill, miniature — fixed-width slots exactly like the
+                  titlebar: only the active button widens, the pill never resizes */}
+              <div className="flex shrink-0 items-center gap-1 rounded-full border bg-surface p-1.5">
                 {TOUR_TABS.map((id) => {
                   const active = tourSel === id;
                   return (
@@ -540,7 +553,8 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
                       key={id}
                       type="button"
                       onClick={() => setTourSel(id)}
-                      className={`no-press flex h-11 shrink-0 items-center justify-center rounded-full px-3 text-[13px] font-bold transition-colors duration-300 ${
+                      style={{ width: active ? 112 : 44 }}
+                      className={`no-press chip-quiet flex h-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] transition-[width,background-color,color] duration-300 ${
                         active ? 'bg-accent text-bg' : 'text-text-dim hover:text-text'
                       }`}
                     >
@@ -576,7 +590,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
               {signedIn ? (
                 <div className="w-full max-w-xs">
                   <form
-                    className="flex items-center gap-1 rounded-full bg-surface py-1.5 pl-4 pr-1.5"
+                    className="flex items-center gap-1 rounded-full border bg-surface py-1.5 pl-4 pr-1.5"
                     onSubmit={(e) => {
                       e.preventDefault();
                       addFriend();
@@ -631,36 +645,114 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
 
           {step === 'loading' && (
             <>
-              <div className="relative">
-                <svg width="128" height="128" viewBox="0 0 128 128" aria-hidden>
+              <div className="relative h-[152px] w-[152px]">
+                <svg width="152" height="152" viewBox="0 0 152 152" className="absolute inset-0" aria-hidden>
                   <circle
-                    cx="64"
-                    cy="64"
+                    cx="76"
+                    cy="76"
                     r={RING_R}
                     fill="none"
                     stroke="rgba(255,255,255,0.07)"
-                    strokeWidth="8"
+                    strokeWidth="6"
                   />
                   <circle
-                    cx="64"
-                    cy="64"
+                    cx="76"
+                    cy="76"
                     r={RING_R}
                     fill="none"
                     stroke="var(--color-accent)"
-                    strokeWidth="8"
+                    strokeWidth="6"
                     strokeLinecap="round"
                     strokeDasharray={RING_C}
                     strokeDashoffset={RING_C * (1 - loadPct)}
-                    transform="rotate(-90 64 64)"
+                    transform="rotate(-90 76 76)"
+                    style={{ transition: 'stroke-dashoffset 120ms linear' }}
                   />
                 </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-lg font-extrabold tabular-nums text-text">
-                  {Math.round(loadPct * 100)}%
-                </span>
+
+                {/* act 1 — the padlock snaps shut */}
+                <div className={loadIcon(0)}>
+                  <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden>
+                    <g
+                      style={{
+                        transform: loadPct > 0.08 ? 'translateY(0)' : 'translateY(-7px)',
+                        transition: 'transform 550ms cubic-bezier(0.34, 1.4, 0.64, 1)',
+                      }}
+                    >
+                      <path
+                        d="M21 30 v-8 a9 9 0 0 1 18 0 v8"
+                        fill="none"
+                        stroke="var(--color-accent)"
+                        strokeWidth="4.5"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                    <rect x="14" y="30" width="32" height="24" rx="7" fill="var(--color-accent)" />
+                    <circle cx="30" cy="41" r="3" fill="var(--color-bg)" />
+                  </svg>
+                </div>
+
+                {/* act 2 — the clock hand sweeps */}
+                <div className={loadIcon(1)}>
+                  <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden>
+                    <circle
+                      cx="30"
+                      cy="30"
+                      r="21"
+                      fill="none"
+                      stroke="var(--color-accent)"
+                      strokeWidth="4.5"
+                    />
+                    <g
+                      style={{
+                        transformOrigin: '30px 30px',
+                        animation:
+                          loadPhase === 1 ? 'ob-hand 1.5s cubic-bezier(0.5, 0, 0.4, 1) infinite' : 'none',
+                      }}
+                    >
+                      <line
+                        x1="30"
+                        y1="30"
+                        x2="30"
+                        y2="17"
+                        stroke="var(--color-accent)"
+                        strokeWidth="4.5"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                    <circle cx="30" cy="30" r="2.5" fill="var(--color-accent)" />
+                  </svg>
+                </div>
+
+                {/* act 3 — the check draws itself */}
+                <div className={loadIcon(2)}>
+                  <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden>
+                    <path
+                      d="M15 31 l11 11 l19 -22"
+                      fill="none"
+                      stroke="var(--color-accent)"
+                      strokeWidth="5.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeDasharray="46"
+                      strokeDashoffset={loadPhase === 2 ? undefined : 46}
+                      style={
+                        loadPhase === 2
+                          ? { strokeDashoffset: 46, animation: 'ob-draw 650ms ease-out 150ms forwards' }
+                          : undefined
+                      }
+                    />
+                  </svg>
+                </div>
               </div>
-              <p key={loadMsg} className="animate-fade-in text-[15px] font-semibold text-text-dim">
-                {loadMsg}
-              </p>
+              <div>
+                <p key={loadMsg} className="animate-fade-in text-[15px] font-semibold text-text-dim">
+                  {loadMsg}
+                </p>
+                <p className="mt-1.5 text-xs font-bold tabular-nums text-text-faint">
+                  {Math.round(loadPct * 100)}%
+                </p>
+              </div>
             </>
           )}
         </div>
