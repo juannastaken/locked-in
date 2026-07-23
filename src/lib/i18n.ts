@@ -1150,6 +1150,12 @@ const dict: Record<string, { pt: string; en: string }> = {
     en: 'Duo jams, weekly ranking, encrypted chat. Add someone by @name:',
   },
   'ob.social.create': { pt: 'Criar conta grátis', en: 'Create free account' },
+  'set.retour': { pt: 'Rever o tour inicial', en: 'Replay the intro tour' },
+  'set.retour.hint': {
+    pt: 'Abre o passo a passo de boas-vindas de novo.',
+    en: 'Opens the welcome walkthrough again.',
+  },
+  'set.retour.btn': { pt: 'Rever', en: 'Replay' },
   'ob.tour.title': { pt: 'O mapa do app', en: 'The lay of the land' },
   'ob.tour.sub': {
     pt: 'Sete abas, cada uma com um trabalho.',

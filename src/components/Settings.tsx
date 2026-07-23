@@ -706,6 +706,22 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
               {exporting ? t('set.export.busy') : t('set.export.btn')}
             </button>
           </div>
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div>
+              <div className="text-sm text-text">{t('set.retour')}</div>
+              <div className="mt-0.5 text-xs text-text-faint">{t('set.retour.hint')}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem('onboarded-v1');
+                warmReload();
+              }}
+              className="rounded-lg border border-border px-4 py-2 text-[13px] font-medium text-text hover:border-border-strong hover:bg-surface-hover"
+            >
+              {t('set.retour.btn')}
+            </button>
+          </div>
         </Section>
 
         <Section title={t('legal.section')}>
