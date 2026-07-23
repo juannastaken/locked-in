@@ -3,7 +3,6 @@ import type { Settings } from '../types';
 import { t } from '../lib/i18n';
 import * as social from '../lib/social';
 import { ACCENT_PRESETS } from './Settings';
-import { NAV_ICONS } from './Titlebar';
 import logoUrl from '../assets/logo.png';
 
 interface OnboardingProps {
@@ -41,26 +40,6 @@ const APP_SUGGESTIONS = [
 
 const GOAL_OPTIONS = [1, 2, 3, 4, 6, 8];
 
-const TOUR_TABS = [
-  'home',
-  'routine',
-  'tasks',
-  'analytics',
-  'goals',
-  'friends',
-  'ranking',
-] as const;
-type TourTab = (typeof TOUR_TABS)[number];
-const TOUR_LABEL_KEY: Record<TourTab, string> = {
-  home: 'tab.home',
-  routine: 'tab.routine',
-  tasks: 'tab.tasks',
-  analytics: 'tab.analytics',
-  goals: 'tab.goals',
-  friends: 'tab.friends',
-  ranking: 'tab.ranking',
-};
-
 /** Role presets — picking what you do preselects the right auto-track apps. */
 const WORK_ROLES = [
   { id: 'dev', apps: ['visual studio code', 'intellij idea', 'android studio'] },
@@ -72,10 +51,10 @@ const WORK_ROLES = [
 ] as const;
 type WorkRole = (typeof WORK_ROLES)[number]['id'];
 
-const STEPS = ['welcome', 'name', 'work', 'goal', 'autotrack', 'accent', 'extras', 'tour', 'social', 'loading'] as const;
+const STEPS = ['welcome', 'name', 'work', 'goal', 'autotrack', 'accent', 'extras', 'social', 'loading'] as const;
 type Step = (typeof STEPS)[number];
 
-const RING_R = 50;
+const RING_R = 100;
 const RING_C = 2 * Math.PI * RING_R;
 
 export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone }: OnboardingProps) {
@@ -107,7 +86,6 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
   const [overlay, setOverlay] = useState(settings.overlay_enabled);
   const [checkin, setCheckin] = useState(settings.checkin_enabled);
   const [telemetry, setTelemetry] = useState(settings.telemetry_enabled);
-  const [tourSel, setTourSel] = useState<TourTab>('home');
   const [friendName, setFriendName] = useState('');
   const [friendMsg, setFriendMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [friendBusy, setFriendBusy] = useState(false);
@@ -285,17 +263,6 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
               <p className="mx-auto max-w-md text-base font-medium leading-relaxed text-text-dim">
                 {t('ob.welcome.sub')}
               </p>
-              {/* teaser of the real nav — the tour step brings it to life */}
-              <div className="cascade-fast flex items-center gap-1.5">
-                {TOUR_TABS.map((id) => (
-                  <span
-                    key={id}
-                    className="flex h-11 w-11 items-center justify-center rounded-full border bg-surface text-text-dim"
-                  >
-                    {NAV_ICONS[id]}
-                  </span>
-                ))}
-              </div>
             </>
           )}
 
@@ -537,48 +504,6 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
             </>
           )}
 
-          {step === 'tour' && (
-            <>
-              <div>
-                <h2 className="text-2xl font-extrabold text-text">{t('ob.tour.title')}</h2>
-                <p className="mt-2 text-sm font-medium text-text-dim">{t('ob.tour.sub')}</p>
-              </div>
-              {/* the real nav pill, miniature — fixed-width slots exactly like the
-                  titlebar: only the active button widens, the pill never resizes */}
-              <div className="flex shrink-0 items-center gap-1 rounded-full border bg-surface p-1.5">
-                {TOUR_TABS.map((id) => {
-                  const active = tourSel === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setTourSel(id)}
-                      style={{ width: active ? 112 : 44 }}
-                      className={`no-press chip-quiet flex h-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] transition-[width,background-color,color] duration-300 ${
-                        active ? 'bg-accent text-bg' : 'text-text-dim hover:text-text'
-                      }`}
-                    >
-                      {NAV_ICONS[id]}
-                      <span
-                        className={`overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin-left] duration-300 ease-out ${
-                          active ? 'ml-2 max-w-[8rem] opacity-100' : 'ml-0 max-w-0 opacity-0'
-                        }`}
-                      >
-                        {t(TOUR_LABEL_KEY[id])}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p
-                key={tourSel}
-                className="animate-fade-in mx-auto max-w-sm text-[15px] font-medium leading-relaxed text-text-dim"
-              >
-                {t(`ob.tour.${tourSel}`)}
-              </p>
-            </>
-          )}
-
           {step === 'social' && (
             <>
               <div>
@@ -645,34 +570,33 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
 
           {step === 'loading' && (
             <>
-              <div className="relative h-[152px] w-[152px]">
-                <svg width="152" height="152" viewBox="0 0 152 152" className="absolute inset-0" aria-hidden>
+              <div className="relative h-[232px] w-[232px]">
+                <svg width="232" height="232" viewBox="0 0 232 232" className="absolute inset-0" aria-hidden>
                   <circle
-                    cx="76"
-                    cy="76"
+                    cx="116"
+                    cy="116"
                     r={RING_R}
                     fill="none"
                     stroke="rgba(255,255,255,0.07)"
-                    strokeWidth="6"
+                    strokeWidth="10"
                   />
                   <circle
-                    cx="76"
-                    cy="76"
+                    cx="116"
+                    cy="116"
                     r={RING_R}
                     fill="none"
                     stroke="var(--color-accent)"
-                    strokeWidth="6"
+                    strokeWidth="10"
                     strokeLinecap="round"
                     strokeDasharray={RING_C}
                     strokeDashoffset={RING_C * (1 - loadPct)}
-                    transform="rotate(-90 76 76)"
-                    style={{ transition: 'stroke-dashoffset 120ms linear' }}
+                    transform="rotate(-90 116 116)"
                   />
                 </svg>
 
                 {/* act 1 — the padlock snaps shut */}
                 <div className={loadIcon(0)}>
-                  <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden>
+                  <svg width="96" height="96" viewBox="0 0 60 60" aria-hidden>
                     <g
                       style={{
                         transform: loadPct > 0.08 ? 'translateY(0)' : 'translateY(-7px)',
@@ -694,7 +618,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
 
                 {/* act 2 — the clock hand sweeps */}
                 <div className={loadIcon(1)}>
-                  <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden>
+                  <svg width="96" height="96" viewBox="0 0 60 60" aria-hidden>
                     <circle
                       cx="30"
                       cy="30"
@@ -726,7 +650,7 @@ export function Onboarding({ settings, update, signedIn, onCreateAccount, onDone
 
                 {/* act 3 — the check draws itself */}
                 <div className={loadIcon(2)}>
-                  <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden>
+                  <svg width="96" height="96" viewBox="0 0 60 60" aria-hidden>
                     <path
                       d="M15 31 l11 11 l19 -22"
                       fill="none"

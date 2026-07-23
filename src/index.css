@@ -328,17 +328,25 @@ button.bg-accent:not([role='switch']):active:not(:disabled) {
   transform: scale(0.98);
 }
 
-/* selectable chips (onboarding, pickers): constant weight + pure color tween —
-   opts out of the accent-button lift/shadow/weight so selection never resizes */
+/* selectable chips (onboarding, pickers): soft-card frame in BOTH states,
+   constant weight, pure color tween — selection never resizes or lifts */
 button.chip-quiet,
 button.chip-quiet.bg-accent:not([role='switch']) {
-  border: 0;
-  box-shadow: none;
+  border: 1px solid var(--color-border);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 55%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 10px 26px -10px rgba(0, 0, 0, 0.4);
   font-weight: 700;
   transform: none;
   transition:
     background-color 300ms ease,
-    color 300ms ease;
+    color 300ms ease,
+    border-color 300ms ease;
+}
+button.chip-quiet.bg-accent:not([role='switch']) {
+  border-color: transparent;
+  background-image: none;
 }
 button.chip-quiet:active:not(:disabled) {
   transform: none;
