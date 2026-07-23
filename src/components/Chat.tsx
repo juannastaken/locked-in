@@ -1555,7 +1555,48 @@ export function ChatView({
         }}
         className="flex shrink-0 items-center bg-white/[0.03] px-4 py-3.5"
       >
-        <div className="flex w-full items-center gap-1 rounded-full bg-bg/60 py-1.5 pl-2 pr-1.5">
+        <div className="flex w-full items-center gap-1 rounded-full bg-bg/60 py-1.5 pl-1.5 pr-1.5">
+        {recording ? (
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-danger/15 px-3 font-mono text-xs font-extrabold tabular-nums text-danger"
+          >
+            <span className="h-2 w-2 animate-pulse-dot rounded-full bg-danger" />{' '}
+            {fmtVoiceSec(recSec)} ■
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={startRecording}
+            title={t('msg.voice.rec')}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
+          >
+            <MicIcon size={16} />
+          </button>
+        )}
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            typingChanRef.current?.sendTyping();
+          }}
+          onPaste={(e) => {
+            // Ctrl+V stages the image in the composer (send on the button)
+            const file = Array.from(e.clipboardData.files).find((f) =>
+              f.type.startsWith('image/'),
+            );
+            if (file) {
+              e.preventDefault();
+              stageImage(file);
+            }
+          }}
+          placeholder={t('msg.placeholder')}
+          maxLength={chat.MESSAGE_MAX_CHARS}
+          autoFocus
+          className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[15px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none"
+        />
         {/* clip menu: emoji / image / jam */}
         <div className="relative" data-pop>
           <button
@@ -1573,7 +1614,7 @@ export function ChatView({
             <ClipIcon size={17} />
           </button>
           {clipOpen && (
-            <div className="animate-scale-in absolute bottom-14 left-0 z-30 w-52 rounded-xl border-2 border-border-strong bg-surface p-1.5 shadow-2xl shadow-black/50">
+            <div className="animate-scale-in absolute bottom-14 right-0 z-30 w-52 rounded-xl border-2 border-border-strong bg-surface p-1.5 shadow-2xl shadow-black/50">
               <button
                 type="button"
                 onClick={() => {
@@ -1616,7 +1657,7 @@ export function ChatView({
             </div>
           )}
           {stickerOpen && (
-            <div className="animate-scale-in absolute bottom-14 left-0 z-30 grid w-64 grid-cols-4 gap-1.5 rounded-xl border-2 border-border-strong bg-surface p-2 shadow-2xl shadow-black/50">
+            <div className="animate-scale-in absolute bottom-14 right-0 z-30 grid w-64 grid-cols-4 gap-1.5 rounded-xl border-2 border-border-strong bg-surface p-2 shadow-2xl shadow-black/50">
               {STICKER_MOODS.map((m) => (
                 <button
                   key={m}
@@ -1637,7 +1678,7 @@ export function ChatView({
             </div>
           )}
           {emojiOpen && (
-            <div className="animate-scale-in absolute bottom-14 left-0 z-30 grid w-64 grid-cols-8 gap-0.5 rounded-xl border-2 border-border-strong bg-surface p-2 shadow-2xl shadow-black/50">
+            <div className="animate-scale-in absolute bottom-14 right-0 z-30 grid w-64 grid-cols-8 gap-0.5 rounded-xl border-2 border-border-strong bg-surface p-2 shadow-2xl shadow-black/50">
               {EMOJI_GRID.map((e) => (
                 <button
                   key={e}
@@ -1672,55 +1713,13 @@ export function ChatView({
           />
         </div>
 
-        <input
-          ref={inputRef}
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            typingChanRef.current?.sendTyping();
-          }}
-          onPaste={(e) => {
-            // Ctrl+V stages the image in the composer (send on the button)
-            const file = Array.from(e.clipboardData.files).find((f) =>
-              f.type.startsWith('image/'),
-            );
-            if (file) {
-              e.preventDefault();
-              stageImage(file);
-            }
-          }}
-          placeholder={t('msg.placeholder')}
-          maxLength={chat.MESSAGE_MAX_CHARS}
-          autoFocus
-          className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[15px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none"
-        />
-        {recording ? (
-          <button
-            type="button"
-            onClick={stopRecording}
-            className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-danger/15 px-3 font-mono text-xs font-extrabold tabular-nums text-danger"
-          >
-            <span className="h-2 w-2 animate-pulse-dot rounded-full bg-danger" />{' '}
-            {fmtVoiceSec(recSec)} ■
-          </button>
-        ) : (
-          !draft.trim() &&
-          !pendingImg && (
-            <button
-              type="button"
-              onClick={startRecording}
-              title={t('msg.voice.rec')}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
-            >
-              <MicIcon size={16} />
-            </button>
-          )
-        )}
         <button
           type="submit"
           disabled={!draft.trim() && !pendingImg}
           title={t('msg.send')}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-bg transition-all duration-150 hover:brightness-110 disabled:scale-100 disabled:opacity-40"
+          className={`flex h-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-bg transition-all duration-200 ease-out ${
+            draft.trim() || pendingImg ? 'ml-0.5 w-9 scale-100 opacity-100' : 'ml-0 w-0 scale-50 opacity-0'
+          }`}
           style={theme ? { backgroundColor: theme } : undefined}
         >
           <SendIcon size={15} />

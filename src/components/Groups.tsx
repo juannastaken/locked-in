@@ -1429,7 +1429,7 @@ export function GroupView({
               ))}
             </div>
           )}
-          <div className="flex w-full items-center gap-1 rounded-full bg-bg/60 py-1.5 pl-2 pr-1.5">
+          <div className="flex w-full items-center gap-1 rounded-full bg-bg/60 py-1.5 pl-1.5 pr-1.5">
           <input
             ref={imgInputRef}
             type="file"
@@ -1440,68 +1440,25 @@ export function GroupView({
               e.target.value = '';
             }}
           />
-          <button
-            type="button"
-            onClick={() => imgInputRef.current?.click()}
-            title={t('attach.image')}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
-          >
-            <ImageIcon size={16} />
-          </button>
-          <div data-pop className="relative shrink-0">
+          {recording ? (
             <button
               type="button"
-              onClick={() => {
-                setStickerOpen((o) => !o);
-                setEmojiOpen(false);
-              }}
-              title={t('attach.sticker')}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
+              onClick={stopRecording}
+              className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-danger/15 px-3 font-mono text-xs font-extrabold tabular-nums text-danger"
             >
-              <HeadphonesIcon size={16} />
+              <span className="h-2 w-2 animate-pulse-dot rounded-full bg-danger" />{' '}
+              {fmtVoiceSec(recSec)} ■
             </button>
-            {stickerOpen && (
-              <div className="animate-scale-in absolute bottom-14 left-0 z-30 grid w-64 grid-cols-4 gap-1.5 rounded-xl border-2 border-border-strong bg-surface p-2 shadow-2xl shadow-black/50">
-                {STICKER_MOODS.map((mood) => (
-                  <button
-                    key={mood}
-                    type="button"
-                    onClick={() => sendSticker(mood)}
-                    className="flex items-center justify-center rounded-lg border border-border bg-bg py-2.5 hover:border-accent"
-                  >
-                    <Mascot mood={mood} size={34} effects={false} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div data-pop className="relative shrink-0">
+          ) : (
             <button
               type="button"
-              onClick={() => {
-                setEmojiOpen((o) => !o);
-                setStickerOpen(false);
-              }}
-              title={t('attach.emoji')}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
+              onClick={startRecording}
+              title={t('msg.voice.rec')}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
             >
-              <SmileIcon size={16} />
+              <MicIcon size={16} />
             </button>
-            {emojiOpen && (
-              <div className="animate-scale-in absolute bottom-14 left-0 z-30 grid w-64 grid-cols-8 gap-0.5 rounded-2xl border-2 border-border-strong bg-surface p-2 shadow-2xl">
-                {GROUP_EMOJIS.map((em) => (
-                  <button
-                    key={em}
-                    type="button"
-                    onClick={() => setDraft((d) => d + em)}
-                    className="rounded-lg p-1 text-xl transition-transform hover:bg-surface-hover"
-                  >
-                    {em}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
           <input
             ref={draftInputRef}
             value={draft}
@@ -1536,32 +1493,74 @@ export function GroupView({
             maxLength={2000}
             className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[15px] font-semibold text-text placeholder:font-medium placeholder:text-text-faint focus:outline-none"
           />
-          {recording ? (
+          <button
+            type="button"
+            onClick={() => imgInputRef.current?.click()}
+            title={t('attach.image')}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
+          >
+            <ImageIcon size={16} />
+          </button>
+          <div data-pop className="relative shrink-0">
             <button
               type="button"
-              onClick={stopRecording}
-              className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-danger/15 px-3 font-mono text-xs font-extrabold tabular-nums text-danger"
+              onClick={() => {
+                setStickerOpen((o) => !o);
+                setEmojiOpen(false);
+              }}
+              title={t('attach.sticker')}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
             >
-              <span className="h-2 w-2 animate-pulse-dot rounded-full bg-danger" />{' '}
-              {fmtVoiceSec(recSec)} ■
+              <HeadphonesIcon size={16} />
             </button>
-          ) : (
-            !draft.trim() &&
-            !pendingImg && (
-              <button
-                type="button"
-                onClick={startRecording}
-                title={t('msg.voice.rec')}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
-              >
-                <MicIcon size={16} />
-              </button>
-            )
-          )}
+            {stickerOpen && (
+              <div className="animate-scale-in absolute bottom-14 right-0 z-30 grid w-64 grid-cols-4 gap-1.5 rounded-xl border-2 border-border-strong bg-surface p-2 shadow-2xl shadow-black/50">
+                {STICKER_MOODS.map((mood) => (
+                  <button
+                    key={mood}
+                    type="button"
+                    onClick={() => sendSticker(mood)}
+                    className="flex items-center justify-center rounded-lg border border-border bg-bg py-2.5 hover:border-accent"
+                  >
+                    <Mascot mood={mood} size={34} effects={false} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div data-pop className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setEmojiOpen((o) => !o);
+                setStickerOpen(false);
+              }}
+              title={t('attach.emoji')}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-text-dim transition-colors hover:bg-white/5 hover:text-text"
+            >
+              <SmileIcon size={16} />
+            </button>
+            {emojiOpen && (
+              <div className="animate-scale-in absolute bottom-14 right-0 z-30 grid w-64 grid-cols-8 gap-0.5 rounded-2xl border-2 border-border-strong bg-surface p-2 shadow-2xl">
+                {GROUP_EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    onClick={() => setDraft((d) => d + em)}
+                    className="rounded-lg p-1 text-xl transition-transform hover:bg-surface-hover"
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="submit"
             disabled={!draft.trim() && !pendingImg}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-bg transition-all disabled:opacity-40"
+            className={`flex h-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-bg transition-all duration-200 ease-out ${
+              draft.trim() || pendingImg ? 'ml-0.5 w-9 scale-100 opacity-100' : 'ml-0 w-0 scale-50 opacity-0'
+            }`}
             style={theme ? { backgroundColor: theme } : undefined}
           >
             <SendIcon size={15} />
