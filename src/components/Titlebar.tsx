@@ -318,7 +318,8 @@ export function Titlebar({
             className="flex items-center gap-2.5 py-1 pl-1 pr-1 sm:pl-3"
           >
             {me && (
-              <span className="hidden min-w-0 flex-col items-end leading-tight sm:flex">
+              /* name block hides before the window-centered nav pill can reach it */
+              <span className="hidden min-w-0 flex-col items-end leading-tight min-[1150px]:flex">
                 <span className="max-w-32 truncate text-[13px] font-bold text-text">
                   {userName || me.username}
                 </span>
