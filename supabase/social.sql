@@ -1653,3 +1653,82 @@ begin
   end if;
   return new;
 end $$;
+
+-- ========== v0.48: security-scan hardening (F1 HIGH, F2/F3 MEDIUM, F5 LOW) ==========
+
+-- F1 (HIGH) — the cloud-backup `snapshots` table was created ad-hoc in the
+-- dashboard back in v0.9 and never lived in this file, so its RLS was
+-- unverifiable from the repo. It holds each user's ENTIRE local export
+-- (sessions, habits, goals, milestones, canvas). Create-if-absent + force RLS
+-- + strict owner policy — running this makes the protection explicit and
+-- idempotent, and closes the hole if the live table ever lost its policy.
+create table if not exists public.snapshots (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  data jsonb not null,
+  canvas text,
+  updated_at timestamptz not null default now()
+);
+alter table public.snapshots enable row level security;
+alter table public.snapshots force row level security;
+drop policy if exists snapshots_select on public.snapshots;
+create policy snapshots_select on public.snapshots
+  for select to authenticated using (auth.uid() = user_id);
+drop policy if exists snapshots_insert on public.snapshots;
+create policy snapshots_insert on public.snapshots
+  for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists snapshots_update on public.snapshots;
+create policy snapshots_update on public.snapshots
+  for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists snapshots_delete on public.snapshots;
+create policy snapshots_delete on public.snapshots
+  for delete to authenticated using (auth.uid() = user_id);
+
+-- F2 (MEDIUM) — a group admin could insert ANY user_id (no consent), and
+-- co-membership then unlocked that victim's live presence + full profile.
+-- Now an admin may only add someone they're ACCEPTED FRIENDS with; the
+-- owner-bootstrap and invite-link (SECURITY DEFINER, self-insert) paths are
+-- unaffected.
+create or replace function public.is_accepted_friend(other uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from friendships
+    where status = 'accepted'
+      and ((requester = auth.uid() and addressee = other)
+        or (addressee = auth.uid() and requester = other))
+  );
+$$;
+revoke all on function public.is_accepted_friend(uuid) from public;
+grant execute on function public.is_accepted_friend(uuid) to authenticated;
+
+drop policy if exists gm_insert on public.group_members;
+create policy gm_insert on public.group_members
+  for insert to authenticated
+  with check (
+    (public.is_group_admin(group_id) and public.is_accepted_friend(user_id))
+    or (auth.uid() = user_id and public.is_group_owner(group_id))
+  );
+
+-- F5 (LOW) — the read receipt trusted the client-supplied read_at value on
+-- first stamp. Force the server clock so a recipient can't backdate/forge it.
+create or replace function public.read_receipt_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.read_at is distinct from old.read_at then
+    if old.read_at is not null then
+      new.read_at := old.read_at; -- read is write-once
+    elsif auth.uid() <> old.recipient then
+      new.read_at := old.read_at; -- only the recipient stamps it
+    else
+      new.read_at := now();       -- server clock, never the client's value
+    end if;
+  end if;
+  if auth.uid() = old.recipient and auth.uid() <> old.sender then
+    new.body := old.body;
+    new.nonce := old.nonce;
+    new.body_ct := old.body_ct;
+    new.edited_at := old.edited_at;
+    new.sender_pub := old.sender_pub;
+    new.recipient_pub := old.recipient_pub;
+  end if;
+  return new;
+end $$;

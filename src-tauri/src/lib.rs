@@ -1059,7 +1059,14 @@ fn load_canvas(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 fn delete_ref_image(app: tauri::AppHandle, path: String) -> Result<(), String> {
   let dir = ref_dir(&app)?;
-  let target = std::path::PathBuf::from(&path);
+  // canonicalize BOTH sides before the containment check: PathBuf::starts_with
+  // is a lexical component match that never resolves `..`, so a path like
+  // `<refboard>/../../secret` slipped past it. canonicalize() collapses `..`
+  // and symlinks against the real filesystem, so the check can't be fooled.
+  let dir = dir.canonicalize().map_err(|e| e.to_string())?;
+  let target = std::path::PathBuf::from(&path)
+    .canonicalize()
+    .map_err(|e| e.to_string())?;
   if !target.starts_with(&dir) {
     return Err("path outside refboard folder".into());
   }
