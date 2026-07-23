@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { t } from '../lib/i18n';
@@ -13,30 +13,30 @@ export interface TabDef {
 /* one outline icon per tab — inactive tabs collapse to icon-only bubbles */
 const NAV_ICONS: Record<string, ReactNode> = {
   home: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
     </svg>
   ),
   routine: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="m5 12.5 4.5 4.5L19 7.5" />
     </svg>
   ),
   analytics: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M5 20v-8M12 20V5M19 20v-11" />
     </svg>
   ),
   goals: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="9" />
       <circle cx="12" cy="12" r="4.2" />
       <circle cx="12" cy="12" r="0.6" fill="currentColor" />
     </svg>
   ),
   friends: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="9" cy="8" r="3.4" />
       <path d="M2.8 20c0-3.5 2.8-5.8 6.2-5.8s6.2 2.3 6.2 5.8" />
       <circle cx="17.3" cy="9" r="2.7" />
@@ -44,7 +44,7 @@ const NAV_ICONS: Record<string, ReactNode> = {
     </svg>
   ),
   ranking: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M8 21h8M12 17v4M17 5h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.4M7 5H4a1 1 0 0 0-1 1c0 3 2 5 4.5 5.4" />
       <path d="M17 4v5a5 5 0 0 1-10 0V4z" />
     </svg>
@@ -90,7 +90,7 @@ function WinButton({
       type="button"
       onClick={onClick}
       title={title}
-      className={`flex h-14 w-12 items-center justify-center text-text-dim transition-colors ${
+      className={`flex h-full w-12 items-center justify-center text-text-dim transition-colors ${
         danger ? 'hover:bg-danger hover:text-white' : 'hover:bg-surface-hover hover:text-text'
       }`}
     >
@@ -112,6 +112,46 @@ export function Titlebar({
 }: TitlebarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const indRef = useRef<HTMLSpanElement>(null);
+  const indReady = useRef(false);
+
+  // the accent pill is a single element that GLIDES to the active tab.
+  // tab widths animate too (label collapses/expands), so we chase the button's
+  // real geometry for a few frames — the CSS transition smooths the pursuit.
+  useLayoutEffect(() => {
+    const ind = indRef.current;
+    const btn = navRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
+    if (!ind) return;
+    if (!btn) {
+      // settings/profile live outside the pill — park the indicator invisibly
+      ind.style.opacity = '0';
+      indReady.current = false;
+      return;
+    }
+    ind.style.opacity = '1';
+    const place = () => {
+      ind.style.left = `${btn.offsetLeft}px`;
+      ind.style.width = `${btn.offsetWidth}px`;
+    };
+    if (!indReady.current) {
+      ind.style.transition = 'none';
+      place();
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      ind.offsetWidth; // flush so the jump isn't animated
+      ind.style.transition = '';
+      indReady.current = true;
+      return;
+    }
+    let raf = 0;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      place();
+      if (now - t0 < 480) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [tab]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -142,7 +182,7 @@ export function Titlebar({
   return (
     <header
       data-tauri-drag-region
-      className="relative flex h-14 shrink-0 select-none items-stretch gap-2 pl-2"
+      className="relative flex h-[88px] shrink-0 select-none items-stretch gap-2 pl-2"
     >
       {/* left: settings gear only */}
       <div data-tauri-drag-region className="flex items-center">
@@ -163,9 +203,25 @@ export function Titlebar({
         </button>
       </div>
 
-      {/* center: floating pill nav — active tab expands to icon+label in accent */}
+      {/* center: floating pill nav — one accent pill glides between tabs */}
       <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center justify-center">
-        <nav className="scrollbar-none flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border bg-surface p-1 shadow-[0_1px_2px_rgba(0,0,0,0.35),0_8px_22px_-6px_rgba(0,0,0,0.45)]">
+        <nav
+          ref={navRef}
+          className="nav-pill scrollbar-none relative flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-border bg-surface p-2"
+        >
+          {/* sliding accent indicator (behind the buttons) */}
+          <span
+            ref={indRef}
+            aria-hidden
+            className="pointer-events-none absolute top-2 h-14 rounded-full bg-accent"
+            style={{
+              left: 0,
+              width: 0,
+              opacity: 0,
+              transition:
+                'left 320ms cubic-bezier(0.3, 0.9, 0.35, 1), width 320ms cubic-bezier(0.3, 0.9, 0.35, 1)',
+            }}
+          />
           {tabs.map((tabDef) => {
             const active = tab === tabDef.id;
             const pending = tabDef.id === 'friends' ? (social.state?.incoming.length ?? 0) : 0;
@@ -173,22 +229,25 @@ export function Titlebar({
               <button
                 key={tabDef.id}
                 type="button"
+                data-tab={tabDef.id}
                 onClick={() => onTab(tabDef.id)}
                 title={t(tabDef.labelKey)}
-                className={`relative flex h-9 shrink-0 items-center justify-center rounded-full transition-all duration-150 ${
-                  active
-                    ? 'gap-2 bg-accent px-4 text-[13px] font-bold text-bg'
-                    : 'w-9 text-text-dim hover:bg-surface-hover hover:text-text'
+                className={`nav-tab relative z-10 flex h-14 shrink-0 items-center justify-center rounded-full px-[17px] text-sm font-bold transition-colors duration-200 ${
+                  active ? 'text-bg' : 'text-text-dim hover:text-text'
                 }`}
               >
                 {NAV_ICONS[tabDef.id]}
-                {active && t(tabDef.labelKey)}
+                <span
+                  className={`overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin-left] duration-300 ${
+                    active ? 'ml-2.5 max-w-[9rem] opacity-100' : 'ml-0 max-w-0 opacity-0'
+                  }`}
+                >
+                  {t(tabDef.labelKey)}
+                </span>
                 {pending > 0 && (
                   <span
-                    className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-extrabold ${
-                      active
-                        ? 'bg-bg text-accent'
-                        : 'absolute -right-0.5 -top-0.5 border-2 border-surface bg-accent text-bg'
+                    className={`absolute -right-0.5 -top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-extrabold ${
+                      active ? 'bg-bg text-accent' : 'border-2 border-surface bg-accent text-bg'
                     }`}
                   >
                     {pending}

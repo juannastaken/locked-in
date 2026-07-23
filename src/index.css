@@ -404,6 +404,16 @@ button:active:not(:disabled) {
   transform: scale(0.97);
 }
 
+/* nav pill: flat and calm — no card shadow/gradient, no press/hover motion.
+   the ONLY motion is the accent indicator gliding between tabs. */
+.nav-pill {
+  box-shadow: none !important;
+  background-image: none !important;
+}
+.nav-pill .nav-tab:active:not(:disabled) {
+  transform: none;
+}
+
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
