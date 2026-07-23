@@ -526,6 +526,59 @@ export async function listBreaksSince(sinceIso: string): Promise<Break[]> {
   });
 }
 
+// ---------- tasks (to-do list) ----------
+
+export interface TaskItem {
+  id: number;
+  title: string;
+  due_at: string | null;
+  done_at: string | null;
+  created_at: string;
+}
+
+export async function listTasks(): Promise<TaskItem[]> {
+  return run('listTasks', async () => {
+    const db = await getDb();
+    return db.select<TaskItem[]>('SELECT * FROM tasks ORDER BY created_at ASC');
+  });
+}
+
+export async function createTask(title: string, dueAt: string | null): Promise<void> {
+  return run('createTask', async () => {
+    const db = await getDb();
+    await db.execute('INSERT INTO tasks (title, due_at, created_at) VALUES ($1, $2, $3)', [
+      title,
+      dueAt,
+      nowIso(),
+    ]);
+  });
+}
+
+/** Flips completion. Returns the new done state. */
+export async function toggleTask(id: number, done: boolean): Promise<void> {
+  return run('toggleTask', async () => {
+    const db = await getDb();
+    await db.execute('UPDATE tasks SET done_at = $1 WHERE id = $2', [
+      done ? nowIso() : null,
+      id,
+    ]);
+  });
+}
+
+export async function deleteTask(id: number): Promise<void> {
+  return run('deleteTask', async () => {
+    const db = await getDb();
+    await db.execute('DELETE FROM tasks WHERE id = $1', [id]);
+  });
+}
+
+export async function clearDoneTasks(): Promise<void> {
+  return run('clearDoneTasks', async () => {
+    const db = await getDb();
+    await db.execute('DELETE FROM tasks WHERE done_at IS NOT NULL');
+  });
+}
+
 // ---------- habits ----------
 
 export async function listHabits(): Promise<import('../types').Habit[]> {
@@ -991,6 +1044,7 @@ export interface Snapshot {
   milestones: Record<string, unknown>[];
   chat_conversations: Record<string, unknown>[];
   project_goals?: Record<string, unknown>[];
+  tasks?: Record<string, unknown>[];
   settings: Record<string, string>;
 }
 
@@ -1003,6 +1057,7 @@ const SNAPSHOT_TABLES = [
   'milestones',
   'chat_conversations',
   'project_goals',
+  'tasks',
 ] as const;
 
 // Foreign keys: breaks.session_id → sessions, habit_logs.habit_id → habits.
@@ -1017,6 +1072,7 @@ const DELETE_ORDER = [
   'milestones',
   'chat_conversations',
   'project_goals',
+  'tasks',
 ] as const;
 const INSERT_ORDER = [
   'sessions',
@@ -1027,6 +1083,7 @@ const INSERT_ORDER = [
   'milestones',
   'chat_conversations',
   'project_goals',
+  'tasks',
 ] as const;
 
 export async function exportAll(): Promise<Snapshot> {

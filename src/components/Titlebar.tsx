@@ -28,6 +28,14 @@ const NAV_ICONS: Record<string, ReactNode> = {
       <path d="M5 20v-8M12 20V5M19 20v-11" />
     </svg>
   ),
+  tasks: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M13 6h8M13 12h8M13 18h8" />
+      <path d="m3 6.5 1.5 1.5L7.5 5" />
+      <path d="m3 12.5 1.5 1.5L7.5 11" />
+      <path d="m3 18.5 1.5 1.5L7.5 17" />
+    </svg>
+  ),
   goals: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="9" />

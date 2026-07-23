@@ -9,6 +9,7 @@ import { FriendsBar } from './components/FriendsBar';
 import { JamPromptOverlay } from './components/JamPrompt';
 import { KeyBackupModal } from './components/KeyBackup';
 import { GoalsPage } from './components/Goals';
+import { TasksPage } from './components/Tasks';
 import { Login } from './components/Login';
 import { Splash } from './components/Splash';
 import { consumeWarmReload, warmReload } from './lib/reload';
@@ -54,7 +55,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}, ${alpha})`;
 }
 
-type Tab = 'home' | 'routine' | 'analytics' | 'goals' | 'friends' | 'ranking' | 'profile' | 'settings';
+type Tab = 'home' | 'routine' | 'tasks' | 'analytics' | 'goals' | 'friends' | 'ranking' | 'profile' | 'settings';
 
 // settings + profile intentionally not in the nav — the titlebar gear and
 // avatar menu open them. Check-in/Hábitos live under Rotina; Semana/Stats/
@@ -62,6 +63,7 @@ type Tab = 'home' | 'routine' | 'analytics' | 'goals' | 'friends' | 'ranking' | 
 const TABS: { id: Tab; labelKey: string }[] = [
   { id: 'home', labelKey: 'tab.home' },
   { id: 'routine', labelKey: 'tab.routine' },
+  { id: 'tasks', labelKey: 'tab.tasks' },
   { id: 'analytics', labelKey: 'tab.analytics' },
   { id: 'goals', labelKey: 'tab.goals' },
   { id: 'friends', labelKey: 'tab.friends' },
@@ -2214,6 +2216,7 @@ function AppShell() {
             dailyGoalHours={settingsHook.settings?.daily_goal_hours ?? 4}
           />
         )}
+        {tab === 'tasks' && <TasksPage onError={onError} />}
         {tab === 'goals' && <GoalsPage onError={onError} refreshKey={refreshKey} />}
         {tab === 'profile' && (
           <ProfilePage
