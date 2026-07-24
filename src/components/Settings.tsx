@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import type { UseSettings } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
 import * as cloud from '../lib/cloud';
@@ -221,6 +222,10 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
   const [deleteWord, setDeleteWord] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [legal, setLegal] = useState<LegalDoc | null>(null);
+  const [appVersion, setAppVersion] = useState('');
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
+  }, []);
 
   async function deleteAccount() {
     if (deleteWord.trim().toUpperCase() !== t('acc.delete.word')) return;
@@ -784,6 +789,10 @@ export function SettingsScreen({ settingsHook, onError }: SettingsProps) {
             </button>
           </div>
         </Section>
+
+        <p className="pb-2 text-center text-xs font-bold tabular-nums text-text-faint">
+          Locked In · v{appVersion || '…'}
+        </p>
       </div>
 
       {legal && <LegalModal doc={legal} onClose={() => setLegal(null)} />}
