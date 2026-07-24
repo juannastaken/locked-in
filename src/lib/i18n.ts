@@ -1169,8 +1169,16 @@ const dict: Record<string, { pt: string; en: string }> = {
   },
   'jam.join.full': { pt: 'Essa JAM já tá cheia.', en: 'That JAM is already full.' },
   'jam.join.group': {
-    pt: 'Essa JAM é de um grupo — entra no grupo primeiro pra participar.',
-    en: 'That JAM belongs to a group — join the group first to take part.',
+    pt: 'Essa JAM roda dentro de um grupo — abre o grupo no app pra entrar.',
+    en: 'That JAM runs inside a group — open the group in the app to join.',
+  },
+  'jam.join.login': {
+    pt: 'Entra na tua conta pra participar de JAMs.',
+    en: 'Sign in to join JAMs.',
+  },
+  'jam.join.notfocusing': {
+    pt: '@{0} não tá focando agora.',
+    en: "@{0} isn't focusing right now.",
   },
   'dp.focusing': { pt: 'Focando', en: 'Focusing' },
   'dp.paused': { pt: 'Pausado', en: 'Paused' },

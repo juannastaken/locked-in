@@ -1287,7 +1287,10 @@ function AppShell() {
     const parts = secret.split('|');
     if (parts.length < 5 || parts[0] !== '1') return;
     const [, uid, uname, epoch, ...taskParts] = parts;
-    if (!signedIn) return;
+    if (!signedIn) {
+      pushToast(t('jam.join.login'), 'error');
+      return;
+    }
     if (social.state?.me?.user_id === uid) return;
     // already jamming (any size) — 1:1 flows are closed, same rule as sendJam
     if (activeGroupJamRef.current !== null || focusRef.current.jam) {
@@ -1309,8 +1312,15 @@ function AppShell() {
     } catch {
       // unreadable roster — let the request through, the host still approves
     }
-    const task = taskParts.join('|') || t('jam.generic');
-    const startedAt = new Date(Number(epoch) * 1000).toISOString();
+    // invite cards outlive sessions — a host who stopped focusing can't host
+    if (presRow && !socialLib.isLive(presRow)) {
+      pushToast(t('jam.join.notfocusing', uname), 'info');
+      return;
+    }
+    // secret data can be stale (card sent from an older session) — prefer the
+    // host's LIVE task/start so the request matches what they're doing now
+    const task = (presRow?.task || taskParts.join('|')) || t('jam.generic');
+    const startedAt = presRow?.started_at ?? new Date(Number(epoch) * 1000).toISOString();
     jam.send(uid, uname, 'request', task, startedAt).then((err) => {
       if (err === 'pending') pushToast(t('jam.pending', uname), 'info');
       // RLS refuses inserts between non-friends — friendly message, not a raw 42501
@@ -1691,6 +1701,19 @@ function AppShell() {
   }, []);
 
   async function answerJamPrompt(accept: boolean) {
+    // my jam filled (or became a group jam) while the request popup sat open —
+    // accepting would overwrite my roster AND strand the requester on a ghost
+    // jam. Decline server-side so their app gets a real answer.
+    if (
+      accept &&
+      jam.prompt?.kind === 'request' &&
+      (activeGroupJamRef.current !== null ||
+        (focusRef.current.jam && focusRef.current.jam.members.length >= 2))
+    ) {
+      await jam.answer(false);
+      pushToast(t('jam.join.full'), 'info');
+      return;
+    }
     const p = await jam.answer(accept);
     if (!p || !accept) return;
     const me = myUsernameRef.current ?? 'me';
