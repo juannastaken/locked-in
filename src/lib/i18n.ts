@@ -1167,6 +1167,11 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: 'Adiciona @{0} no Locked In primeiro — JAM é só entre amigos.',
     en: 'Add @{0} on Locked In first — JAMs are friends-only.',
   },
+  'jam.join.full': { pt: 'Essa JAM já tá cheia.', en: 'That JAM is already full.' },
+  'jam.join.group': {
+    pt: 'Essa JAM é de um grupo — entra no grupo primeiro pra participar.',
+    en: 'That JAM belongs to a group — join the group first to take part.',
+  },
   'dp.focusing': { pt: 'Focando', en: 'Focusing' },
   'dp.paused': { pt: 'Pausado', en: 'Paused' },
   'dp.break': { pt: 'Em pausa', en: 'On a break' },

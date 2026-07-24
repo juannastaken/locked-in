@@ -527,6 +527,9 @@ alter table public.presence add column if not exists total_sec bigint not null d
 -- who I'm jamming with right now (JSON usernames) — lets friends see
 -- "in a JAM with @x @y" even when they don't know those people
 alter table public.presence add column if not exists jam_members text;
+-- true while the user's current jam belongs to a GROUP — Discord join clicks
+-- use it to say "join the group first" instead of firing a 1:1 request
+alter table public.presence add column if not exists jam_is_group boolean not null default false;
 
 -- message edits: author-only, within 2 minutes (server-enforced), marked
 alter table public.messages add column if not exists edited_at timestamptz;

@@ -492,6 +492,7 @@ function AppShell() {
           // a jam is 2+ people — solo focusing (or a group jam nobody joined
           // yet) must not read as "in a jam" to friends
           jamMembers: focusing && jamMembers && jamMembers.length >= 2 ? jamMembers : null,
+          jamIsGroup: focusing && activeGroupJamRef.current !== null,
           fgApp,
           records: rec,
         });
@@ -836,7 +837,7 @@ function AppShell() {
         // solo session -> Discord "Join" button: the clicker's app sends the
         // normal jam REQUEST, so the host still approves in-app. 1:1 jams are
         // closed at two people, so a running jam never advertises a secret.
-        if (!focus.jam && signedIn && myId && myName) {
+        if (!focus.jam && activeGroupJamRef.current === null && signedIn && myId && myName) {
           const safeTask = (sess.task || '').replace(/\|/g, '/').slice(0, 40);
           joinSecret = `1|${myId}|${myName}|${startEpoch}|${safeTask}`;
           partyId = `solo-${myId}`;
@@ -1292,6 +1293,21 @@ function AppShell() {
     if (activeGroupJamRef.current !== null || focusRef.current.jam) {
       pushToast(t('jam.selfbusy'), 'info');
       return;
+    }
+    // host state via presence (friends always see it): stale invite cards can
+    // outlive the session — full jams and group jams get a clear message
+    const presRow = social.presence.get(uid);
+    if (presRow?.jam_is_group) {
+      pushToast(t('jam.join.group'), 'info');
+      return;
+    }
+    try {
+      if (presRow?.jam_members && (JSON.parse(presRow.jam_members) as string[]).length >= 2) {
+        pushToast(t('jam.join.full'), 'info');
+        return;
+      }
+    } catch {
+      // unreadable roster — let the request through, the host still approves
     }
     const task = taskParts.join('|') || t('jam.generic');
     const startedAt = new Date(Number(epoch) * 1000).toISOString();

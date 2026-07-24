@@ -53,6 +53,8 @@ export interface PresenceRow {
   total_sec: number;
   /** JSON usernames of everyone in this user's current jam, null when solo */
   jam_members: string | null;
+  /** true while that jam belongs to a group (join goes through the group) */
+  jam_is_group: boolean | null;
   /** current WORK app in focus (only published with the auto-tracker on) */
   fg_app: string | null;
   /** JSON {bd: bestDaySec, bs: bestSessionSec} — profile records grid */
@@ -309,6 +311,8 @@ export interface PublishPresenceInput {
   totalSec: number;
   /** usernames in my current jam (null when solo) */
   jamMembers: string[] | null;
+  /** my current jam lives inside a group */
+  jamIsGroup: boolean;
   /** current foreground work app (auto-tracker opt-in), null = private */
   fgApp: string | null;
   /** serialized personal records or null */
@@ -331,6 +335,7 @@ export async function publishPresence(p: PublishPresenceInput): Promise<void> {
     total_sec: Math.max(0, Math.floor(p.totalSec)),
     jam_members:
       p.jamMembers && p.jamMembers.length > 1 ? JSON.stringify(p.jamMembers) : null,
+    jam_is_group: p.jamIsGroup,
     fg_app: p.fgApp,
     records: p.records,
   });
