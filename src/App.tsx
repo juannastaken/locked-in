@@ -992,6 +992,7 @@ function AppShell() {
       }).catch(() => {});
     },
     onDeclined: (username) => pushToast(t('jam.declined', username), 'info'),
+    onExpired: (username) => pushToast(t('jam.expired', username), 'info'),
   });
 
   // outgoing invites die the moment they can't be honored anymore: my 1:1
@@ -1251,6 +1252,12 @@ function AppShell() {
         }
       }
       if (kind === 'invite') {
+        // inviting someone whose app is closed = a 3-minute invite nobody sees;
+        // say so up front instead of "sent" followed by eternal silence
+        if (!socialLib.isOnline(social.presence.get(f.userId))) {
+          pushToast(t('jam.offline', f.username), 'info');
+          return;
+        }
         // with a running session it's "join my jam"; idle it's "let's start one
         // right now" — acceptance then starts BOTH sides (cold start)
         const s = focusRef.current.activeSession;
@@ -1265,7 +1272,10 @@ function AppShell() {
         }
       } else {
         const row = social.presence.get(f.userId);
-        if (!row?.started_at) return;
+        if (!row?.started_at || !socialLib.isLive(row)) {
+          pushToast(t('jam.join.notfocusing', f.username), 'info');
+          return;
+        }
         const task = row.task || t('jam.generic');
         const err = await jam.send(f.userId, f.username, 'request', task, row.started_at);
         if (err === 'pending') pushToast(t('jam.pending', f.username), 'info');
@@ -1715,7 +1725,12 @@ function AppShell() {
       return;
     }
     const p = await jam.answer(accept);
-    if (!p || !accept) return;
+    if (!p) {
+      // the invite died under the popup (host cancelled / expired / net error)
+      if (accept) pushToast(t('jam.gone'), 'error');
+      return;
+    }
+    if (!accept) return;
     const me = myUsernameRef.current ?? 'me';
     if (p.kind === 'invite') {
       // I was called into their jam — join with the shared clock. Group jam

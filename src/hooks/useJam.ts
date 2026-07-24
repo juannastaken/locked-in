@@ -17,6 +17,8 @@ export interface JamEvents {
   /** an 'invite' I sent was accepted — the friend joined MY jam */
   onGuestJoined?: (invite: JamInvite, guestUsername: string) => void;
   onDeclined?: (username: string) => void;
+  /** an invite I sent expired unanswered (they were offline / never saw it) */
+  onExpired?: (username: string) => void;
 }
 
 export interface JamHook {
@@ -67,8 +69,16 @@ export function useJam(
     }
     const fresh = pending.find((i) => !promptedIdsRef.current.has(i.id));
     if (!fresh || promptRef.current) return;
+    let who = lookupRef.current(fresh.from_user);
+    if (who.username === '???') {
+      // friends state not loaded yet (invite landed while the app was booting)
+      // — resolve from the server; on failure retry on the next poke rather
+      // than ever showing "@???" in the prompt/roster
+      const prof = await social.fetchProfileById(fresh.from_user).catch(() => null);
+      if (!prof) return;
+      who = { username: prof.username, avatar: prof.avatar_b64 ?? null };
+    }
     promptedIdsRef.current.add(fresh.id);
-    const who = lookupRef.current(fresh.from_user);
     const p: JamPrompt = { ...fresh, username: who.username, avatar: who.avatar };
     setPrompt(p);
     eventsRef.current.onPrompt?.(p);
@@ -91,6 +101,9 @@ export function useJam(
       } else if (!social.jamInviteFresh(row)) {
         sentRef.current.delete(id);
         social.cancelJamInvite(id).catch(() => {});
+        // sender feedback — before this, an invite to someone offline just
+        // evaporated ("sent" toast, then eternal silence)
+        eventsRef.current.onExpired?.(meta.username);
       }
     }
   }, []);
@@ -115,7 +128,13 @@ export function useJam(
     if (!p) return null;
     setPrompt(null);
     const err = await social.answerJamInvite(p.id, accept);
-    return err ? null : p;
+    if (err) return null;
+    // an update matching 0 rows (host cancelled / row expired+deleted) returns
+    // NO error — verify the flip actually happened, otherwise accepting would
+    // adopt a ghost jam the other side never sees
+    const row = await social.fetchJamInvite(p.id).catch(() => null);
+    if (!row || row.status !== (accept ? 'accepted' : 'declined')) return null;
+    return p;
   }, []);
 
   /** Cancels every invite I sent that's still pending — called when my jam

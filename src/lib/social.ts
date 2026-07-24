@@ -503,6 +503,17 @@ export async function fetchPendingJamInvites(): Promise<JamInvite[]> {
 }
 
 /** One row by id (freshest status). */
+/** Single profile by id — friends/groupmates only (RLS). Used when the local
+ *  friends state hasn't loaded yet (jam invite arriving during app boot). */
+export async function fetchProfileById(userId: string): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return (data as Profile | null) ?? null;
+}
+
 export async function fetchJamInvite(id: number): Promise<JamInvite | null> {
   const { data } = await supabase.from('jam_invites').select('*').eq('id', id).maybeSingle();
   return (data as JamInvite | null) ?? null;

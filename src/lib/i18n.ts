@@ -1180,6 +1180,18 @@ const dict: Record<string, { pt: string; en: string }> = {
     pt: '@{0} não tá focando agora.',
     en: "@{0} isn't focusing right now.",
   },
+  'jam.gone': {
+    pt: 'Esse convite não vale mais.',
+    en: 'That invite is no longer valid.',
+  },
+  'jam.offline': {
+    pt: '@{0} tá offline — o convite não chegaria. Tenta quando aparecer online.',
+    en: "@{0} is offline — the invite wouldn't arrive. Try when they show up online.",
+  },
+  'jam.expired': {
+    pt: '@{0} não respondeu ao convite de JAM.',
+    en: "@{0} didn't answer the JAM invite.",
+  },
   'dp.focusing': { pt: 'Focando', en: 'Focusing' },
   'dp.paused': { pt: 'Pausado', en: 'Paused' },
   'dp.break': { pt: 'Em pausa', en: 'On a break' },
